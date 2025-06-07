@@ -49,7 +49,7 @@ A desktop application that helps osu! players backup and share their beatmap set
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/beatmap-backup.git
+git clone https://github.com/vndarkblue/beatmap-backup.git
 cd beatmap-backup
 ```
 
@@ -93,7 +93,7 @@ npm run typecheck
 ## Project Structure
 
 ```
-osu-backup/
+beatmap-backup/
 ├── src/
 │   ├── main/           # Electron main process
 │   ├── renderer/       # Vue application

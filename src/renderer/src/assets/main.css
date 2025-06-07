@@ -1,0 +1,285 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@font-face {
+  font-family: 'Torus Notched';
+  src: url('/fonts/TorusNotched-Thin.woff2') format('woff2');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Torus Notched';
+  src: url('/fonts/TorusNotched-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Torus Notched';
+  src: url('/fonts/TorusNotched-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Torus Notched';
+  src: url('/fonts/TorusNotched-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Torus Notched';
+  src: url('/fonts/TorusNotched-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Torus Notched';
+  src: url('/fonts/TorusNotched-Heavy.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.v-theme--light {
+  --card-bg-color: #f2f2f2;
+  --main-bg-color: #fff;
+  --main-text-color: #000;
+}
+
+.v-theme--dark {
+  --card-bg-color: #212121;
+  --main-bg-color: #000;  
+  --main-text-color: #fff;
+}
+
+.v-list-item:hover,
+.v-list-item:hover .v-list-item__overlay {
+  --v-theme-overlay-multiplier: 1 !important;
+  background: rgba(255, 102, 170, 0.15) !important;
+  color: #ff66aa !important;
+}
+
+:root {
+  /* Font variables */
+  --font-default: 'Torus Notched', 'Quicksand', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-default-vi: 'Quicksand', 'Torus Notched', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  
+  font-family: var(--font-default) !important;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[lang="vi"] {
+  font-family: var(--font-default-vi) !important;
+}
+
+/* Font settings for different languages */
+h1[lang="vi"] {
+  font-family: var(--font-default-vi) !important;
+  font-weight: 700;
+}
+
+h1[lang="en"] {
+  font-family: var(--font-default) !important;
+  font-weight: 600;
+}
+
+.text-subtitle-1[lang="vi"] {
+  font-family: var(--font-default-vi) !important;
+}
+
+.text-subtitle-1[lang="en"] {
+  font-family: var(--font-default) !important;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+.v-container .v-container--fluid .v-locale--is-ltr .container-bg {
+  padding-left: 0 !important;
+}
+
+.card {
+  padding: 2em;
+}
+
+#app {
+  height: 100%;
+  width: 100%;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}
+
+/* Add styles for v-application layout */
+.v-application {
+  min-height: 100vh !important;
+  height: auto !important;
+}
+
+.v-layout {
+  min-height: 100vh !important;
+  height: auto !important;
+}
+
+.settings-card {
+  background: var(--v-theme-surface);
+}
+
+.main-white, .container-white {
+  background: var(--v-theme-background) !important;
+}
+
+/* Common view styles */
+.view-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 40px;
+  padding-bottom: 40px;
+  min-height: 100%;
+}
+
+.view-card {
+  min-width: 400px;
+  width: 80%;
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--card-bg-color) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.06);
+  padding: 32px 24px;
+  margin-bottom: 40px;
+}
+
+.view-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.view-field {
+  min-width: 200px;
+}
+
+.mirrors-column {
+  min-width: 190px;
+}
+
+.v-btn{
+  font-weight: 700 !important;
+}
+
+.v-card-text{
+  margin-top: 10px !important;
+}
+
+.v-expansion-panel {
+  border-radius: 12px !important;
+  background-color: rgba(127, 127, 127, 0.05) !important;
+  overflow: hidden !important;
+}
+
+.v-expansion-panel-text {
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+.v-expansion-panel-text .text-subtitle-1 {
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+.v-field {
+  border-top-left-radius: 6px !important;
+  border-top-right-radius: 6px !important;
+}
+
+.v-expansion-panel-title {
+  font-weight: 600 !important;
+  font-size: 1.1rem !important;
+}
+
+.text-subtitle-1{
+  font-weight: 500 !important;
+  color: var(--main-text-color) !important;
+}
+
+.v-slider__label{
+  opacity: 1 !important;
+}

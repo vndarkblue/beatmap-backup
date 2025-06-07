@@ -1,0 +1,97 @@
+{
+  "settings": {
+    "title": "Settings",
+    "osuStablePath": "osu!stable directory",
+    "osuLazerPath": "osu!lazer directory",
+    "selectFolder": "Select Folder",
+    "error": {
+      "songsNotFound": "The Songs folder is not found in the directory",
+      "realmNotFound": "The client.realm database is not found in the directory"
+    }
+  },
+  "backup": {
+    "title": "Backup beatmaps",
+    "button": "Backup",
+    "stableBackup": "Backup from osu!stable",
+    "lazerBackup": "Backup from osu!lazer",
+    "success": "Successfully backed up {count} beatmaps",
+    "error": "Backup failed",
+    "cancelled": "Backup cancelled"
+  },
+  "download": {
+    "title": "Download beatmaps",
+    "selectFile": "Select a file (.txt)",
+    "dropHere": "Drop a file here to import",
+    "fileSelected": "File selected: {name}",
+    "path": "Save to...",
+    "fileRequired": "File is required",
+    "options": {
+      "title": "Download Options",
+      "beatmapMirrors": "Beatmap mirrors",
+      "ignoreExisting": "Ignore existing beatmaps",
+      "ignoreStable": "From osu!stable",
+      "ignoreLazer": "From osu!lazer",
+      "threadCount": "Download threads",
+      "refresh": "Refresh",
+      "online": "Online",
+      "offline": "Offline",
+      "unknownError": "Unknown error",
+      "statusUnknown": "Status unknown",
+      "other": "Other options",
+      "noVideo": "Download without videos"
+    },
+    "button": "Download",
+    "success": "Successfully downloaded {count} beatmaps",
+    "error": {
+      "invalidFile": "Invalid file type. Only .txt files are allowed.",
+      "getFilePath": "Failed to get file path"
+    },
+    "cancelled": "Download cancelled"
+  },
+  "downloadManager": {
+    "title": "Download Manager",
+    "emptyState": {
+      "title": "No Active Downloads",
+      "description": "Go to the Download page to start downloading beatmaps",
+      "action": "Go to Download"
+    },
+    "queueOverview": "Download Queue",
+    "progress": "Overall Progress",
+    "files": "files",
+    "pause": "Pause Queue",
+    "resume": "Resume Queue",
+    "stop": "Stop Download",
+    "table": {
+      "status": "Status",
+      "filename": "Filename",
+      "speed": "Speed",
+      "progress": "Progress",
+      "remaining": "Remaining"
+    },
+    "status": {
+      "waiting": "Waiting",
+      "downloading": "Downloading",
+      "completed": "Completed",
+      "error": "Error",
+      "unknown": "Unknown"
+    },
+    "preview": {
+      "show": "Show Preview",
+      "hide": "Hide Preview"
+    }
+  },
+  "language": {
+    "title": "Language",
+    "flagCode": "gb"
+  },
+  "navigation": {
+    "settings": "Settings",
+    "backup": "Backup",
+    "download": "Download",
+    "downloadManager": "Download Manager"
+  },
+  "theme": {
+    "dark": "Dark Mode",
+    "light": "Light Mode"
+  }
+} 

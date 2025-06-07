@@ -1,0 +1,97 @@
+{
+  "settings": {
+    "title": "Thiết lập",
+    "osuStablePath": "Đường dẫn osu!stable",
+    "osuLazerPath": "Đường dẫn osu!lazer",
+    "selectFolder": "Chọn thư mục",
+    "error": {
+      "songsNotFound": "Không tìm thấy thư mục Songs trong đường dẫn!",
+      "realmNotFound": "Không tìm thấy file client.realm trong đường dẫn!"
+    }
+  },
+  "backup": {
+    "title": "Sao lưu danh sách beatmap",
+    "button": "Sao lưu",
+    "stableBackup": "Sao lưu từ osu!stable",
+    "lazerBackup": "Sao lưu từ osu!lazer",
+    "success": "Đã sao lưu thành công {count} beatmap",
+    "error": "Sao lưu thất bại",
+    "cancelled": "Đã huỷ thao tác"
+  },
+  "download": {
+    "title": "Tải xuống beatmap",
+    "selectFile": "Chọn một file (.txt)",
+    "dropHere": "Thả file vào đây để tải lên",
+    "fileSelected": "Đã chọn file: {name}",
+    "path": "Lưu vào...",
+    "fileRequired": "File là bắt buộc",
+    "options": {
+      "title": "Tùy chọn tải xuống",
+      "beatmapMirrors": "Danh sách các beatmap mirror",
+      "ignoreExisting": "Bỏ qua beatmap trùng lặp",
+      "ignoreStable": "Từ osu!stable",
+      "ignoreLazer": "Từ osu!lazer",
+      "threadCount": "Số lượng luồng tải xuống",
+      "refresh": "Làm mới",
+      "online": "Trực tuyến",
+      "offline": "Ngoại tuyến",
+      "unknownError": "Lỗi không xác định",
+      "statusUnknown": "Trạng thái không xác định",
+      "other": "Tuỳ chọn khác",
+      "noVideo": "Không tải xuống video"
+    },
+    "button": "Tải xuống",
+    "success": "Đã tải xuống thành công {count} beatmap",
+    "error": {
+      "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .txt",
+      "getFilePath": "Không thể lấy đường dẫn file"
+    },
+    "cancelled": "Đã huỷ tải xuống"
+  },
+  "downloadManager": {
+    "title": "Quản lý Tải xuống",
+    "emptyState": {
+      "title": "Không có Tải xuống nào",
+      "description": "Đi đến trang Tải xuống để bắt đầu tải beatmap",
+      "action": "Đi đến Tải xuống"
+    },
+    "queueOverview": "Hàng đợi Tải xuống",
+    "progress": "Tiến độ Tổng thể",
+    "files": "tệp",
+    "pause": "Tạm dừng",
+    "resume": "Tiếp tục",
+    "stop": "Dừng Tải xuống",
+    "table": {
+      "status": "Trạng thái",
+      "filename": "Tên tệp",
+      "speed": "Tốc độ",
+      "progress": "Tiến độ",
+      "remaining": "Còn lại"
+    },
+    "status": {
+      "waiting": "Đang chờ",
+      "downloading": "Đang tải",
+      "completed": "Hoàn thành",
+      "error": "Lỗi",
+      "unknown": "Không xác định"
+    },
+    "preview": {
+      "show": "Hiện Xem trước",
+      "hide": "Ẩn Xem trước"
+    }
+  },
+  "language": {
+    "title": "Ngôn ngữ",
+    "flagCode": "vn"
+  },
+  "navigation": {
+    "settings": "Thiết lập",
+    "backup": "Sao lưu",
+    "download": "Nhập",
+    "downloadManager": "Quản lý tải xuống"
+  },
+  "theme": {
+    "dark": "Chế độ tối",
+    "light": "Chế độ sáng"
+  }
+} 

@@ -23,8 +23,9 @@
           :value="item.title"
           :title="rail ? '' : item.title"
           :prepend-icon="item.icon"
-          :to="item.to"
+          :active="router.currentRoute.value.path === item.to"
           :lang="currentLocale"
+          @click="handleNavigation(item.to)"
         ></v-list-item>
       </v-list>
 
@@ -68,6 +69,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { useRouter, type NavigationFailure } from 'vue-router'
+import { routes } from './router'
 import { API_ENDPOINTS } from '../../config/constants'
 import logoUrl from './assets/logo.png'
 import SimpleBar from 'simplebar-vue'
@@ -75,33 +78,22 @@ import 'simplebar-vue/dist/simplebar.min.css'
 
 const theme = useTheme()
 const { t, locale } = useI18n()
+const router = useRouter()
 const drawer = ref(true)
 const rail = ref(true)
 
 const currentLocale = computed(() => locale.value)
 
-const items = computed(() => [
-  {
-    title: t('navigation.settings'),
-    icon: 'mdi-cog',
-    to: '/settings'
-  },
-  {
-    title: t('navigation.backup'),
-    icon: 'mdi-export',
-    to: '/backup'
-  },
-  {
-    title: t('navigation.download'),
-    icon: 'mdi-download',
-    to: '/download'
-  },
-  {
-    title: t('navigation.downloadManager'),
-    icon: 'mdi-download-multiple',
-    to: '/download-manager'
-  }
-])
+const items = computed(() =>
+  routes.map((route) => ({
+    ...route,
+    title: t(route.title)
+  }))
+)
+
+const handleNavigation = (to: string): Promise<void | NavigationFailure | undefined> => {
+  return router.push(to)
+}
 
 const fetchDarkMode = async (): Promise<void> => {
   try {

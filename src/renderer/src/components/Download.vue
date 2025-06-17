@@ -200,10 +200,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
 import { API_ENDPOINTS } from '../../../config/constants'
 
 const { locale, t } = useI18n()
+const router = useRouter()
 const currentLocale = computed(() => locale.value)
 
 // Enhanced File type for Electron
@@ -440,6 +442,8 @@ const handleDownload = async (): Promise<void> => {
 
     isSuccess.value = true
     statusMessage.value = t('download.started')
+    // Navigate to DownloadManager after successful start
+    router.push({ name: 'downloadManager' })
   } catch (error) {
     console.error('Download failed:', error)
     isSuccess.value = false

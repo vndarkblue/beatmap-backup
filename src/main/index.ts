@@ -79,7 +79,7 @@ app.whenReady().then(() => {
     try {
       const result = await dialog.showOpenDialog({
         properties: ['openFile'],
-        filters: [{ name: 'Text Files', extensions: ['txt'] }]
+        filters: [{ name: 'Beatmap Backup Files', extensions: ['bbak'] }]
       })
       if (result.canceled) {
         throw new Error('No file selected')

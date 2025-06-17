@@ -12,6 +12,7 @@ import {
 import fs from 'fs'
 import path from 'path'
 import BeatmapMirrorService from './beatmapMirrorService'
+import DownloadService, { DownloadEvent, DownloadTask } from './downloadService'
 
 const app = express()
 const port = 3000
@@ -107,9 +108,9 @@ app.post('/api/settings/dark-mode', ((req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-// Download endpoint
+// Download endpoints
 app.post('/api/download', (async (req: Request, res: Response): Promise<void> => {
-  const { filePath, options, downloadPath } = req.body
+  const { filePath, options } = req.body
 
   // Validate required fields
   if (!filePath || !options) {
@@ -130,22 +131,95 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
   }
 
   try {
-    // TODO: Implement actual download logic
-    console.log('Download request received:', {
-      filePath,
-      options,
-      downloadPath
-    })
-
-    // For now, just return success
-    res.json({
-      success: true,
-      message: 'Download started'
-    })
+    const downloadService = DownloadService.getInstance()
+    await downloadService.startDownload(filePath, options)
+    res.json({ success: true, message: 'Download started' })
   } catch (error) {
     console.error('Download error:', error)
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Download failed'
+    })
+  }
+}) as RequestHandler)
+
+// SSE endpoint for download events
+app.get('/api/download/events', (async (req: Request, res: Response): Promise<void> => {
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+
+  const downloadService = DownloadService.getInstance()
+
+  // Helper function to send events
+  const sendEvent = (event: string, data: DownloadTask | DownloadTask[] | null): void => {
+    res.write(`event: ${event}\n`)
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+  }
+
+  // Send initial state
+  const tasks = downloadService.getTasks()
+  sendEvent('initialState', tasks)
+
+  // Set up event listeners
+  const eventHandlers = {
+    [DownloadEvent.TASK_ADDED]: (task: DownloadTask) => sendEvent('taskAdded', task),
+    [DownloadEvent.TASK_UPDATED]: (task: DownloadTask) => sendEvent('taskUpdated', task),
+    [DownloadEvent.TASK_COMPLETED]: (task: DownloadTask) => sendEvent('taskCompleted', task),
+    [DownloadEvent.TASK_ERROR]: (task: DownloadTask) => sendEvent('taskError', task),
+    [DownloadEvent.QUEUE_PAUSED]: () => sendEvent('queuePaused', null),
+    [DownloadEvent.QUEUE_RESUMED]: () => sendEvent('queueResumed', null),
+    [DownloadEvent.QUEUE_CLEARED]: () => sendEvent('queueCleared', null)
+  }
+
+  // Add event listeners
+  Object.entries(eventHandlers).forEach(([event, handler]) => {
+    downloadService.on(event, handler)
+  })
+
+  // Handle client disconnect
+  req.on('close', () => {
+    // Remove event listeners
+    Object.entries(eventHandlers).forEach(([event, handler]) => {
+      downloadService.removeListener(event, handler)
+    })
+  })
+}) as RequestHandler)
+
+// Download control endpoints
+app.post('/api/download/pause', ((_req: Request, res: Response) => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    downloadService.pauseQueue()
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to pause download'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/download/resume', ((_req: Request, res: Response) => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    downloadService.resumeQueue()
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to resume download'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/download/stop', ((_req: Request, res: Response) => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    downloadService.clearQueue()
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to stop download'
     })
   }
 }) as RequestHandler)

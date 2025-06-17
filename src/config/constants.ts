@@ -10,8 +10,14 @@ export const API_ENDPOINTS = {
   SETTINGS_DARK_MODE: `${API_BASE_URL}/settings/dark-mode`,
   SETTINGS_VALIDATE_OSU_STABLE: `${API_BASE_URL}/settings/validate/osu-stable`,
   SETTINGS_VALIDATE_OSU_LAZER: `${API_BASE_URL}/settings/validate/osu-lazer`,
-  MIRRORS_STATUS: `${API_BASE_URL}/mirrors/status`
-}
+  MIRRORS_STATUS: `${API_BASE_URL}/mirrors/status`,
+  DOWNLOAD: `${API_BASE_URL}/download`,
+  DOWNLOAD_PAUSE: `${API_BASE_URL}/download/pause`,
+  DOWNLOAD_RESUME: `${API_BASE_URL}/download/resume`,
+  DOWNLOAD_STOP: `${API_BASE_URL}/download/stop`,
+  DOWNLOAD_VALIDATE: `${API_BASE_URL}/download/validate`,
+  DOWNLOAD_EVENTS: `${API_BASE_URL}/download/events`
+} as const
 
 // Window settings
 export const WINDOW_CONFIG = {

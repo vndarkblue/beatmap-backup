@@ -4,6 +4,7 @@
     "osuStablePath": "osu!stable directory",
     "osuLazerPath": "osu!lazer directory",
     "selectFolder": "Select Folder",
+    "rememberDownloadPath": "Remember download location",
     "error": {
       "songsNotFound": "The Songs folder is not found in the directory",
       "realmNotFound": "The client.realm database is not found in the directory"

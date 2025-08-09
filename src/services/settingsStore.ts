@@ -6,6 +6,8 @@ interface Settings {
   isDarkMode: boolean
   downloadThreadCount: number
   selectedMirrors: string[]
+  rememberDownloadPath: boolean
+  lastDownloadPath: string
 }
 
 const defaultSettings: Settings = {
@@ -13,7 +15,9 @@ const defaultSettings: Settings = {
   osuLazerPath: '',
   isDarkMode: false,
   downloadThreadCount: 5,
-  selectedMirrors: []
+  selectedMirrors: [],
+  rememberDownloadPath: true,
+  lastDownloadPath: ''
 }
 
 // @ts-ignore - Store type definition is incomplete in electron-store package
@@ -28,7 +32,9 @@ export const getSettings = (): Settings => {
     osuLazerPath: settingsStore.get('osuLazerPath', ''),
     isDarkMode: settingsStore.get('isDarkMode', false),
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
-    selectedMirrors: settingsStore.get('selectedMirrors', [])
+    selectedMirrors: settingsStore.get('selectedMirrors', []),
+    rememberDownloadPath: settingsStore.get('rememberDownloadPath', true),
+    lastDownloadPath: settingsStore.get('lastDownloadPath', '')
   }
 }
 
@@ -70,4 +76,20 @@ export const getSelectedMirrors = (): string[] => {
 
 export const setSelectedMirrors = (mirrors: string[]): void => {
   settingsStore.set('selectedMirrors', mirrors)
+}
+
+export const getRememberDownloadPath = (): boolean => {
+  return settingsStore.get('rememberDownloadPath', true)
+}
+
+export const setRememberDownloadPath = (remember: boolean): void => {
+  settingsStore.set('rememberDownloadPath', remember)
+}
+
+export const getLastDownloadPath = (): string => {
+  return settingsStore.get('lastDownloadPath', '')
+}
+
+export const setLastDownloadPath = (path: string): void => {
+  settingsStore.set('lastDownloadPath', path)
 }

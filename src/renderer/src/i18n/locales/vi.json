@@ -4,6 +4,7 @@
     "osuStablePath": "Đường dẫn osu!stable",
     "osuLazerPath": "Đường dẫn osu!lazer",
     "selectFolder": "Chọn thư mục",
+    "rememberDownloadPath": "Ghi nhớ vị trí tải xuống",
     "error": {
       "songsNotFound": "Không tìm thấy thư mục Songs trong đường dẫn!",
       "realmNotFound": "Không tìm thấy file client.realm trong đường dẫn!"

@@ -20,7 +20,7 @@
   },
   "download": {
     "title": "Download beatmaps",
-    "selectFile": "Select a file (.txt)",
+    "selectFile": "Select a file (.bbak)",
     "dropHere": "Drop a file here to import",
     "fileSelected": "File selected: {name}",
     "path": "Save to...",

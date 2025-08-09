@@ -20,7 +20,7 @@
   },
   "download": {
     "title": "Tải xuống beatmap",
-    "selectFile": "Chọn một file (.txt)",
+    "selectFile": "Chọn một file (.bbak)",
     "dropHere": "Thả file vào đây để tải lên",
     "fileSelected": "Đã chọn file: {name}",
     "path": "Lưu vào...",

@@ -15,6 +15,7 @@ declare global {
         outputPath: string
         error?: string
       }>
+      openPath: (targetPath: string) => Promise<string>
     }
   }
 }

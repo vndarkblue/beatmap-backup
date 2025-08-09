@@ -74,7 +74,7 @@
                     </template>
                   </v-tooltip>
                 </td>
-                <td>{{ file.name }}</td>
+                <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
                 <td>{{ formatSpeed(file.speed) }}</td>
                 <td>
                   <v-progress-linear
@@ -91,68 +91,70 @@
         </div>
       </v-card-text>
     </v-card>
-
-    <!-- Preview Toggle Button -->
-    <v-btn
-      class="preview-toggle"
-      color="primary"
-      :lang="currentLocale"
-      @click="toggleDownloadState"
-    >
-      {{ isDownloading ? $t('downloadManager.preview.hide') : $t('downloadManager.preview.show') }}
-    </v-btn>
+    <v-snackbar v-model="showCompletedToast" color="success" timeout="8000">
+      <div>
+        <strong>{{ $t('notifications.download.completed.title') }}</strong>
+        <div v-if="completedSummary">
+          {{ completedSummary.success }}/{{ completedSummary.total }} ·
+          {{ completedSummary.downloadPath || '' }}
+          <span v-if="completedSummary.failed && completedSummary.failed > 0">
+            · {{ completedSummary.failed }} failed
+          </span>
+        </div>
+      </div>
+      <template #actions>
+        <v-btn variant="text" @click="openFolder">
+          {{ $t('notifications.actions.openFolder') }}
+        </v-btn>
+        <v-btn variant="text" @click="showCompletedToast = false">
+          {{ $t('notifications.actions.dismiss') }}
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { API_ENDPOINTS } from '../../../config/constants'
+// import type DownloadEvent  from '../types/download'
 
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value)
 
-// Mock data for preview
+// Download state
 const isDownloading = ref(false)
 const isPaused = ref(false)
 const completedFiles = ref(0)
 const totalFiles = ref(0)
 const queueProgress = ref(0)
+const downloadFiles = ref<DownloadTask[]>([])
+const showCompletedToast = ref(false)
+type QueueSummary = {
+  total: number
+  success: number
+  failed: number
+  downloadPath?: string
+  durationMs?: number
+}
+const completedSummary = ref<QueueSummary | null>(null)
 
-// Mock download files data
-const downloadFiles = ref([
-  {
-    id: 1,
-    name: 'example1.osz',
-    status: 'downloading',
-    speed: 1024 * 1024, // 1 MB/s
-    progress: 45,
-    remainingTime: 120 // seconds
-  },
-  {
-    id: 2,
-    name: 'example2.osz',
-    status: 'waiting',
-    speed: 0,
-    progress: 0,
-    remainingTime: 0
-  },
-  {
-    id: 3,
-    name: 'example3.osz',
-    status: 'completed',
-    speed: 0,
-    progress: 100,
-    remainingTime: 0
-  },
-  {
-    id: 4,
-    name: 'example4.osz',
-    status: 'error',
-    speed: 0,
-    progress: 30,
-    remainingTime: 0
-  }
-])
+// Add this interface definition:
+interface DownloadTask {
+  id: string
+  beatmapsetId: string
+  mirror: string
+  noVideo: boolean
+  status: 'waiting' | 'downloading' | 'completed' | 'error'
+  progress: number
+  speed: number
+  remainingTime: number
+  error?: string
+  downloadPath?: string
+  fileName?: string
+  filePath?: string
+}
 
 // Status helpers
 const getStatusIcon = (status: string): string => {
@@ -215,30 +217,206 @@ const formatTime = (seconds: number): string => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
+// Update download state
+const updateDownloadState = (tasks: DownloadTask[]): void => {
+  downloadFiles.value = tasks
+  totalFiles.value = tasks.length
+  completedFiles.value = tasks.filter((task) => task.status === 'completed').length
+  queueProgress.value = totalFiles.value > 0 ? (completedFiles.value / totalFiles.value) * 100 : 0
+  isDownloading.value = totalFiles.value > 0
+}
+
 // Action handlers
-const togglePause = (): void => {
-  isPaused.value = !isPaused.value
-  // TODO: Implement pause/resume logic
+const togglePause = async (): Promise<void> => {
+  try {
+    const endpoint = isPaused.value ? API_ENDPOINTS.DOWNLOAD_RESUME : API_ENDPOINTS.DOWNLOAD_PAUSE
+    const response = await fetch(endpoint, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error('Failed to toggle pause state')
+    }
+  } catch (error) {
+    console.error('Failed to toggle pause:', error)
+  }
 }
 
-const stopDownload = (): void => {
-  // TODO: Implement stop logic
-  isDownloading.value = false
+const stopDownload = async (): Promise<void> => {
+  try {
+    const response = await fetch(API_ENDPOINTS.DOWNLOAD_STOP, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error('Failed to stop download')
+    }
+  } catch (error) {
+    console.error('Failed to stop download:', error)
+  }
 }
 
-// Toggle button for preview
-const toggleDownloadState = (): void => {
-  isDownloading.value = !isDownloading.value
-  if (isDownloading.value) {
-    completedFiles.value = 1
-    totalFiles.value = 4
-    queueProgress.value = 25
-  } else {
+// SSE setup
+let eventSource: EventSource | null = null
+
+const connectSSE = (): void => {
+  if (eventSource) {
+    console.log('SSE connection already exists')
+    return
+  }
+
+  console.log('Creating new SSE connection')
+  eventSource = new EventSource(API_ENDPOINTS.DOWNLOAD_EVENTS)
+
+  eventSource.addEventListener('initialState', (e) => {
+    try {
+      const data = JSON.parse(e.data)
+      // Check if data is an array of tasks
+      if (Array.isArray(data)) {
+        updateDownloadState(data)
+      } else {
+        console.warn('Invalid initialState data format:', data)
+        updateDownloadState([])
+      }
+    } catch (error) {
+      console.error('Failed to parse initialState:', error)
+      updateDownloadState([])
+    }
+  })
+
+  eventSource.addEventListener('taskAdded', (e) => {
+    try {
+      const task = JSON.parse(e.data)
+      downloadFiles.value = [...downloadFiles.value, task]
+      updateDownloadState(downloadFiles.value)
+    } catch (error) {
+      console.error('Failed to parse taskAdded:', error)
+    }
+  })
+
+  eventSource.addEventListener('taskUpdated', (e) => {
+    try {
+      const updatedTask = JSON.parse(e.data)
+      const index = downloadFiles.value.findIndex((t) => t.id === updatedTask.id)
+      if (index !== -1) {
+        downloadFiles.value[index] = updatedTask
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse taskUpdated:', error)
+    }
+  })
+
+  eventSource.addEventListener('taskCompleted', (e) => {
+    try {
+      const completedTask = JSON.parse(e.data)
+      const index = downloadFiles.value.findIndex((t) => t.id === completedTask.id)
+      if (index !== -1) {
+        downloadFiles.value[index] = completedTask
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse taskCompleted:', error)
+    }
+  })
+
+  eventSource.addEventListener('taskError', (e) => {
+    try {
+      const errorTask = JSON.parse(e.data)
+      const index = downloadFiles.value.findIndex((t) => t.id === errorTask.id)
+      if (index !== -1) {
+        downloadFiles.value[index] = errorTask
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse taskError:', error)
+    }
+  })
+
+  eventSource.addEventListener('queuePaused', () => {
+    isPaused.value = true
+  })
+
+  eventSource.addEventListener('queueResumed', () => {
+    isPaused.value = false
+  })
+
+  eventSource.addEventListener('queueCleared', () => {
+    isDownloading.value = false
+    isPaused.value = false
     completedFiles.value = 0
     totalFiles.value = 0
     queueProgress.value = 0
+    downloadFiles.value = []
+    // Close SSE connection when queue is cleared
+    disconnectSSE()
+  })
+
+  eventSource.addEventListener('queueCompleted', (e) => {
+    try {
+      const summary = JSON.parse(e.data)
+      completedSummary.value = summary
+      showCompletedToast.value = true
+      // Optionally, trigger system notification via preload later
+    } catch (error) {
+      console.error('Failed to parse queueCompleted:', error)
+    }
+  })
+
+  eventSource.onerror = (error) => {
+    console.error('SSE error:', error)
+    // Only try to reconnect if we're still downloading
+    if (isDownloading.value) {
+      setTimeout(() => {
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+          connectSSE()
+        }
+      }, 5000)
+    } else {
+      disconnectSSE()
+    }
   }
 }
+
+const openFolder = async (): Promise<void> => {
+  const dir = completedSummary.value?.downloadPath
+  const electronAPI = (
+    window as unknown as {
+      electronAPI?: { openPath?: (p: string) => Promise<string> }
+    }
+  ).electronAPI
+  if (!dir || !electronAPI?.openPath) return
+  try {
+    const result = await electronAPI.openPath(dir)
+    if (result) {
+      console.error('Failed to open folder:', result)
+    }
+  } catch (e) {
+    console.error('Failed to open folder:', e)
+  }
+}
+
+const disconnectSSE = (): void => {
+  if (eventSource) {
+    console.log('Closing SSE connection')
+    eventSource.close()
+    eventSource = null
+  }
+}
+
+// Watch for changes in isDownloading
+watch(isDownloading, (newValue) => {
+  if (newValue) {
+    connectSSE()
+  } else {
+    disconnectSSE()
+  }
+})
+
+onMounted(() => {
+  // Establish SSE connection; server will emit 'initialState' with current tasks
+  connectSSE()
+})
+
+onUnmounted(() => {
+  disconnectSSE()
+})
 </script>
 
 <style scoped>
@@ -248,13 +426,5 @@ const toggleDownloadState = (): void => {
   position: relative;
   min-height: 100%;
   width: 100%;
-}
-
-/* Add a preview toggle button */
-.preview-toggle {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
 }
 </style>

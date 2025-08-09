@@ -63,10 +63,15 @@ export const exportService = {
 
       // Get save path from user
       console.log('Opening save dialog...')
+      const today = new Date()
+      const formattedDate = today.toISOString().slice(0, 10).replace(/-/g, '')
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save Beatmapset IDs',
-        defaultPath: 'beatmapset_ids.txt',
-        filters: [{ name: 'Text Files', extensions: ['txt'] }]
+        defaultPath: `backup-${formattedDate}.bbak`,
+        filters: [
+          { name: 'Beatmap Backup Files', extensions: ['bbak'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
       })
 
       if (!filePath) {
@@ -80,8 +85,15 @@ export const exportService = {
       }
 
       console.log('Saving to file:', filePath)
-      // Write to file
-      fs.writeFileSync(filePath, uniqueIds.join('\n'))
+      // Write to file with header and comments
+      const header = `# Beatmap Backup File
+# Format: One beatmapset ID per line
+# Created: ${new Date().toISOString()}
+# Total beatmaps: ${uniqueIds.length}
+# Source: ${options.stable ? 'Stable' : ''}${options.stable && options.lazer ? ' + ' : ''}${options.lazer ? 'Lazer' : ''}
+
+`
+      fs.writeFileSync(filePath, header + uniqueIds.join('\n'))
       console.log('File saved successfully')
 
       return {

@@ -79,7 +79,7 @@ app.whenReady().then(() => {
     try {
       const result = await dialog.showOpenDialog({
         properties: ['openFile'],
-        filters: [{ name: 'Text Files', extensions: ['txt'] }]
+        filters: [{ name: 'Beatmap Backup Files', extensions: ['bbak'] }]
       })
       if (result.canceled) {
         throw new Error('No file selected')
@@ -131,6 +131,18 @@ app.whenReady().then(() => {
         outputPath: '',
         error: error instanceof Error ? error.message : 'Unknown error'
       }
+    }
+  })
+
+  // Open a file or directory path on host OS
+  ipcMain.handle('open-path', async (_event, targetPath: string) => {
+    try {
+      const result = await shell.openPath(targetPath)
+      // shell.openPath returns empty string on success, error message otherwise
+      return result
+    } catch (error) {
+      console.error('Failed to open path:', error)
+      return error instanceof Error ? error.message : 'Failed to open path'
     }
   })
 

@@ -83,19 +83,19 @@ const handleExport = async (): Promise<void> => {
       if (response?.error === 'cancelled') {
         throw new Error('cancelled')
       }
-      throw new Error(response?.error || t('export.error'))
+      throw new Error(response?.error || t('backup.error'))
     }
 
     isSuccess.value = true
-    statusMessage.value = t('export.success', { count: response.count })
+    statusMessage.value = t('backup.success', { count: response.count })
   } catch (error: unknown) {
     console.error('Export failed in component:', error)
     isSuccess.value = false
     const exportError = error as ExportError
     statusMessage.value =
       exportError.message === 'cancelled'
-        ? t('export.cancelled')
-        : exportError.message || t('export.error')
+        ? t('backup.cancelled')
+        : exportError.message || t('backup.error')
   } finally {
     isExporting.value = false
   }

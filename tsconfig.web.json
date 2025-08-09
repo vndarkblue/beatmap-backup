@@ -7,7 +7,7 @@
     "src/preload/*.d.ts",
     "src/services/settingsStore.ts",
     "src/services/types",
-    "src/config/*",
+    "src/config/*"
   ],
   "compilerOptions": {
     "composite": true,

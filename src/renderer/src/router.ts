@@ -71,7 +71,7 @@ const router = createRouter({
 })
 
 // Add navigation guard to ensure proper route handling
-router.beforeEach((to, from, next) => {
+router.beforeEach((_to, _from, next) => {
   // Force a small delay to ensure proper state updates
   setTimeout(() => {
     next()

@@ -42,7 +42,8 @@ const electronAPI = {
     const result = await ipcRenderer.invoke('export-data', options)
     console.log('Preload: Received result from main process:', result)
     return result
-  }
+  },
+  openPath: (targetPath: string) => ipcRenderer.invoke('open-path', targetPath)
 }
 
 // Expose APIs to renderer process

@@ -110,7 +110,7 @@ app.post('/api/settings/dark-mode', ((req: Request, res: Response) => {
 
 // Download endpoints
 app.post('/api/download', (async (req: Request, res: Response): Promise<void> => {
-  const { filePath, options } = req.body
+  const { filePath, options, downloadPath } = req.body
 
   // Validate required fields
   if (!filePath || !options) {
@@ -132,7 +132,15 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
 
   try {
     const downloadService = DownloadService.getInstance()
-    await downloadService.startDownload(filePath, options)
+    const optionsWithPath = {
+      ...options,
+      // Only attach when provided; backend will validate existence/permission
+      downloadPath:
+        typeof downloadPath === 'string' && downloadPath.trim().length > 0
+          ? downloadPath
+          : options.downloadPath
+    }
+    await downloadService.startDownload(filePath, optionsWithPath)
     res.json({ success: true, message: 'Download started' })
   } catch (error) {
     console.error('Download error:', error)
@@ -152,10 +160,49 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
 
   const downloadService = DownloadService.getInstance()
 
+  // Helper to serialize tasks to a JSON-safe structure (avoid circular refs)
+  const serializeTask = (
+    task: DownloadTask
+  ): {
+    id: string
+    beatmapsetId: string
+    mirror: string
+    noVideo: boolean
+    status: DownloadTask['status']
+    progress: number
+    speed: number
+    remainingTime: number
+    error: string | null
+    downloadPath: string | null
+    fileName: string | null
+    filePath: string | null
+  } => ({
+    id: task.id,
+    beatmapsetId: task.beatmapsetId,
+    mirror:
+      typeof task.mirror === 'object' && task.mirror !== null
+        ? ((task.mirror as unknown as { name?: string }).name ?? String(task.mirror))
+        : String(task.mirror),
+    noVideo: task.noVideo,
+    status: task.status,
+    progress: task.progress,
+    speed: task.speed,
+    remainingTime: task.remainingTime,
+    error: task.error ?? null,
+    downloadPath: task.downloadPath ?? null,
+    fileName: task.fileName ?? null,
+    filePath: task.filePath ?? null
+  })
+
   // Helper function to send events
   const sendEvent = (event: string, data: DownloadTask | DownloadTask[] | null): void => {
     res.write(`event: ${event}\n`)
-    res.write(`data: ${JSON.stringify(data)}\n\n`)
+    const safeData = Array.isArray(data)
+      ? data.map((t) => serializeTask(t))
+      : data === null
+        ? null
+        : serializeTask(data)
+    res.write(`data: ${JSON.stringify(safeData)}\n\n`)
   }
 
   // Send initial state
@@ -170,7 +217,14 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
     [DownloadEvent.TASK_ERROR]: (task: DownloadTask) => sendEvent('taskError', task),
     [DownloadEvent.QUEUE_PAUSED]: () => sendEvent('queuePaused', null),
     [DownloadEvent.QUEUE_RESUMED]: () => sendEvent('queueResumed', null),
-    [DownloadEvent.QUEUE_CLEARED]: () => sendEvent('queueCleared', null)
+    [DownloadEvent.QUEUE_CLEARED]: () => sendEvent('queueCleared', null),
+    [DownloadEvent.QUEUE_COMPLETED]: (summary: unknown) => {
+      // summary shape: { total, success, failed, downloadPath, durationMs }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const safe = summary as any
+      res.write(`event: queueCompleted\n`)
+      res.write(`data: ${JSON.stringify(safe)}\n\n`)
+    }
   }
 
   // Add event listeners

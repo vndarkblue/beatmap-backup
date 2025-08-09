@@ -41,6 +41,7 @@
       "noVideo": "Không tải xuống video"
     },
     "button": "Tải xuống",
+    "started": "Bắt đầu tải xuống",
     "success": "Đã tải xuống thành công {count} beatmap",
     "error": {
       "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .txt",
@@ -93,5 +94,16 @@
   "theme": {
     "dark": "Chế độ tối",
     "light": "Chế độ sáng"
+  },
+  "notifications": {
+    "download": {
+      "completed": {
+        "title": "Hoàn tất tải xuống"
+      }
+    },
+    "actions": {
+      "openFolder": "Mở thư mục",
+      "dismiss": "Đóng"
+    }
   }
 } 

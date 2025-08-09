@@ -41,8 +41,10 @@
       "noVideo": "Download without videos"
     },
     "button": "Download",
+    "started": "Download started",
     "success": "Successfully downloaded {count} beatmaps",
-    "error": {
+    "error": "Download failed",
+    "errors": {
       "invalidFile": "Invalid file type. Only .txt files are allowed.",
       "getFilePath": "Failed to get file path"
     },
@@ -93,5 +95,16 @@
   "theme": {
     "dark": "Dark Mode",
     "light": "Light Mode"
+  },
+  "notifications": {
+    "download": {
+      "completed": {
+        "title": "Download completed"
+      }
+    },
+    "actions": {
+      "openFolder": "Open Folder",
+      "dismiss": "Dismiss"
+    }
   }
 } 

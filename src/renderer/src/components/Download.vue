@@ -378,7 +378,7 @@ const handleFileSelect = async (): Promise<void> => {
     }
   } catch (error) {
     console.error('Failed to get file path:', error)
-    statusMessage.value = t('download.error.getFilePath')
+    statusMessage.value = t('download.errors.getFilePath')
     isSuccess.value = false
   }
 }
@@ -424,7 +424,7 @@ const handleDownload = async (): Promise<void> => {
       downloadPath: downloadData.downloadPath
     })
 
-    const response = await fetch('/api/download', {
+    const response = await fetch(API_ENDPOINTS.DOWNLOAD, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -433,17 +433,31 @@ const handleDownload = async (): Promise<void> => {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || t('download.error'))
+      let errorMessage = t('download.error')
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.error || errorMessage
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        // If JSON parsing fails, use status text
+        errorMessage = response.statusText || errorMessage
+      }
+      throw new Error(errorMessage)
     }
 
-    const result = await response.json()
+    let result
+    try {
+      result = await response.json()
+    } catch (e) {
+      console.warn('Failed to parse response JSON:', e)
+      result = { success: true }
+    }
     console.log('Download started:', result)
 
     isSuccess.value = true
     statusMessage.value = t('download.started')
     // Navigate to DownloadManager after successful start
-    router.push({ name: 'downloadManager' })
+    await router.push({ name: 'download-manager' })
   } catch (error) {
     console.error('Download failed:', error)
     isSuccess.value = false

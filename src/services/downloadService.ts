@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import path from 'path'
 import fs from 'fs'
 import https from 'https'
+import http from 'http'
 import { URL } from 'url'
 import { BeatmapMirror } from '../config/beatmapMirrors'
 import { DefaultBeatmapMirrors } from '../config/beatmapMirrors'
@@ -27,7 +28,11 @@ export interface DownloadTask {
   speed: number
   remainingTime: number
   error?: string
+  // Directory chosen by user (or default OS Downloads)
   downloadPath?: string
+  // Final file name and full path, set once headers are known / completed
+  fileName?: string
+  filePath?: string
   request?: ReturnType<typeof https.get>
 }
 
@@ -46,7 +51,8 @@ export enum DownloadEvent {
   TASK_ERROR = 'taskError',
   QUEUE_PAUSED = 'queuePaused',
   QUEUE_RESUMED = 'queueResumed',
-  QUEUE_CLEARED = 'queueCleared'
+  QUEUE_CLEARED = 'queueCleared',
+  QUEUE_COMPLETED = 'queueCompleted'
 }
 
 class DownloadService extends EventEmitter {
@@ -54,19 +60,19 @@ class DownloadService extends EventEmitter {
   private queue: typeof PQueue
   private tasks: Map<string, DownloadTask>
   private isPaused: boolean
-  private currentMirrorIndex: number
   private cooldownPeriod: number
   private cooldownTimeout?: NodeJS.Timeout
   private mirrorHealth: Map<string, { success: number; failure: number; avgResponseTime: number }>
+  private queueStartTime: number | null
 
   private constructor() {
     super()
     this.queue = new PQueue({ concurrency: 1 })
     this.tasks = new Map()
     this.isPaused = false
-    this.currentMirrorIndex = 0
     this.cooldownPeriod = 5000
     this.mirrorHealth = new Map()
+    this.queueStartTime = null
   }
 
   public static getInstance(): DownloadService {
@@ -176,6 +182,7 @@ class DownloadService extends EventEmitter {
 
   public async startDownload(filePath: string, options: DownloadOptions): Promise<void> {
     try {
+      this.queueStartTime = Date.now()
       // Read and validate backup file
       const content = await fs.promises.readFile(filePath, 'utf-8')
       this.validateBackupFile(content)
@@ -221,10 +228,44 @@ class DownloadService extends EventEmitter {
 
         this.queue.add(() => this.downloadTask(task, availableMirrors, options))
       }
+
+      // When the queue becomes idle (no pending/active tasks), verify completion
+      // This covers timing where individual task callbacks resolve before PQueue updates counters
+      this.queue.onIdle().then(() => {
+        this.checkQueueCompletion()
+      })
     } catch (error) {
       console.error('Failed to start download:', error)
       throw error
     }
+  }
+
+  private checkQueueCompletion(): void {
+    // Not completed if there are active tasks, pending queue, or cooldown scheduled
+    const hasActive = Array.from(this.tasks.values()).some(
+      (t) => t.status !== 'completed' && t.status !== 'error'
+    )
+    if (hasActive || this.queue.size > 0 || this.queue.pending > 0) {
+      return
+    }
+
+    const total = this.tasks.size
+    const success = Array.from(this.tasks.values()).filter((t) => t.status === 'completed').length
+    const failed = Array.from(this.tasks.values()).filter((t) => t.status === 'error').length
+    const anyTask = this.tasks.values().next().value as DownloadTask | undefined
+    const downloadPath = anyTask?.downloadPath ?? null
+    const durationMs = this.queueStartTime ? Date.now() - this.queueStartTime : 0
+
+    this.emit(DownloadEvent.QUEUE_COMPLETED, {
+      total,
+      success,
+      failed,
+      downloadPath,
+      durationMs
+    })
+
+    // Auto clear queue after short delay to let UI display completion
+    setTimeout(() => this.clearQueue(), 2000)
   }
 
   private async downloadTask(
@@ -243,95 +284,184 @@ class DownloadService extends EventEmitter {
 
     try {
       const downloadUrl = task.mirror.getDownloadUrl(task.beatmapsetId, task.noVideo)
-      const downloadPath = options.downloadPath || path.join(process.cwd(), 'downloads')
+      // Prefer validated path stored on task, then provided option, then OS default
+      let downloadPath = task.downloadPath || options.downloadPath || this.getDefaultDownloadPath()
+      // If a drive root like "F:\\" is passed, default to a safe subfolder
+      const resolvedForCheck = path.resolve(downloadPath)
+      if (resolvedForCheck === path.parse(resolvedForCheck).root) {
+        downloadPath = path.join(downloadPath, 'osu-beatmaps')
+      }
 
-      // Create download directory if it doesn't exist
-      await fs.promises.mkdir(downloadPath, { recursive: true })
+      // Create download directory if it doesn't exist (avoid creating drive root)
+      const resolvedPath = path.resolve(downloadPath)
+      const isRoot = resolvedPath === path.parse(resolvedPath).root
+      if (!isRoot) {
+        try {
+          await fs.promises.mkdir(downloadPath, { recursive: true })
+        } catch (e) {
+          // Ignore EEXIST; rethrow others
+          if (!(e instanceof Error) || (e as NodeJS.ErrnoException).code !== 'EEXIST') {
+            throw e
+          }
+        }
+      }
 
       // Start download
       await new Promise<void>((resolve, reject) => {
-        const url = new URL(downloadUrl)
-        let writer: fs.WriteStream
-        let filePath: string
+        const startUrl = new URL(downloadUrl)
+        let writer: fs.WriteStream | undefined
+        let filePath: string | undefined
 
-        const request = https.get(url, (response) => {
-          if (response.statusCode !== 200) {
-            reject(new Error(`Failed to download: ${response.statusCode}`))
-            return
+        // Sanitize file names for the current OS and ensure .osz extension
+        const sanitizeFileName = (name: string): string => {
+          const invalidChars = /[<>:\\"/|?*]/g
+          let safe = name.replace(invalidChars, ' ').replace(/\s+/g, ' ').trim()
+          // Disallow trailing periods or spaces on Windows
+          safe = safe.replace(/[ .]+$/g, '')
+          if (!/\.osz$/i.test(safe)) {
+            safe = `${safe}.osz`
           }
+          return safe
+        }
 
-          const totalSize = parseInt(response.headers['content-length'] || '0', 10)
+        const makeRequest = (targetUrl: URL, redirectCount = 0): void => {
+          const protocol = targetUrl.protocol === 'http:' ? http : https
+          const req = protocol.request(
+            targetUrl,
+            {
+              headers: {
+                'User-Agent': 'osu-beatmap-backup/1.0 (+https://github.com)'
+              }
+            },
+            (response) => {
+              // Handle redirects
+              if (
+                response.statusCode &&
+                response.statusCode >= 300 &&
+                response.statusCode < 400 &&
+                response.headers.location
+              ) {
+                if (redirectCount >= 5) {
+                  reject(new Error('Too many redirects'))
+                  return
+                }
+                try {
+                  const nextUrl = new URL(response.headers.location, targetUrl)
+                  req.destroy()
+                  makeRequest(nextUrl, redirectCount + 1)
+                  return
+                } catch {
+                  reject(new Error('Invalid redirect URL'))
+                  return
+                }
+              }
 
-          // Get filename from Content-Disposition header or fallback to beatmapsetId
-          let fileName = `${task.beatmapsetId}.osz`
-          const contentDisposition = response.headers['content-disposition']
-          if (contentDisposition) {
-            const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition)
-            if (matches && matches[1]) {
-              fileName = matches[1].replace(/['"]/g, '')
-            }
-          }
-          filePath = path.join(downloadPath, fileName)
+              if (response.statusCode !== 200) {
+                reject(new Error(`Failed to download: ${response.statusCode}`))
+                return
+              }
 
-          // Create write stream
-          writer = fs.createWriteStream(filePath)
-          let downloadedBytes = 0
-          const startTime = Date.now()
-          let lastUpdate = startTime
-          let lastBytes = 0
+              const totalSize = parseInt(response.headers['content-length'] || '0', 10)
 
-          response.on('data', (chunk) => {
-            downloadedBytes += chunk.length
-            const currentTime = Date.now()
-            const timeDiff = (currentTime - lastUpdate) / 1000 // seconds
-            const bytesDiff = downloadedBytes - lastBytes
+              // Get filename from Content-Disposition header or fallback to beatmapsetId
+              let fileName = `${task.beatmapsetId}.osz`
+              const contentDisposition = response.headers['content-disposition']
+              if (contentDisposition) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition)
+                if (matches && matches[1]) {
+                  fileName = matches[1].replace(/['"]/g, '')
+                }
+              }
+              fileName = sanitizeFileName(fileName)
+              filePath = path.join(downloadPath, fileName)
 
-            if (timeDiff >= 1) {
-              // Update every second
-              task.speed = bytesDiff / timeDiff
-              task.progress = totalSize ? Math.round((downloadedBytes / totalSize) * 100) : 0
-              task.remainingTime = totalSize
-                ? Math.round((totalSize - downloadedBytes) / task.speed)
-                : 0
+              // Update task with discovered file name
+              task.fileName = fileName
               this.emit(DownloadEvent.TASK_UPDATED, task)
-              lastUpdate = currentTime
-              lastBytes = downloadedBytes
+
+              // Create write stream
+              writer = fs.createWriteStream(filePath)
+              let downloadedBytes = 0
+              const startTime = Date.now()
+              let lastUpdate = startTime
+              let lastBytes = 0
+
+              response.on('data', (chunk) => {
+                downloadedBytes += chunk.length
+                const currentTime = Date.now()
+                const timeDiff = (currentTime - lastUpdate) / 1000
+                const bytesDiff = downloadedBytes - lastBytes
+
+                if (timeDiff >= 1) {
+                  task.speed = bytesDiff / timeDiff
+                  task.progress = totalSize ? Math.round((downloadedBytes / totalSize) * 100) : 0
+                  task.remainingTime = totalSize
+                    ? Math.round((totalSize - downloadedBytes) / task.speed)
+                    : 0
+                  this.emit(DownloadEvent.TASK_UPDATED, task)
+                  lastUpdate = currentTime
+                  lastBytes = downloadedBytes
+                }
+              })
+
+              response.on('error', (err) => reject(err))
+              writer.on('error', (err) => reject(err))
+
+              response.pipe(writer)
+
+              writer.on('finish', () => {
+                // Update mirror health on success
+                const mirrorName = task.mirror.name
+                const health = this.mirrorHealth.get(mirrorName) || {
+                  success: 0,
+                  failure: 0,
+                  avgResponseTime: 0
+                }
+                health.success++
+                health.avgResponseTime =
+                  (health.avgResponseTime * (health.success - 1) + (Date.now() - startTime)) /
+                  health.success
+                this.mirrorHealth.set(mirrorName, health)
+
+                task.status = 'completed'
+                task.progress = 100
+                task.speed = 0
+                task.remainingTime = 0
+                task.filePath = filePath
+                this.emit(DownloadEvent.TASK_COMPLETED, task)
+                resolve()
+                // Evaluate queue completion after each task finishes
+                this.checkQueueCompletion()
+              })
             }
+          )
+
+          req.on('error', (error) => {
+            try {
+              if (writer) {
+                writer.close()
+              }
+            } catch {
+              /* empty */
+            }
+            if (filePath) {
+              fs.unlink(filePath, () => {})
+            }
+            reject(error)
           })
 
-          response.pipe(writer)
-
-          writer.on('finish', () => {
-            // Update mirror health on success
-            const mirrorName = task.mirror.name
-            const health = this.mirrorHealth.get(mirrorName) || {
-              success: 0,
-              failure: 0,
-              avgResponseTime: 0
-            }
-            health.success++
-            health.avgResponseTime =
-              (health.avgResponseTime * (health.success - 1) + (Date.now() - startTime)) /
-              health.success
-            this.mirrorHealth.set(mirrorName, health)
-
-            task.status = 'completed'
-            task.progress = 100
-            task.speed = 0
-            task.remainingTime = 0
-            task.downloadPath = filePath
-            this.emit(DownloadEvent.TASK_COMPLETED, task)
-            resolve()
+          // 30s timeout
+          req.setTimeout(30000, () => {
+            req.destroy(new Error('Request timeout'))
           })
-        })
 
-        request.on('error', (error) => {
-          writer.close()
-          fs.unlink(filePath, () => {}) // Clean up partial file
-          reject(error)
-        })
+          req.end()
+          // Track request for possible cancellation
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(task as any).request = req
+        }
 
-        task.request = request
+        makeRequest(startUrl)
       })
     } catch (error) {
       console.error(`Download failed for ${task.beatmapsetId}:`, error)
@@ -377,6 +507,10 @@ class DownloadService extends EventEmitter {
               }
             }
           }, this.cooldownPeriod)
+        }
+        // If we are not retrying immediately, check if queue is now completed
+        if (this.queue.size === 0 && this.queue.pending === 0) {
+          this.checkQueueCompletion()
         }
       } else {
         // Try next mirror

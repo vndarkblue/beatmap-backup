@@ -15,9 +15,8 @@ export const API_ENDPOINTS = {
   DOWNLOAD_PAUSE: `${API_BASE_URL}/download/pause`,
   DOWNLOAD_RESUME: `${API_BASE_URL}/download/resume`,
   DOWNLOAD_STOP: `${API_BASE_URL}/download/stop`,
-  DOWNLOAD_VALIDATE: `${API_BASE_URL}/download/validate`,
   DOWNLOAD_EVENTS: `${API_BASE_URL}/download/events`
-} as const
+}
 
 // Window settings
 export const WINDOW_CONFIG = {

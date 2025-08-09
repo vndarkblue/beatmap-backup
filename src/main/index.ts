@@ -134,6 +134,18 @@ app.whenReady().then(() => {
     }
   })
 
+  // Open a file or directory path on host OS
+  ipcMain.handle('open-path', async (_event, targetPath: string) => {
+    try {
+      const result = await shell.openPath(targetPath)
+      // shell.openPath returns empty string on success, error message otherwise
+      return result
+    } catch (error) {
+      console.error('Failed to open path:', error)
+      return error instanceof Error ? error.message : 'Failed to open path'
+    }
+  })
+
   createWindow()
   startServer()
 

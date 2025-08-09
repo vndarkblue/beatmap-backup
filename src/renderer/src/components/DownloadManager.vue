@@ -74,7 +74,7 @@
                     </template>
                   </v-tooltip>
                 </td>
-                <td>{{ file.id }}</td>
+                <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
                 <td>{{ formatSpeed(file.speed) }}</td>
                 <td>
                   <v-progress-linear
@@ -91,6 +91,26 @@
         </div>
       </v-card-text>
     </v-card>
+    <v-snackbar v-model="showCompletedToast" color="success" timeout="8000">
+      <div>
+        <strong>{{ $t('notifications.download.completed.title') }}</strong>
+        <div v-if="completedSummary">
+          {{ completedSummary.success }}/{{ completedSummary.total }} ·
+          {{ completedSummary.downloadPath || '' }}
+          <span v-if="completedSummary.failed && completedSummary.failed > 0">
+            · {{ completedSummary.failed }} failed
+          </span>
+        </div>
+      </div>
+      <template #actions>
+        <v-btn variant="text" @click="openFolder">
+          {{ $t('notifications.actions.openFolder') }}
+        </v-btn>
+        <v-btn variant="text" @click="showCompletedToast = false">
+          {{ $t('notifications.actions.dismiss') }}
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
@@ -110,6 +130,15 @@ const completedFiles = ref(0)
 const totalFiles = ref(0)
 const queueProgress = ref(0)
 const downloadFiles = ref<DownloadTask[]>([])
+const showCompletedToast = ref(false)
+type QueueSummary = {
+  total: number
+  success: number
+  failed: number
+  downloadPath?: string
+  durationMs?: number
+}
+const completedSummary = ref<QueueSummary | null>(null)
 
 // Add this interface definition:
 interface DownloadTask {
@@ -123,6 +152,8 @@ interface DownloadTask {
   remainingTime: number
   error?: string
   downloadPath?: string
+  fileName?: string
+  filePath?: string
 }
 
 // Status helpers
@@ -315,6 +346,17 @@ const connectSSE = (): void => {
     disconnectSSE()
   })
 
+  eventSource.addEventListener('queueCompleted', (e) => {
+    try {
+      const summary = JSON.parse(e.data)
+      completedSummary.value = summary
+      showCompletedToast.value = true
+      // Optionally, trigger system notification via preload later
+    } catch (error) {
+      console.error('Failed to parse queueCompleted:', error)
+    }
+  })
+
   eventSource.onerror = (error) => {
     console.error('SSE error:', error)
     // Only try to reconnect if we're still downloading
@@ -329,6 +371,24 @@ const connectSSE = (): void => {
     } else {
       disconnectSSE()
     }
+  }
+}
+
+const openFolder = async (): Promise<void> => {
+  const dir = completedSummary.value?.downloadPath
+  const electronAPI = (
+    window as unknown as {
+      electronAPI?: { openPath?: (p: string) => Promise<string> }
+    }
+  ).electronAPI
+  if (!dir || !electronAPI?.openPath) return
+  try {
+    const result = await electronAPI.openPath(dir)
+    if (result) {
+      console.error('Failed to open folder:', result)
+    }
+  } catch (e) {
+    console.error('Failed to open folder:', e)
   }
 }
 
@@ -350,20 +410,8 @@ watch(isDownloading, (newValue) => {
 })
 
 onMounted(() => {
-  // Check current download status immediately
-  fetch(API_ENDPOINTS.DOWNLOAD_EVENTS)
-    .then(response => response.json())
-    .then(data => {
-      if (Array.isArray(data)) {
-        updateDownloadState(data)
-        if (data.length > 0) {
-          connectSSE()
-        }
-      }
-    })
-    .catch(error => {
-      console.error('Failed to check initial download status:', error)
-    })
+  // Establish SSE connection; server will emit 'initialState' with current tasks
+  connectSSE()
 })
 
 onUnmounted(() => {

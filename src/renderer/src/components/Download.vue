@@ -440,6 +440,9 @@ const handleDownload = async (): Promise<void> => {
       filePath: downloadData.filePath,
       threadCount: downloadData.options.threadCount,
       selectedMirrors: downloadData.options.sources,
+      removeFromStable: downloadData.options.removeFromStable,
+      removeFromLazer: downloadData.options.removeFromLazer,
+      noVideo: downloadData.options.noVideo,
       downloadPath: downloadData.downloadPath
     })
 

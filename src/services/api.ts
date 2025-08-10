@@ -154,6 +154,15 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
     return
   }
 
+  // Validate ignore options
+  if (
+    typeof options.removeFromStable !== 'boolean' ||
+    typeof options.removeFromLazer !== 'boolean'
+  ) {
+    res.status(400).json({ error: 'Invalid ignore options' })
+    return
+  }
+
   try {
     const downloadService = DownloadService.getInstance()
     const optionsWithPath = {

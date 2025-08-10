@@ -10,14 +10,14 @@ interface BeatmapSet {
 }
 
 // Define the schema for BeatmapSet class
-const BeatmapSetSchema = {
-  name: 'BeatmapSet',
-  primaryKey: 'ID',
-  properties: {
-    ID: 'uuid',
-    OnlineID: 'int'
-  }
-}
+// const BeatmapSetSchema = {
+//   name: 'BeatmapSet',
+//   primaryKey: 'ID',
+//   properties: {
+//     ID: 'uuid',
+//     OnlineID: 'int'
+//   }
+// }
 
 function isErrorWithMessage(error: unknown): error is { message: string } {
   return (
@@ -55,7 +55,7 @@ export const realmService = {
       throw new Error('Unable to read schema version from osu!lazer Realm database.')
     }
   },
-  
+
   async getBeatmapsetIds(): Promise<number[]> {
     const osuLazerPath = getOsuLazerPath()
     if (!osuLazerPath) {
@@ -80,7 +80,7 @@ export const realmService = {
 
       // Open in dynamic, read-only mode. Not providing `schema` allows using the file's own schema.
       // Not providing `schemaVersion` prevents version mismatch errors for read-only access.
-      
+
       const realmConfig: Realm.Configuration = {
         path: realmPath,
         readOnly: true

@@ -43,7 +43,7 @@
           v-model="rememberDownloadPath"
           :label="$t('settings.rememberDownloadPath')"
           color="primary"
-          class="view-field pl-2"
+          class="view-field pl-2 settings-switch"
           @update:model-value="saveRememberDownloadPath"
         ></v-switch>
         <v-divider></v-divider>
@@ -180,5 +180,9 @@ onMounted(() => {
 }
 .v-divider {
   margin-bottom: 16px;
+}
+.settings-switch {
+  margin-bottom: -16px !important;
+  margin-top: -16px !important;
 }
 </style>

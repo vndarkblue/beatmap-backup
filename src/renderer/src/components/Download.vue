@@ -225,6 +225,7 @@ const selectedFile = ref<ElectronFile | null>(null)
 const selectedFileName = ref('')
 const threadCount = ref(5)
 const downloadPath = ref('')
+const rememberDownloadPath = ref(true)
 const isDownloading = ref(false)
 const statusMessage = ref('')
 const isSuccess = ref(false)
@@ -316,6 +317,12 @@ const loadSettings = async (): Promise<void> => {
     osuStablePath.value = data.osuStablePath || ''
     osuLazerPath.value = data.osuLazerPath || ''
 
+    // Remember download path option
+    rememberDownloadPath.value = data.rememberDownloadPath ?? true
+    if (rememberDownloadPath.value && typeof data.lastDownloadPath === 'string' && data.lastDownloadPath.length > 0) {
+      downloadPath.value = data.lastDownloadPath
+    }
+
     // Load download options from localStorage
     loadFromLocalStorage()
 
@@ -388,6 +395,18 @@ const selectDownloadPath = async (): Promise<void> => {
   const dir = await window.electronAPI.selectDirectory()
   if (dir) {
     downloadPath.value = dir
+    if (rememberDownloadPath.value) {
+      try {
+        await fetch(API_ENDPOINTS.SETTINGS_LAST_DOWNLOAD_PATH, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: dir })
+        })
+      } catch (e) {
+        // non-fatal
+        console.warn('Failed to persist last download path', e)
+      }
+    }
   }
 }
 
@@ -421,6 +440,9 @@ const handleDownload = async (): Promise<void> => {
       filePath: downloadData.filePath,
       threadCount: downloadData.options.threadCount,
       selectedMirrors: downloadData.options.sources,
+      removeFromStable: downloadData.options.removeFromStable,
+      removeFromLazer: downloadData.options.removeFromLazer,
+      noVideo: downloadData.options.noVideo,
       downloadPath: downloadData.downloadPath
     })
 

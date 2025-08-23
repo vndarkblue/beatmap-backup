@@ -7,7 +7,9 @@ import {
   setOsuStablePath,
   setOsuLazerPath,
   getDarkMode,
-  setDarkMode
+  setDarkMode,
+  setRememberDownloadPath,
+  setLastDownloadPath
 } from './settingsStore'
 import fs from 'fs'
 import path from 'path'
@@ -108,6 +110,28 @@ app.post('/api/settings/dark-mode', ((req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
+// Remember download path toggle
+app.post('/api/settings/remember-download-path', ((req: Request, res: Response) => {
+  const { remember } = req.body
+  if (typeof remember === 'boolean') {
+    setRememberDownloadPath(remember)
+    res.json({ success: true })
+  } else {
+    res.status(400).json({ error: 'Invalid remember value' })
+  }
+}) as RequestHandler)
+
+// Persist last download path
+app.post('/api/settings/last-download-path', ((req: Request, res: Response) => {
+  const { path } = req.body
+  if (typeof path === 'string') {
+    setLastDownloadPath(path)
+    res.json({ success: true })
+  } else {
+    res.status(400).json({ error: 'Invalid path' })
+  }
+}) as RequestHandler)
+
 // Download endpoints
 app.post('/api/download', (async (req: Request, res: Response): Promise<void> => {
   const { filePath, options, downloadPath } = req.body
@@ -127,6 +151,15 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
   // Validate options
   if (!options.threadCount || !options.sources || !Array.isArray(options.sources)) {
     res.status(400).json({ error: 'Invalid options' })
+    return
+  }
+
+  // Validate ignore options
+  if (
+    typeof options.removeFromStable !== 'boolean' ||
+    typeof options.removeFromLazer !== 'boolean'
+  ) {
+    res.status(400).json({ error: 'Invalid ignore options' })
     return
   }
 

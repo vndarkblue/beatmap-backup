@@ -10,6 +10,8 @@ import { DefaultBeatmapMirrors } from '../config/beatmapMirrors'
 import { dialog } from 'electron'
 import os from 'os'
 import { execSync } from 'child_process'
+import { getOsuStablePath } from './settingsStore'
+import { realmService } from './realmService'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PQueue = require('p-queue').default
@@ -41,6 +43,8 @@ export interface DownloadOptions {
   sources: string[]
   noVideo: boolean
   downloadPath?: string
+  removeFromStable: boolean
+  removeFromLazer: boolean
 }
 
 // Events
@@ -101,20 +105,57 @@ class DownloadService extends EventEmitter {
             return expandedPath
           }
         } catch (error) {
-          console.error('Failed to read registry for Downloads folder:', error)
+          console.warn('Failed to read registry for Downloads folder:', error)
         }
         // Fallback to default Downloads folder
         return path.join(homeDir, 'Downloads')
       case 'darwin':
-        // macOS: ~/Downloads
         return path.join(homeDir, 'Downloads')
       case 'linux':
-        // Linux: ~/Downloads
         return path.join(homeDir, 'Downloads')
       default:
-        // Fallback to current directory
-        return process.cwd()
+        return path.join(homeDir, 'Downloads')
     }
+  }
+
+  private async getExistingBeatmapsetIds(options: DownloadOptions): Promise<Set<number>> {
+    const existingIds = new Set<number>()
+
+    if (options.removeFromStable) {
+      try {
+        const osuStablePath = getOsuStablePath()
+        if (osuStablePath) {
+          const songsPath = path.join(osuStablePath, 'Songs')
+          if (fs.existsSync(songsPath)) {
+            const folders = fs.readdirSync(songsPath)
+            for (const folder of folders) {
+              const match = folder.match(/^(\d+)\s/)
+              if (match) {
+                const id = parseInt(match[1])
+                if (!isNaN(id)) {
+                  existingIds.add(id)
+                }
+              }
+            }
+            console.log('Found', existingIds.size, 'existing stable beatmapset IDs')
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to get stable beatmapset IDs:', error)
+      }
+    }
+
+    if (options.removeFromLazer) {
+      try {
+        const lazerIds = await realmService.getBeatmapsetIds()
+        lazerIds.forEach((id) => existingIds.add(id))
+        console.log('Found', lazerIds.length, 'existing lazer beatmapset IDs')
+      } catch (error) {
+        console.warn('Failed to get lazer beatmapset IDs:', error)
+      }
+    }
+
+    return existingIds
   }
 
   private validateBackupFile(content: string): void {
@@ -191,6 +232,28 @@ class DownloadService extends EventEmitter {
         .filter((line) => line.trim() && !line.startsWith('#'))
         .map((id) => id.trim())
 
+      // Get existing beatmapset IDs if ignore options are enabled
+      let existingIds = new Set<number>()
+      if (options.removeFromStable || options.removeFromLazer) {
+        existingIds = await this.getExistingBeatmapsetIds(options)
+        console.log('Found', existingIds.size, 'existing beatmapset IDs to ignore')
+      }
+
+      // Filter out existing beatmaps
+      const filteredIds = beatmapsetIds.filter((id) => {
+        const numericId = parseInt(id)
+        return !isNaN(numericId) && !existingIds.has(numericId)
+      })
+
+      console.log('Original beatmapset IDs:', beatmapsetIds.length)
+      console.log('After filtering existing:', filteredIds.length)
+      console.log('Ignored existing:', beatmapsetIds.length - filteredIds.length)
+
+      if (filteredIds.length === 0) {
+        console.log('All beatmaps already exist, no download needed')
+        return
+      }
+
       // Update queue concurrency
       this.queue.concurrency = options.threadCount
 
@@ -210,7 +273,7 @@ class DownloadService extends EventEmitter {
       await this.validateDownloadPath(downloadPath)
 
       // Add tasks to queue
-      for (const beatmapsetId of beatmapsetIds) {
+      for (const beatmapsetId of filteredIds) {
         const task: DownloadTask = {
           id: `${beatmapsetId}-${Date.now()}`,
           beatmapsetId,

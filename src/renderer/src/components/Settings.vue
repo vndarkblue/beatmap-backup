@@ -39,6 +39,14 @@
           </v-text-field>
         </v-form>
         <v-divider></v-divider>
+        <v-switch
+          v-model="rememberDownloadPath"
+          :label="$t('settings.rememberDownloadPath')"
+          color="primary"
+          class="view-field pl-2 settings-switch"
+          @update:model-value="saveRememberDownloadPath"
+        ></v-switch>
+        <v-divider></v-divider>
         <!-- Language Selection -->
         <v-select
           v-model="currentLocale"
@@ -78,6 +86,7 @@ import 'flag-icons/css/flag-icons.min.css'
 const { t, locale } = useI18n()
 const osuStablePath = ref('')
 const osuLazerPath = ref('')
+const rememberDownloadPath = ref(true)
 
 const availableLocales = computed(() =>
   Object.entries(languageNames).map(([value, text]) => ({
@@ -102,6 +111,7 @@ const loadSettings = async (): Promise<void> => {
     const data = await res.json()
     osuStablePath.value = data.osuStablePath || ''
     osuLazerPath.value = data.osuLazerPath || ''
+    rememberDownloadPath.value = data.rememberDownloadPath ?? true
   } catch (error) {
     console.error('Failed to load settings:', error)
   }
@@ -147,6 +157,15 @@ const selectOsuLazerPath = async (): Promise<void> => {
   }
 }
 
+const saveRememberDownloadPath = (remember: boolean | null): void => {
+  const value = !!remember
+  void fetch(API_ENDPOINTS.SETTINGS_REMEMBER_DOWNLOAD_PATH, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remember: value })
+  })
+}
+
 onMounted(() => {
   loadSettings()
   document.documentElement.lang = locale.value // Set initial lang attribute
@@ -161,5 +180,9 @@ onMounted(() => {
 }
 .v-divider {
   margin-bottom: 16px;
+}
+.settings-switch {
+  margin-bottom: -16px !important;
+  margin-top: -16px !important;
 }
 </style>

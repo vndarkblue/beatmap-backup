@@ -4,6 +4,7 @@
     "osuStablePath": "Đường dẫn osu!stable",
     "osuLazerPath": "Đường dẫn osu!lazer",
     "selectFolder": "Chọn thư mục",
+    "rememberDownloadPath": "Ghi nhớ vị trí tải xuống",
     "error": {
       "songsNotFound": "Không tìm thấy thư mục Songs trong đường dẫn!",
       "realmNotFound": "Không tìm thấy file client.realm trong đường dẫn!"
@@ -20,7 +21,7 @@
   },
   "download": {
     "title": "Tải xuống beatmap",
-    "selectFile": "Chọn một file (.txt)",
+    "selectFile": "Chọn một file (.bbak)",
     "dropHere": "Thả file vào đây để tải lên",
     "fileSelected": "Đã chọn file: {name}",
     "path": "Lưu vào...",

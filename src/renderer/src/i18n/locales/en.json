@@ -4,6 +4,7 @@
     "osuStablePath": "osu!stable directory",
     "osuLazerPath": "osu!lazer directory",
     "selectFolder": "Select Folder",
+    "rememberDownloadPath": "Remember download location",
     "error": {
       "songsNotFound": "The Songs folder is not found in the directory",
       "realmNotFound": "The client.realm database is not found in the directory"
@@ -20,7 +21,7 @@
   },
   "download": {
     "title": "Download beatmaps",
-    "selectFile": "Select a file (.txt)",
+    "selectFile": "Select a file (.bbak)",
     "dropHere": "Drop a file here to import",
     "fileSelected": "File selected: {name}",
     "path": "Save to...",

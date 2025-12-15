@@ -7,7 +7,6 @@ import http from 'http'
 import { URL } from 'url'
 import { BeatmapMirror } from '../config/beatmapMirrors'
 import { DefaultBeatmapMirrors } from '../config/beatmapMirrors'
-import { dialog } from 'electron'
 import os from 'os'
 import { execSync } from 'child_process'
 
@@ -523,35 +522,23 @@ class DownloadService extends EventEmitter {
   }
 
   public async pauseQueue(): Promise<void> {
+    const { getWaitForDownloadsOnPause } = await import('./settingsStore')
+    const shouldWaitForCompletion = getWaitForDownloadsOnPause()
+
     const activeDownloads = Array.from(this.tasks.values()).filter(
       (task) => task.status === 'downloading'
     )
 
-    if (activeDownloads.length > 0) {
-      const { response } = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['Wait for completion', 'Cancel downloads', 'Cancel'],
-        defaultId: 0,
-        title: 'Pause Download Queue',
-        message: 'How do you want to handle active downloads?',
-        detail:
-          'You can either wait for current downloads to complete or cancel them and add them back to the queue.'
-      })
-
-      if (response === 2) {
-        // User clicked Cancel
-        return
-      }
-
-      if (response === 1) {
-        // Cancel active downloads
-        for (const task of activeDownloads) {
-          if (task.request) {
-            task.request.destroy()
-          }
+    if (activeDownloads.length > 0 && !shouldWaitForCompletion) {
+      // Cancel active downloads and add them back to queue
+      for (const task of activeDownloads) {
+        if (task.request) {
+          task.request.destroy()
         }
       }
     }
+
+    // If shouldWaitForCompletion is true, active downloads will complete naturally
 
     this.isPaused = true
     this.emit(DownloadEvent.QUEUE_PAUSED)

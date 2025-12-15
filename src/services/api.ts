@@ -7,7 +7,9 @@ import {
   setOsuStablePath,
   setOsuLazerPath,
   getDarkMode,
-  setDarkMode
+  setDarkMode,
+  getWaitForDownloadsOnPause,
+  setWaitForDownloadsOnPause
 } from './settingsStore'
 import fs from 'fs'
 import path from 'path'
@@ -105,6 +107,20 @@ app.post('/api/settings/dark-mode', ((req: Request, res: Response) => {
     res.json({ success: true })
   } else {
     res.status(400).json({ error: 'Invalid dark mode value' })
+  }
+}) as RequestHandler)
+
+app.get('/api/settings/wait-for-downloads', ((_req: Request, res: Response) => {
+  res.json({ waitForDownloadsOnPause: getWaitForDownloadsOnPause() })
+}) as RequestHandler)
+
+app.post('/api/settings/wait-for-downloads', ((req: Request, res: Response) => {
+  const { waitForDownloadsOnPause } = req.body
+  if (typeof waitForDownloadsOnPause === 'boolean') {
+    setWaitForDownloadsOnPause(waitForDownloadsOnPause)
+    res.json({ success: true })
+  } else {
+    res.status(400).json({ error: 'Invalid wait for downloads value' })
   }
 }) as RequestHandler)
 

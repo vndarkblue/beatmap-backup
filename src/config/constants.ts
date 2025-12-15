@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
   SETTINGS_OSU_STABLE: `${API_BASE_URL}/settings/osu-stable`,
   SETTINGS_OSU_LAZER: `${API_BASE_URL}/settings/osu-lazer`,
   SETTINGS_DARK_MODE: `${API_BASE_URL}/settings/dark-mode`,
+  SETTINGS_WAIT_FOR_DOWNLOADS: `${API_BASE_URL}/settings/wait-for-downloads`,
   SETTINGS_VALIDATE_OSU_STABLE: `${API_BASE_URL}/settings/validate/osu-stable`,
   SETTINGS_VALIDATE_OSU_LAZER: `${API_BASE_URL}/settings/validate/osu-lazer`,
   MIRRORS_STATUS: `${API_BASE_URL}/mirrors/status`,

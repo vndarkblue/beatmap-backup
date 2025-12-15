@@ -20,7 +20,7 @@
   },
   "download": {
     "title": "Tải xuống beatmap",
-    "selectFile": "Chọn một file (.txt)",
+    "selectFile": "Chọn một file (.bbak)",
     "dropHere": "Thả file vào đây để tải lên",
     "fileSelected": "Đã chọn file: {name}",
     "path": "Lưu vào...",
@@ -38,7 +38,8 @@
       "unknownError": "Lỗi không xác định",
       "statusUnknown": "Trạng thái không xác định",
       "other": "Tuỳ chọn khác",
-      "noVideo": "Không tải xuống video"
+      "noVideo": "Không tải xuống video",
+      "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng"
     },
     "button": "Tải xuống",
     "started": "Bắt đầu tải xuống",
@@ -88,8 +89,7 @@
   "navigation": {
     "settings": "Thiết lập",
     "backup": "Sao lưu",
-    "download": "Nhập",
-    "downloadManager": "Quản lý tải xuống"
+    "download": "Nhập"
   },
   "theme": {
     "dark": "Chế độ tối",

@@ -3,7 +3,8 @@
     <h1 class="text-h4 mb-4" :lang="currentLocale">{{ $t('download.title') }}</h1>
     <v-card class="view-card">
       <v-card-text>
-        <v-form class="view-form">
+        <!-- Download Form - shown when not downloading -->
+        <v-form v-if="!showDownloadManager" class="view-form">
           <!-- File Selection -->
           <v-text-field
             v-model="selectedFileName"
@@ -23,132 +24,6 @@
               ></v-btn>
             </template>
           </v-text-field>
-
-          <!-- Download Options Section -->
-          <v-expansion-panels class="view-field">
-            <v-expansion-panel>
-              <v-expansion-panel-title :lang="currentLocale">
-                {{ $t('download.options.title') }}
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <!-- Thread Count -->
-                <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
-                  <div class="text-subtitle-1 mb-2 mb-sm-0 mr-sm-4 pb-6" :lang="currentLocale">
-                    {{ threadCountLabel }}
-                  </div>
-                  <v-slider
-                    v-model="threadCount"
-                    :min="1"
-                    :max="10"
-                    :step="1"
-                    thumb-label
-                    class="view-field"
-                    :lang="currentLocale"
-                    color="primary"
-                  ></v-slider>
-                </div>
-
-                <!-- Two column layout for mirrors and duplicates -->
-                <div class="d-flex flex-column flex-sm-row">
-                  <!-- Beatmap Mirrors Column -->
-                  <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0 mirrors-column">
-                    <div class="d-flex align-center justify-space-between mb-2">
-                      <div class="text-subtitle-1" :lang="currentLocale">
-                        {{ $t('download.options.beatmapMirrors') }}
-                      </div>
-                      <v-tooltip
-                        :text="t('download.options.refresh')"
-                        location="left"
-                        :disabled="isRefreshing"
-                      >
-                        <template #activator="{ props }">
-                          <v-btn
-                            v-bind="props"
-                            icon="mdi-refresh"
-                            variant="text"
-                            size="small"
-                            class="refresh-button"
-                            :loading="isRefreshing"
-                            :disabled="isRefreshing"
-                            @click="handleRefreshStatus"
-                          >
-                            <template #loader>
-                              <v-progress-circular
-                                indeterminate
-                                size="20"
-                                width="2"
-                                color="primary"
-                              ></v-progress-circular>
-                            </template>
-                          </v-btn>
-                        </template>
-                      </v-tooltip>
-                    </div>
-                    <v-switch
-                      v-for="source in beatmapMirrors"
-                      :key="source.name"
-                      v-model="selectedSources"
-                      :label="source.name"
-                      :value="source.name"
-                      class="view-field"
-                      :lang="currentLocale"
-                      color="primary"
-                      hide-details
-                    >
-                      <template #append>
-                        <v-tooltip :text="getMirrorStatusTooltip(source.name)" location="right">
-                          <template #activator="{ props }">
-                            <v-icon
-                              v-bind="props"
-                              :color="getMirrorStatusColor(source.name)"
-                              size="small"
-                            >
-                              {{ getMirrorStatusIcon(source.name) }}
-                            </v-icon>
-                          </template>
-                        </v-tooltip>
-                      </template>
-                    </v-switch>
-                  </div>
-
-                  <v-divider vertical class="mx-4 d-none d-sm-flex"></v-divider>
-
-                  <!-- Remove Duplicates & Other Options Column -->
-                  <div class="flex-grow-1">
-                    <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-                      {{ $t('download.options.ignoreExisting') }}
-                    </div>
-                    <v-checkbox
-                      v-model="removeFromStable"
-                      :label="$t('download.options.ignoreStable')"
-                      color="primary"
-                      hide-details
-                      class="view-field"
-                      :disabled="!isStablePathValid"
-                    ></v-checkbox>
-                    <v-checkbox
-                      v-model="removeFromLazer"
-                      :label="$t('download.options.ignoreLazer')"
-                      color="primary"
-                      hide-details
-                      class="view-field"
-                      :disabled="!isLazerPathValid"
-                    ></v-checkbox>
-                    <div class="text-subtitle-1 mb-4 mt-3" :lang="currentLocale">
-                      {{ $t('download.options.other') }}
-                    </div>
-                    <v-switch
-                      v-model="noVideo"
-                      :label="$t('download.options.noVideo')"
-                      color="primary"
-                      hide-details
-                      class="view-field pl-2"
-                    ></v-switch>
-                  </div>
-                </div>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
 
           <!-- Download Path -->
           <v-text-field
@@ -192,20 +67,117 @@
             {{ statusMessage }}
           </div>
         </v-form>
+
+        <!-- Download Manager - shown when downloading -->
+        <div v-else>
+          <!-- Queue Overview -->
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
+            <div class="d-flex">
+              <v-btn
+                :icon="isPaused ? 'mdi-play' : 'mdi-pause'"
+                variant="text"
+                :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
+                :lang="currentLocale"
+                @click="togglePause"
+              ></v-btn>
+              <v-btn
+                icon="mdi-stop"
+                variant="text"
+                :title="$t('downloadManager.stop')"
+                :lang="currentLocale"
+                @click="stopDownload"
+              ></v-btn>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="mb-4">
+            <div class="d-flex justify-space-between mb-2">
+              <div>{{ $t('downloadManager.progress') }}</div>
+              <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('downloadManager.files') }}</div>
+            </div>
+            <v-progress-linear
+              :model-value="queueProgress"
+              color="primary"
+              height="8"
+              rounded
+            ></v-progress-linear>
+          </div>
+
+          <!-- Files Table -->
+          <v-table>
+            <thead>
+              <tr>
+                <th>{{ $t('downloadManager.table.status') }}</th>
+                <th>{{ $t('downloadManager.table.filename') }}</th>
+                <th>{{ $t('downloadManager.table.speed') }}</th>
+                <th>{{ $t('downloadManager.table.progress') }}</th>
+                <th>{{ $t('downloadManager.table.remaining') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="file in downloadFiles" :key="file.id">
+                <td>
+                  <v-tooltip :text="getStatusText(file.status)" location="top">
+                    <template #activator="{ props }">
+                      <v-icon
+                        v-bind="props"
+                        :color="getStatusColor(file.status)"
+                        :icon="getStatusIcon(file.status)"
+                      ></v-icon>
+                    </template>
+                  </v-tooltip>
+                </td>
+                <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
+                <td>{{ formatSpeed(file.speed) }}</td>
+                <td>
+                  <v-progress-linear
+                    :model-value="file.progress"
+                    color="primary"
+                    height="4"
+                    rounded
+                  ></v-progress-linear>
+                </td>
+                <td>{{ formatTime(file.remainingTime) }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </div>
       </v-card-text>
     </v-card>
+
+    <!-- Completion Toast -->
+    <v-snackbar v-model="showCompletedToast" color="success" timeout="8000">
+      <div>
+        <strong>{{ $t('notifications.download.completed.title') }}</strong>
+        <div v-if="completedSummary">
+          {{ completedSummary.success }}/{{ completedSummary.total }} ·
+          {{ completedSummary.downloadPath || '' }}
+          <span v-if="completedSummary.failed && completedSummary.failed > 0">
+            · {{ completedSummary.failed }} failed
+          </span>
+        </div>
+      </div>
+      <template #actions>
+        <v-btn variant="text" @click="openFolder">
+          {{ $t('notifications.actions.openFolder') }}
+        </v-btn>
+        <v-btn variant="text" @click="showCompletedToast = false">
+          {{ $t('notifications.actions.dismiss') }}
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
 import { API_ENDPOINTS } from '../../../config/constants'
 
 const { locale, t } = useI18n()
-const router = useRouter()
 const currentLocale = computed(() => locale.value)
 
 // Enhanced File type for Electron
@@ -213,14 +185,32 @@ interface ElectronFile extends File {
   path: string
 }
 
-interface MirrorStatus {
-  name: string
-  isOnline: boolean
-  lastChecked: number
+// Download Task interface
+interface DownloadTask {
+  id: string
+  beatmapsetId: string
+  mirror: string
+  noVideo: boolean
+  status: 'waiting' | 'downloading' | 'completed' | 'error'
+  progress: number
+  speed: number
+  remainingTime: number
   error?: string
+  downloadPath?: string
+  fileName?: string
+  filePath?: string
 }
 
-// Form data
+// Queue Summary interface
+type QueueSummary = {
+  total: number
+  success: number
+  failed: number
+  downloadPath?: string
+  durationMs?: number
+}
+
+// Download Form State
 const selectedFile = ref<ElectronFile | null>(null)
 const selectedFileName = ref('')
 const threadCount = ref(5)
@@ -231,48 +221,25 @@ const isSuccess = ref(false)
 const removeFromStable = ref(false)
 const removeFromLazer = ref(false)
 const noVideo = ref(false)
-const mirrorStatuses = ref<MirrorStatus[]>([])
-
-// Add osu paths state
-const osuStablePath = ref('')
-const osuLazerPath = ref('')
-
-// Computed properties for checkbox states
-const isStablePathValid = computed(() => !!osuStablePath.value)
-const isLazerPathValid = computed(() => !!osuLazerPath.value)
 
 // Load beatmap mirrors from backend
 const beatmapMirrors = ref(DefaultBeatmapMirrors)
 const selectedSources = ref<string[]>(DefaultBeatmapMirrors.map((source) => source.name))
 
-// Add these to the script section:
-const isRefreshing = ref(false)
-let refreshTimeout: number | null = null
+// Download Manager State
+const showDownloadManager = ref(false)
+const isPaused = ref(false)
+const completedFiles = ref(0)
+const totalFiles = ref(0)
+const queueProgress = ref(0)
+const downloadFiles = ref<DownloadTask[]>([])
+const showCompletedToast = ref(false)
+const completedSummary = ref<QueueSummary | null>(null)
+
+// SSE connection
+let eventSource: EventSource | null = null
 
 // Load mirror statuses
-const loadMirrorStatuses = async (): Promise<void> => {
-  try {
-    const response = await fetch(API_ENDPOINTS.MIRRORS_STATUS)
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    const contentType = response.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Server did not return JSON')
-    }
-    mirrorStatuses.value = await response.json()
-  } catch (error) {
-    console.error('Failed to load mirror statuses:', error)
-    // Set all mirrors to unknown status
-    mirrorStatuses.value = beatmapMirrors.value.map((mirror) => ({
-      name: mirror.name,
-      isOnline: false,
-      lastChecked: Date.now(),
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }))
-  }
-}
-
 // Save to localStorage
 const saveToLocalStorage = (): void => {
   const settings = {
@@ -312,19 +279,8 @@ const loadSettings = async (): Promise<void> => {
       beatmapMirrors.value = data.beatmapMirrors
     }
 
-    // Update osu paths
-    osuStablePath.value = data.osuStablePath || ''
-    osuLazerPath.value = data.osuLazerPath || ''
-
     // Load download options from localStorage
     loadFromLocalStorage()
-
-    console.log('Loaded settings:', {
-      threadCount: threadCount.value,
-      selectedSources: selectedSources.value,
-      osuStablePath: osuStablePath.value,
-      osuLazerPath: osuLazerPath.value
-    })
   } catch (error) {
     console.error('Failed to load settings:', error)
     // If backend load fails, use default mirrors and localStorage settings
@@ -340,22 +296,12 @@ watch([threadCount, selectedSources, removeFromStable, removeFromLazer, noVideo]
 // Make sure settings are loaded when component is mounted
 onMounted(() => {
   loadSettings()
-  loadMirrorStatuses()
-  // Refresh status every 5 minutes
-  const intervalId = setInterval(loadMirrorStatuses, 5 * 60 * 1000)
-
-  // Cleanup on unmount
-  onUnmounted(() => {
-    clearInterval(intervalId)
-    if (refreshTimeout !== null) {
-      clearTimeout(refreshTimeout)
-    }
-  })
+  // Check if there's an active download queue
+  connectSSE()
 })
 
-// Computed label for thread count
-const threadCountLabel = computed(() => {
-  return `${t('download.options.threadCount')}: ${threadCount.value}`
+onUnmounted(() => {
+  disconnectSSE()
 })
 
 // Computed properties
@@ -456,8 +402,9 @@ const handleDownload = async (): Promise<void> => {
 
     isSuccess.value = true
     statusMessage.value = t('download.started')
-    // Navigate to DownloadManager after successful start
-    await router.push({ name: 'download-manager' })
+    // Show download manager instead of navigating
+    showDownloadManager.value = true
+    connectSSE()
   } catch (error) {
     console.error('Download failed:', error)
     isSuccess.value = false
@@ -467,45 +414,247 @@ const handleDownload = async (): Promise<void> => {
   }
 }
 
-const getMirrorStatus = (mirrorName: string): MirrorStatus | undefined => {
-  return mirrorStatuses.value.find((status) => status.name === mirrorName)
+// Download Manager Methods
+
+// Status helpers
+const getStatusIcon = (status: string): string => {
+  switch (status) {
+    case 'waiting':
+      return 'mdi-clock-outline'
+    case 'downloading':
+      return 'mdi-download'
+    case 'completed':
+      return 'mdi-check-circle'
+    case 'error':
+      return 'mdi-alert-circle'
+    default:
+      return 'mdi-help-circle'
+  }
 }
 
-const getMirrorStatusColor = (mirrorName: string): string => {
-  const status = getMirrorStatus(mirrorName)
-  if (!status) return 'grey'
-  return status.isOnline ? 'success' : 'error'
+const getStatusColor = (status: string): string => {
+  switch (status) {
+    case 'waiting':
+      return 'grey'
+    case 'downloading':
+      return 'primary'
+    case 'completed':
+      return 'success'
+    case 'error':
+      return 'error'
+    default:
+      return 'grey'
+  }
 }
 
-const getMirrorStatusIcon = (mirrorName: string): string => {
-  const status = getMirrorStatus(mirrorName)
-  if (!status) return 'mdi-help-circle'
-  return status.isOnline ? 'mdi-check-circle' : 'mdi-alert-circle'
+const getStatusText = (status: string): string => {
+  switch (status) {
+    case 'waiting':
+      return t('downloadManager.status.waiting')
+    case 'downloading':
+      return t('downloadManager.status.downloading')
+    case 'completed':
+      return t('downloadManager.status.completed')
+    case 'error':
+      return t('downloadManager.status.error')
+    default:
+      return t('downloadManager.status.unknown')
+  }
 }
 
-const getMirrorStatusTooltip = (mirrorName: string): string => {
-  const status = getMirrorStatus(mirrorName)
-  if (!status) return t('download.options.statusUnknown')
-  if (status.isOnline) return t('download.options.online')
-  return `${t('download.options.offline')}: ${status.error || t('download.options.unknownError')}`
+// Format helpers
+const formatSpeed = (speed: number): string => {
+  if (speed === 0) return '0 B/s'
+  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
+  const i = Math.floor(Math.log(speed) / Math.log(1024))
+  return `${(speed / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
 }
 
-const handleRefreshStatus = async (): Promise<void> => {
-  if (isRefreshing.value) return
+const formatTime = (seconds: number): string => {
+  if (seconds === 0) return '--:--'
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+}
 
-  // Clear any existing timeout
-  if (refreshTimeout !== null) {
-    clearTimeout(refreshTimeout)
+// Update download state
+const updateDownloadState = (tasks: DownloadTask[]): void => {
+  downloadFiles.value = tasks
+  totalFiles.value = tasks.length
+  completedFiles.value = tasks.filter((task) => task.status === 'completed').length
+  queueProgress.value = totalFiles.value > 0 ? (completedFiles.value / totalFiles.value) * 100 : 0
+  // Show download manager if there are active tasks
+  showDownloadManager.value = totalFiles.value > 0
+}
+
+// Action handlers
+const togglePause = async (): Promise<void> => {
+  try {
+    const endpoint = isPaused.value ? API_ENDPOINTS.DOWNLOAD_RESUME : API_ENDPOINTS.DOWNLOAD_PAUSE
+    const response = await fetch(endpoint, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error('Failed to toggle pause state')
+    }
+  } catch (error) {
+    console.error('Failed to toggle pause:', error)
+  }
+}
+
+const stopDownload = async (): Promise<void> => {
+  try {
+    const response = await fetch(API_ENDPOINTS.DOWNLOAD_STOP, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error('Failed to stop download')
+    }
+  } catch (error) {
+    console.error('Failed to stop download:', error)
+  }
+}
+
+const openFolder = async (): Promise<void> => {
+  const dir = completedSummary.value?.downloadPath
+  const electronAPI = (
+    window as unknown as {
+      electronAPI?: { openPath?: (p: string) => Promise<string> }
+    }
+  ).electronAPI
+  if (!dir || !electronAPI?.openPath) return
+  try {
+    const result = await electronAPI.openPath(dir)
+    if (result) {
+      console.error('Failed to open folder:', result)
+    }
+  } catch (e) {
+    console.error('Failed to open folder:', e)
+  }
+}
+
+// SSE setup
+const connectSSE = (): void => {
+  if (eventSource) {
+    console.log('SSE connection already exists')
+    return
   }
 
-  isRefreshing.value = true
-  try {
-    await loadMirrorStatuses()
-  } finally {
-    refreshTimeout = window.setTimeout(() => {
-      isRefreshing.value = false
-      refreshTimeout = null
-    }, 1000)
+  console.log('Creating new SSE connection')
+  eventSource = new EventSource(API_ENDPOINTS.DOWNLOAD_EVENTS)
+
+  eventSource.addEventListener('initialState', (e) => {
+    try {
+      const data = JSON.parse(e.data)
+      // Check if data is an array of tasks
+      if (Array.isArray(data)) {
+        updateDownloadState(data)
+      } else {
+        console.warn('Invalid initialState data format:', data)
+        updateDownloadState([])
+      }
+    } catch (error) {
+      console.error('Failed to parse initialState:', error)
+      updateDownloadState([])
+    }
+  })
+
+  eventSource.addEventListener('taskAdded', (e) => {
+    try {
+      const task = JSON.parse(e.data)
+      downloadFiles.value = [...downloadFiles.value, task]
+      updateDownloadState(downloadFiles.value)
+    } catch (error) {
+      console.error('Failed to parse taskAdded:', error)
+    }
+  })
+
+  eventSource.addEventListener('taskUpdated', (e) => {
+    try {
+      const updatedTask = JSON.parse(e.data)
+      const index = downloadFiles.value.findIndex((t) => t.id === updatedTask.id)
+      if (index !== -1) {
+        downloadFiles.value[index] = updatedTask
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse taskUpdated:', error)
+    }
+  })
+
+  eventSource.addEventListener('taskCompleted', (e) => {
+    try {
+      const completedTask = JSON.parse(e.data)
+      const index = downloadFiles.value.findIndex((t) => t.id === completedTask.id)
+      if (index !== -1) {
+        downloadFiles.value[index] = completedTask
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse taskCompleted:', error)
+    }
+  })
+
+  eventSource.addEventListener('taskError', (e) => {
+    try {
+      const errorTask = JSON.parse(e.data)
+      const index = downloadFiles.value.findIndex((t) => t.id === errorTask.id)
+      if (index !== -1) {
+        downloadFiles.value[index] = errorTask
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse taskError:', error)
+    }
+  })
+
+  eventSource.addEventListener('queuePaused', () => {
+    isPaused.value = true
+  })
+
+  eventSource.addEventListener('queueResumed', () => {
+    isPaused.value = false
+  })
+
+  eventSource.addEventListener('queueCleared', () => {
+    showDownloadManager.value = false
+    isPaused.value = false
+    completedFiles.value = 0
+    totalFiles.value = 0
+    queueProgress.value = 0
+    downloadFiles.value = []
+    // Close SSE connection when queue is cleared
+    disconnectSSE()
+  })
+
+  eventSource.addEventListener('queueCompleted', (e) => {
+    try {
+      const summary = JSON.parse(e.data)
+      completedSummary.value = summary
+      showCompletedToast.value = true
+    } catch (error) {
+      console.error('Failed to parse queueCompleted:', error)
+    }
+  })
+
+  eventSource.onerror = (error) => {
+    console.error('SSE error:', error)
+    // Only try to reconnect if we're still showing download manager
+    if (showDownloadManager.value) {
+      setTimeout(() => {
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+          connectSSE()
+        }
+      }, 5000)
+    } else {
+      disconnectSSE()
+    }
+  }
+}
+
+const disconnectSSE = (): void => {
+  if (eventSource) {
+    console.log('Closing SSE connection')
+    eventSource.close()
+    eventSource = null
   }
 }
 </script>
@@ -523,8 +672,5 @@ const handleRefreshStatus = async (): Promise<void> => {
   position: relative;
   min-height: 100%;
   width: 100%;
-}
-.refresh-button {
-  margin-right: -10px !important;
 }
 </style>

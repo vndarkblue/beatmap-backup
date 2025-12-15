@@ -2,7 +2,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Settings from './components/Settings.vue'
 import Backup from './components/Backup.vue'
 import Download from './components/Download.vue'
-import DownloadManager from './components/DownloadManager.vue'
 
 // Define route types
 export interface RouteItem {
@@ -31,12 +30,6 @@ export const routes: RouteItem[] = [
     icon: 'mdi-download',
     to: '/download',
     name: 'download'
-  },
-  {
-    title: 'navigation.downloadManager',
-    icon: 'mdi-download-multiple',
-    to: '/download-manager',
-    name: 'download-manager'
   }
 ]
 
@@ -61,17 +54,12 @@ const router = createRouter({
       path: '/download',
       name: 'download',
       component: Download
-    },
-    {
-      path: '/download-manager',
-      name: 'download-manager',
-      component: DownloadManager
     }
   ]
 })
 
 // Add navigation guard to ensure proper route handling
-router.beforeEach((to, from, next) => {
+router.beforeEach((_to, _from, next) => {
   // Force a small delay to ensure proper state updates
   setTimeout(() => {
     next()

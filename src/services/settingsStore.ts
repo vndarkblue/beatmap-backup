@@ -6,6 +6,7 @@ interface Settings {
   isDarkMode: boolean
   downloadThreadCount: number
   selectedMirrors: string[]
+  waitForDownloadsOnPause: boolean
 }
 
 const defaultSettings: Settings = {
@@ -13,7 +14,8 @@ const defaultSettings: Settings = {
   osuLazerPath: '',
   isDarkMode: false,
   downloadThreadCount: 5,
-  selectedMirrors: []
+  selectedMirrors: [],
+  waitForDownloadsOnPause: true
 }
 
 // @ts-ignore - Store type definition is incomplete in electron-store package
@@ -28,7 +30,8 @@ export const getSettings = (): Settings => {
     osuLazerPath: settingsStore.get('osuLazerPath', ''),
     isDarkMode: settingsStore.get('isDarkMode', false),
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
-    selectedMirrors: settingsStore.get('selectedMirrors', [])
+    selectedMirrors: settingsStore.get('selectedMirrors', []),
+    waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true)
   }
 }
 
@@ -70,4 +73,12 @@ export const getSelectedMirrors = (): string[] => {
 
 export const setSelectedMirrors = (mirrors: string[]): void => {
   settingsStore.set('selectedMirrors', mirrors)
+}
+
+export const getWaitForDownloadsOnPause = (): boolean => {
+  return settingsStore.get('waitForDownloadsOnPause', true)
+}
+
+export const setWaitForDownloadsOnPause = (wait: boolean): void => {
+  settingsStore.set('waitForDownloadsOnPause', wait)
 }

@@ -42,3 +42,6 @@ release/
 *.tmp
 *.temp
 repomix-output.xml
+
+# Project notes
+notes.md

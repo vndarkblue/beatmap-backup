@@ -283,3 +283,14 @@ html, body, #app {
 .v-slider__label{
   opacity: 1 !important;
 }
+
+.text-success {
+  color: #4caf50;
+}
+.text-error {
+  color: #f44336;
+}
+
+.text-h6 {
+  font-family: var(--font-default) !important;
+}

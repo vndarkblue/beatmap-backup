@@ -146,7 +146,6 @@ onMounted(() => {
 </script>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
 .v-navigation-drawer {
   transition: width 0.2s ease-in-out !important;
   background: var(--v-theme-background) !important;

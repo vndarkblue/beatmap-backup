@@ -1,6 +1,8 @@
 {
   "settings": {
+    "general": "Tổng quan",
     "title": "Thiết lập",
+    "download": "Tải xuống",
     "osuStablePath": "Đường dẫn osu!stable",
     "osuLazerPath": "Đường dẫn osu!lazer",
     "selectFolder": "Chọn thư mục",
@@ -44,7 +46,8 @@
     },
     "button": "Tải xuống",
     "started": "Bắt đầu tải xuống",
-    "success": "Đã tải xuống thành công {count} beatmap",
+    "finished": "Đã tải {success} beatmap",
+    "finishedWithErrors": "Đã tải {success}/{total} beatmap · {failed} thất bại",
     "errors": {
       "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .txt",
       "getFilePath": "Không thể lấy đường dẫn file",
@@ -143,6 +146,8 @@
     "pause": "Tạm dừng",
     "resume": "Tiếp tục",
     "stop": "Dừng Tải xuống",
+    "stopConfirmYes": "Xác nhận dừng",
+    "stopConfirmNo": "Huỷ",
     "table": {
       "status": "Trạng thái",
       "filename": "Tên tệp",

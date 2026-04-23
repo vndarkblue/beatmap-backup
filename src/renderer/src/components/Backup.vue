@@ -58,18 +58,10 @@ const isExporting = ref(false)
 const statusMessage = ref('')
 const isSuccess = ref(false)
 
-interface ExportError extends Error {
-  message: string
-}
-
 const handleExport = async (): Promise<void> => {
   if (!isButtonEnabled.value) return
 
   try {
-    console.log('Starting export with options:', {
-      stable: stableBackup.value,
-      lazer: lazerBackup.value
-    })
     isExporting.value = true
     statusMessage.value = ''
 
@@ -77,7 +69,6 @@ const handleExport = async (): Promise<void> => {
       stable: stableBackup.value,
       lazer: lazerBackup.value
     })
-    console.log('Export response:', response)
 
     if (!response?.success) {
       if (response?.error === 'cancelled') {
@@ -89,25 +80,13 @@ const handleExport = async (): Promise<void> => {
     isSuccess.value = true
     statusMessage.value = t('backup.success', { count: response.count })
   } catch (error: unknown) {
-    console.error('Export failed in component:', error)
     isSuccess.value = false
-    const exportError = error as ExportError
-    statusMessage.value =
-      exportError.message === 'cancelled'
-        ? t('backup.cancelled')
-        : exportError.message || t('backup.error')
+    const msg = error instanceof Error ? error.message : t('backup.error')
+    statusMessage.value = msg === 'cancelled' ? t('backup.cancelled') : msg
   } finally {
     isExporting.value = false
   }
 }
 </script>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
-.text-success {
-  color: #4caf50;
-}
-.text-error {
-  color: #f44336;
-}
-</style>
+<style scoped></style>

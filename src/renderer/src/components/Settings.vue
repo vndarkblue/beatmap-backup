@@ -276,9 +276,19 @@ const selectOsuLazerPath = async (): Promise<void> => {
 }
 
 // Watch for download settings changes and save to localStorage
-watch([threadCount, selectedSources, removeFromStable, removeFromLazer, noVideo, waitForDownloadsOnPause], () => {
-  saveDownloadSettings()
-})
+watch(
+  [
+    threadCount,
+    selectedSources,
+    removeFromStable,
+    removeFromLazer,
+    noVideo,
+    waitForDownloadsOnPause
+  ],
+  () => {
+    saveDownloadSettings()
+  }
+)
 
 // Watch waitForDownloadsOnPause and sync to backend
 watch(waitForDownloadsOnPause, async (newValue) => {

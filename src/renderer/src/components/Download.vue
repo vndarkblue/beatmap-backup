@@ -33,7 +33,7 @@
             readonly
             class="view-field"
             clearable
-            @click:clear="downloadPath = ''"
+            @click:clear="clearDownloadPath"
           >
             <template #append>
               <v-btn
@@ -279,6 +279,25 @@ const loadSettings = async (): Promise<void> => {
       beatmapMirrors.value = data.beatmapMirrors
     }
 
+    // Load download path from backend
+    try {
+      const downloadPathRes = await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH)
+      const downloadPathData = await downloadPathRes.json()
+      if (downloadPathData.downloadPath) {
+        downloadPath.value = downloadPathData.downloadPath
+        // Validate the loaded path
+        const validation = await validateDownloadPath(downloadPath.value)
+        if (!validation.valid) {
+          // Clear invalid path and show warning
+          downloadPath.value = ''
+          await saveDownloadPath('')
+          console.warn('Loaded download path is invalid:', validation.error)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load download path:', error)
+    }
+
     // Load download options from localStorage
     loadFromLocalStorage()
   } catch (error) {
@@ -334,6 +353,46 @@ const selectDownloadPath = async (): Promise<void> => {
   const dir = await window.electronAPI.selectDirectory()
   if (dir) {
     downloadPath.value = dir
+    // Save download path to settings
+    await saveDownloadPath(dir)
+  }
+}
+
+const clearDownloadPath = async (): Promise<void> => {
+  downloadPath.value = ''
+  // Save empty download path to settings
+  await saveDownloadPath('')
+}
+
+const saveDownloadPath = async (path: string): Promise<void> => {
+  try {
+    await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    })
+  } catch (error) {
+    console.error('Failed to save download path:', error)
+  }
+}
+
+const validateDownloadPath = async (
+  path: string
+): Promise<{ valid: boolean; error: string | null }> => {
+  if (!path || path.trim().length === 0) {
+    // Empty path is valid (will use default path)
+    return { valid: true, error: null }
+  }
+
+  try {
+    const response = await fetch(
+      `${API_ENDPOINTS.SETTINGS_VALIDATE_DOWNLOAD_PATH}?path=${encodeURIComponent(path)}`
+    )
+    const data = await response.json()
+    return { valid: data.valid, error: data.error || null }
+  } catch (error) {
+    console.error('Failed to validate download path:', error)
+    return { valid: false, error: t('download.errors.downloadPathInvalid') }
   }
 }
 
@@ -348,6 +407,32 @@ const handleDownload = async (): Promise<void> => {
     const filePath = selectedFile.value?.path
     if (!filePath) {
       throw new Error('Could not get file path')
+    }
+
+    // Validate download path if provided
+    if (downloadPath.value && downloadPath.value.trim().length > 0) {
+      const validation = await validateDownloadPath(downloadPath.value)
+      if (!validation.valid) {
+        let errorMessage = t('download.errors.downloadPathInvalid')
+        if (validation.error) {
+          // Map backend error messages to i18n keys
+          if (validation.error.includes('does not exist')) {
+            errorMessage = t('download.errors.downloadPathNotExist')
+          } else if (validation.error.includes('not a directory')) {
+            errorMessage = t('download.errors.downloadPathNotDirectory')
+          } else if (
+            validation.error.includes('write permission') ||
+            validation.error.includes('No write permission')
+          ) {
+            errorMessage = t('download.errors.downloadPathNoPermission')
+          } else {
+            errorMessage = validation.error
+          }
+        }
+        isSuccess.value = false
+        statusMessage.value = errorMessage
+        return
+      }
     }
 
     // Prepare download data
@@ -379,7 +464,7 @@ const handleDownload = async (): Promise<void> => {
     })
 
     if (!response.ok) {
-      let errorMessage = t('download.error')
+      let errorMessage = t('download.errors.downloadPathInvalid')
       try {
         const errorData = await response.json()
         errorMessage = errorData.error || errorMessage
@@ -408,7 +493,8 @@ const handleDownload = async (): Promise<void> => {
   } catch (error) {
     console.error('Download failed:', error)
     isSuccess.value = false
-    statusMessage.value = error instanceof Error ? error.message : t('download.error')
+    statusMessage.value =
+      error instanceof Error ? error.message : t('download.errors.downloadPathInvalid')
   } finally {
     isDownloading.value = false
   }

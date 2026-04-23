@@ -9,7 +9,9 @@ import {
   getDarkMode,
   setDarkMode,
   getWaitForDownloadsOnPause,
-  setWaitForDownloadsOnPause
+  setWaitForDownloadsOnPause,
+  getDownloadPath,
+  setDownloadPath
 } from './settingsStore'
 import fs from 'fs'
 import path from 'path'
@@ -121,6 +123,59 @@ app.post('/api/settings/wait-for-downloads', ((req: Request, res: Response) => {
     res.json({ success: true })
   } else {
     res.status(400).json({ error: 'Invalid wait for downloads value' })
+  }
+}) as RequestHandler)
+
+app.get('/api/settings/download-path', ((_req: Request, res: Response) => {
+  res.json({ downloadPath: getDownloadPath() })
+}) as RequestHandler)
+
+app.post('/api/settings/download-path', ((req: Request, res: Response) => {
+  const { path } = req.body
+  if (typeof path === 'string') {
+    setDownloadPath(path)
+    res.json({ success: true })
+  } else {
+    res.status(400).json({ error: 'Invalid download path' })
+  }
+}) as RequestHandler)
+
+app.get('/api/settings/validate/download-path', (async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const downloadPath = req.query.path as string | undefined
+  if (!downloadPath || downloadPath.trim().length === 0) {
+    res.json({ valid: false, error: 'No path provided' })
+    return
+  }
+
+  try {
+    // Check if path exists
+    if (!fs.existsSync(downloadPath)) {
+      res.json({ valid: false, error: 'Download path does not exist' })
+      return
+    }
+
+    // Check if path is a directory
+    const stats = await fs.promises.stat(downloadPath)
+    if (!stats.isDirectory()) {
+      res.json({ valid: false, error: 'Download path is not a directory' })
+      return
+    }
+
+    // Check write permission
+    try {
+      await fs.promises.access(downloadPath, fs.constants.W_OK)
+      res.json({ valid: true, error: null })
+    } catch {
+      res.json({ valid: false, error: 'No write permission in download path' })
+    }
+  } catch (error) {
+    res.json({
+      valid: false,
+      error: error instanceof Error ? error.message : 'Path validation failed'
+    })
   }
 }) as RequestHandler)
 

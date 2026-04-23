@@ -7,6 +7,7 @@ interface Settings {
   downloadThreadCount: number
   selectedMirrors: string[]
   waitForDownloadsOnPause: boolean
+  downloadPath: string
 }
 
 const defaultSettings: Settings = {
@@ -15,7 +16,8 @@ const defaultSettings: Settings = {
   isDarkMode: false,
   downloadThreadCount: 5,
   selectedMirrors: [],
-  waitForDownloadsOnPause: true
+  waitForDownloadsOnPause: true,
+  downloadPath: ''
 }
 
 // @ts-ignore - Store type definition is incomplete in electron-store package
@@ -31,7 +33,8 @@ export const getSettings = (): Settings => {
     isDarkMode: settingsStore.get('isDarkMode', false),
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
     selectedMirrors: settingsStore.get('selectedMirrors', []),
-    waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true)
+    waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true),
+    downloadPath: settingsStore.get('downloadPath', '')
   }
 }
 
@@ -81,4 +84,12 @@ export const getWaitForDownloadsOnPause = (): boolean => {
 
 export const setWaitForDownloadsOnPause = (wait: boolean): void => {
   settingsStore.set('waitForDownloadsOnPause', wait)
+}
+
+export const getDownloadPath = (): string => {
+  return settingsStore.get('downloadPath', '')
+}
+
+export const setDownloadPath = (path: string): void => {
+  settingsStore.set('downloadPath', path)
 }

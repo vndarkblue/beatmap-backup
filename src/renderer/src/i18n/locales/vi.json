@@ -44,11 +44,90 @@
     "button": "Tải xuống",
     "started": "Bắt đầu tải xuống",
     "success": "Đã tải xuống thành công {count} beatmap",
-    "error": {
+    "errors": {
       "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .txt",
-      "getFilePath": "Không thể lấy đường dẫn file"
+      "getFilePath": "Không thể lấy đường dẫn file",
+      "downloadPathNotExist": "Đường dẫn tải xuống không tồn tại",
+      "downloadPathNotDirectory": "Đường dẫn tải xuống không phải là thư mục",
+      "downloadPathNoPermission": "Không có quyền ghi vào đường dẫn tải xuống",
+      "downloadPathInvalid": "Đường dẫn tải xuống không hợp lệ"
     },
     "cancelled": "Đã huỷ tải xuống"
+  },
+  "filter": {
+    "title": "Lọc Beatmap",
+    "gameMode": "Chế độ (Game Mode)",
+    "difficulty": "Độ khó (Difficulty)",
+    "status": "Trạng thái",
+    "statusOptions": {
+      "any": "Bất kỳ",
+      "ranked": "Đã được xếp hạng",
+      "loved": "Được yêu thích",
+      "hasLeaderboard": "Có Bảng xếp hạng",
+      "approved": "Được chấp nhận",
+      "unranked": "Chưa được xếp hạng",
+      "wip": "Chưa hoàn thành",
+      "pending": "Đang chờ",
+      "graveyard": "Đắp mộ"
+    },
+    "stars": "Độ khó (Stars)",
+    "bpm": "Nhịp độ (BPM)",
+    "cs": "CS",
+    "keys": "Số phím",
+    "ar": "AR",
+    "hp": "HP",
+    "od": "OD",
+    "beatmapInfo": "Thông tin Beatmap",
+    "artist": "Nghệ sĩ",
+    "mapTitle": "Tiêu đề",
+    "mapper": "Người tạo map",
+    "length": "Thời lượng",
+    "drainLength": "Thời gian chơi (Drain)",
+    "maxCombo": "Combo tối đa",
+    "metadata": "Siêu dữ liệu (Metadata)",
+    "genre": "Thể loại",
+    "language": "Ngôn ngữ",
+    "source": "Nguồn",
+    "tags": "Thẻ (Tags)",
+    "genreOptions": {
+      "any": "Bất kỳ",
+      "unspecified": "Không chỉ định",
+      "videoGame": "Video Game",
+      "anime": "Anime",
+      "rock": "Rock",
+      "pop": "Pop",
+      "other": "Khác",
+      "novelty": "Novelty",
+      "hipHop": "Hip Hop",
+      "electronic": "Electronic",
+      "metal": "Metal",
+      "classical": "Classical",
+      "folk": "Folk",
+      "jazz": "Jazz"
+    },
+    "languageOptions": {
+      "any": "Bất kỳ",
+      "english": "Tiếng Anh",
+      "japanese": "Tiếng Nhật",
+      "chinese": "Tiếng Trung",
+      "instrumental": "Nhạc cụ",
+      "korean": "Tiếng Hàn",
+      "french": "Tiếng Pháp",
+      "german": "Tiếng Đức",
+      "swedish": "Tiếng Thụy Điển",
+      "spanish": "Tiếng Tây Ban Nha",
+      "italian": "Tiếng Ý",
+      "russian": "Tiếng Nga",
+      "polish": "Tiếng Ba Lan",
+      "other": "Khác"
+    },
+    "resetAll": "Khôi phục gốc",
+    "applyFilter": "Áp dụng",
+    "min": "Tối thiểu",
+    "max": "Tối đa",
+    "seconds": "s",
+    "addTag": "Thêm thẻ...",
+    "addTagHint": "Nhấn Enter để thêm thẻ"
   },
   "downloadManager": {
     "title": "Quản lý Tải xuống",
@@ -89,7 +168,8 @@
   "navigation": {
     "settings": "Thiết lập",
     "backup": "Sao lưu",
-    "download": "Nhập"
+    "download": "Nhập",
+    "beatmapFilter": "Lọc Beatmap"
   },
   "theme": {
     "dark": "Chế độ tối",

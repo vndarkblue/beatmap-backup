@@ -42,6 +42,9 @@ release/
 *.tmp
 *.temp
 repomix-output.xml
+.eslintcache
+.specstory
+.cursorindexingignore
 
 # Project notes
 notes.md

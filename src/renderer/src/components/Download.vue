@@ -79,14 +79,33 @@
                 variant="text"
                 :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
                 :lang="currentLocale"
+                :disabled="confirmingStop"
                 @click="togglePause"
               ></v-btn>
+              <template v-if="confirmingStop">
+                <v-btn
+                  icon="mdi-check"
+                  variant="text"
+                  color="error"
+                  :title="$t('downloadManager.stopConfirmYes')"
+                  :lang="currentLocale"
+                  @click="confirmStopDownload"
+                ></v-btn>
+                <v-btn
+                  icon="mdi-close"
+                  variant="text"
+                  :title="$t('downloadManager.stopConfirmNo')"
+                  :lang="currentLocale"
+                  @click="cancelStopDownload"
+                ></v-btn>
+              </template>
               <v-btn
+                v-else
                 icon="mdi-stop"
                 variant="text"
                 :title="$t('downloadManager.stop')"
                 :lang="currentLocale"
-                @click="stopDownload"
+                @click="requestStopDownload"
               ></v-btn>
             </div>
           </div>
@@ -172,10 +191,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
 import { API_ENDPOINTS } from '../../../config/constants'
+import { useDownloadSettings } from '../composables/useDownloadSettings'
 
 const { locale, t } = useI18n()
 const currentLocale = computed(() => locale.value)
@@ -210,25 +230,31 @@ type QueueSummary = {
   durationMs?: number
 }
 
+// Download settings from composable
+const {
+  threadCount,
+  selectedSources,
+  removeFromStable,
+  removeFromLazer,
+  noVideo,
+  load: loadDownloadSettings
+} = useDownloadSettings()
+
 // Download Form State
 const selectedFile = ref<ElectronFile | null>(null)
 const selectedFileName = ref('')
-const threadCount = ref(5)
 const downloadPath = ref('')
 const isDownloading = ref(false)
 const statusMessage = ref('')
 const isSuccess = ref(false)
-const removeFromStable = ref(false)
-const removeFromLazer = ref(false)
-const noVideo = ref(false)
 
 // Load beatmap mirrors from backend
 const beatmapMirrors = ref(DefaultBeatmapMirrors)
-const selectedSources = ref<string[]>(DefaultBeatmapMirrors.map((source) => source.name))
 
 // Download Manager State
 const showDownloadManager = ref(false)
 const isPaused = ref(false)
+const confirmingStop = ref(false)
 const completedFiles = ref(0)
 const totalFiles = ref(0)
 const queueProgress = ref(0)
@@ -239,56 +265,23 @@ const completedSummary = ref<QueueSummary | null>(null)
 // SSE connection
 let eventSource: EventSource | null = null
 
-// Load mirror statuses
-// Save to localStorage
-const saveToLocalStorage = (): void => {
-  const settings = {
-    threadCount: threadCount.value,
-    selectedSources: selectedSources.value,
-    removeFromStable: removeFromStable.value,
-    removeFromLazer: removeFromLazer.value,
-    noVideo: noVideo.value
-  }
-  localStorage.setItem('downloadSettings', JSON.stringify(settings))
-}
-
-// Load from localStorage
-const loadFromLocalStorage = (): void => {
-  const savedSettings = localStorage.getItem('downloadSettings')
-  if (savedSettings) {
-    const settings = JSON.parse(savedSettings)
-    threadCount.value = settings.threadCount ?? 5
-    selectedSources.value = settings.selectedSources?.length
-      ? settings.selectedSources
-      : beatmapMirrors.value.map((source) => source.name)
-    removeFromStable.value = settings.removeFromStable || false
-    removeFromLazer.value = settings.removeFromLazer || false
-    noVideo.value = settings.noVideo || false
-  }
-}
-
 // Load settings
 const loadSettings = async (): Promise<void> => {
   try {
-    // Load beatmap mirrors from backend
     const res = await fetch(API_ENDPOINTS.SETTINGS)
     const data = await res.json()
 
-    // Update beatmap mirrors if available
     if (data.beatmapMirrors && Array.isArray(data.beatmapMirrors)) {
       beatmapMirrors.value = data.beatmapMirrors
     }
 
-    // Load download path from backend
     try {
       const downloadPathRes = await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH)
       const downloadPathData = await downloadPathRes.json()
       if (downloadPathData.downloadPath) {
         downloadPath.value = downloadPathData.downloadPath
-        // Validate the loaded path
         const validation = await validateDownloadPath(downloadPath.value)
         if (!validation.valid) {
-          // Clear invalid path and show warning
           downloadPath.value = ''
           await saveDownloadPath('')
           console.warn('Loaded download path is invalid:', validation.error)
@@ -298,19 +291,12 @@ const loadSettings = async (): Promise<void> => {
       console.error('Failed to load download path:', error)
     }
 
-    // Load download options from localStorage
-    loadFromLocalStorage()
+    loadDownloadSettings()
   } catch (error) {
     console.error('Failed to load settings:', error)
-    // If backend load fails, use default mirrors and localStorage settings
-    loadFromLocalStorage()
+    loadDownloadSettings()
   }
 }
-
-// Watch for changes and save to localStorage only
-watch([threadCount, selectedSources, removeFromStable, removeFromLazer, noVideo], () => {
-  saveToLocalStorage()
-})
 
 // Make sure settings are loaded when component is mounted
 onMounted(() => {
@@ -335,11 +321,7 @@ const handleFileSelect = async (): Promise<void> => {
     if (filePath) {
       const fileName = filePath.split(/[\\/]/).pop() || ''
       selectedFileName.value = fileName
-      selectedFile.value = {
-        name: fileName,
-        path: filePath
-      } as ElectronFile
-      console.log(`File selected: ${fileName}, path: ${filePath}`)
+      selectedFile.value = { name: fileName, path: filePath } as ElectronFile
     }
   } catch (error) {
     console.error('Failed to get file path:', error)
@@ -435,7 +417,6 @@ const handleDownload = async (): Promise<void> => {
       }
     }
 
-    // Prepare download data
     const downloadData = {
       filePath,
       options: {
@@ -447,13 +428,6 @@ const handleDownload = async (): Promise<void> => {
       },
       downloadPath: downloadPath.value || undefined
     }
-
-    console.log('Download request data:', {
-      filePath: downloadData.filePath,
-      threadCount: downloadData.options.threadCount,
-      selectedMirrors: downloadData.options.sources,
-      downloadPath: downloadData.downloadPath
-    })
 
     const response = await fetch(API_ENDPOINTS.DOWNLOAD, {
       method: 'POST',
@@ -475,15 +449,6 @@ const handleDownload = async (): Promise<void> => {
       }
       throw new Error(errorMessage)
     }
-
-    let result
-    try {
-      result = await response.json()
-    } catch (e) {
-      console.warn('Failed to parse response JSON:', e)
-      result = { success: true }
-    }
-    console.log('Download started:', result)
 
     isSuccess.value = true
     statusMessage.value = t('download.started')
@@ -586,7 +551,12 @@ const togglePause = async (): Promise<void> => {
   }
 }
 
-const stopDownload = async (): Promise<void> => {
+const requestStopDownload = (): void => {
+  confirmingStop.value = true
+}
+
+const confirmStopDownload = async (): Promise<void> => {
+  confirmingStop.value = false
   try {
     const response = await fetch(API_ENDPOINTS.DOWNLOAD_STOP, { method: 'POST' })
     if (!response.ok) {
@@ -595,6 +565,10 @@ const stopDownload = async (): Promise<void> => {
   } catch (error) {
     console.error('Failed to stop download:', error)
   }
+}
+
+const cancelStopDownload = (): void => {
+  confirmingStop.value = false
 }
 
 const openFolder = async (): Promise<void> => {
@@ -617,12 +591,8 @@ const openFolder = async (): Promise<void> => {
 
 // SSE setup
 const connectSSE = (): void => {
-  if (eventSource) {
-    console.log('SSE connection already exists')
-    return
-  }
+  if (eventSource) return
 
-  console.log('Creating new SSE connection')
   eventSource = new EventSource(API_ENDPOINTS.DOWNLOAD_EVENTS)
 
   eventSource.addEventListener('initialState', (e) => {
@@ -701,10 +671,31 @@ const connectSSE = (): void => {
   eventSource.addEventListener('queueCleared', () => {
     showDownloadManager.value = false
     isPaused.value = false
+    confirmingStop.value = false
     completedFiles.value = 0
     totalFiles.value = 0
     queueProgress.value = 0
     downloadFiles.value = []
+
+    const summary = completedSummary.value
+    if (summary) {
+      // Natural completion
+      isSuccess.value = summary.failed === 0
+      statusMessage.value =
+        summary.failed > 0
+          ? t('download.finishedWithErrors', {
+              success: summary.success,
+              total: summary.total,
+              failed: summary.failed
+            })
+          : t('download.finished', { success: summary.success })
+      completedSummary.value = null
+    } else {
+      // Stopped by user
+      isSuccess.value = false
+      statusMessage.value = t('download.cancelled')
+    }
+
     // Close SSE connection when queue is cleared
     disconnectSSE()
   })
@@ -738,7 +729,6 @@ const connectSSE = (): void => {
 
 const disconnectSSE = (): void => {
   if (eventSource) {
-    console.log('Closing SSE connection')
     eventSource.close()
     eventSource = null
   }
@@ -746,14 +736,6 @@ const disconnectSSE = (): void => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
-.text-success {
-  color: #4caf50;
-}
-.text-error {
-  color: #f44336;
-}
-
 .view-container {
   position: relative;
   min-height: 100%;

@@ -4,7 +4,7 @@
 
     <!-- General Settings Section -->
     <v-card class="view-card mb-4">
-      <v-card-title class="text-h6">General</v-card-title>
+      <v-card-title class="text-h6">{{ $t('settings.general') }}</v-card-title>
       <v-card-text>
         <v-form class="view-form">
           <v-text-field
@@ -71,7 +71,7 @@
 
     <!-- Download Settings Section -->
     <v-card class="view-card">
-      <v-card-title class="text-h6">Download</v-card-title>
+      <v-card-title class="text-h6">{{ $t('settings.download') }}</v-card-title>
       <v-card-text>
         <!-- Thread Count -->
         <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
@@ -148,8 +148,8 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { API_ENDPOINTS } from '../../../config/constants'
 import { languageNames, languageFlags } from '../i18n/languageProperties'
-import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
 import 'flag-icons/css/flag-icons.min.css'
+import { useDownloadSettings } from '../composables/useDownloadSettings'
 
 const { t, locale } = useI18n()
 
@@ -157,13 +157,15 @@ const { t, locale } = useI18n()
 const osuStablePath = ref('')
 const osuLazerPath = ref('')
 
-// Download Settings
-const threadCount = ref(5)
-const selectedSources = ref<string[]>(DefaultBeatmapMirrors.map((source) => source.name))
-const removeFromStable = ref(false)
-const removeFromLazer = ref(false)
-const noVideo = ref(false)
-const waitForDownloadsOnPause = ref(true)
+// Download settings from composable
+const {
+  threadCount,
+  removeFromStable,
+  removeFromLazer,
+  noVideo,
+  waitForDownloadsOnPause,
+  load: loadDownloadSettings
+} = useDownloadSettings()
 
 // Computed properties
 const availableLocales = computed(() =>
@@ -190,47 +192,15 @@ const threadCountLabel = computed(() => {
 const isStablePathValid = computed(() => !!osuStablePath.value)
 const isLazerPathValid = computed(() => !!osuLazerPath.value)
 
-// Save download settings to localStorage
-const saveDownloadSettings = (): void => {
-  const settings = {
-    threadCount: threadCount.value,
-    selectedSources: selectedSources.value,
-    removeFromStable: removeFromStable.value,
-    removeFromLazer: removeFromLazer.value,
-    noVideo: noVideo.value,
-    waitForDownloadsOnPause: waitForDownloadsOnPause.value
-  }
-  localStorage.setItem('downloadSettings', JSON.stringify(settings))
-}
-
-// Load download settings from localStorage
-const loadDownloadSettings = (): void => {
-  const savedSettings = localStorage.getItem('downloadSettings')
-  if (savedSettings) {
-    const settings = JSON.parse(savedSettings)
-    threadCount.value = settings.threadCount ?? 5
-    selectedSources.value = settings.selectedSources?.length
-      ? settings.selectedSources
-      : DefaultBeatmapMirrors.map((source) => source.name)
-    removeFromStable.value = settings.removeFromStable || false
-    removeFromLazer.value = settings.removeFromLazer || false
-    noVideo.value = settings.noVideo || false
-    waitForDownloadsOnPause.value = settings.waitForDownloadsOnPause ?? true
-  }
-}
-
 const loadSettings = async (): Promise<void> => {
   try {
     const res = await fetch(API_ENDPOINTS.SETTINGS)
     const data = await res.json()
     osuStablePath.value = data.osuStablePath || ''
     osuLazerPath.value = data.osuLazerPath || ''
-
-    // Load download options from localStorage
     loadDownloadSettings()
   } catch (error) {
     console.error('Failed to load settings:', error)
-    // If backend load fails, use default mirrors and localStorage settings
     loadDownloadSettings()
   }
 }
@@ -275,22 +245,7 @@ const selectOsuLazerPath = async (): Promise<void> => {
   }
 }
 
-// Watch for download settings changes and save to localStorage
-watch(
-  [
-    threadCount,
-    selectedSources,
-    removeFromStable,
-    removeFromLazer,
-    noVideo,
-    waitForDownloadsOnPause
-  ],
-  () => {
-    saveDownloadSettings()
-  }
-)
-
-// Watch waitForDownloadsOnPause and sync to backend
+// Sync waitForDownloadsOnPause to backend whenever it changes
 watch(waitForDownloadsOnPause, async (newValue) => {
   try {
     await fetch(API_ENDPOINTS.SETTINGS_WAIT_FOR_DOWNLOADS, {
@@ -305,12 +260,11 @@ watch(waitForDownloadsOnPause, async (newValue) => {
 
 onMounted(() => {
   loadSettings()
-  document.documentElement.lang = locale.value // Set initial lang attribute
+  document.documentElement.lang = locale.value
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
 .flag-icon {
   margin-right: 8px;
   font-size: 1.2em;
@@ -318,7 +272,5 @@ onMounted(() => {
 .v-divider {
   margin-bottom: 16px;
 }
-.text-h6 {
-  font-family: var(--font-default) !important;
-}
+
 </style>

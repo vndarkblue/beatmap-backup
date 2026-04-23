@@ -17,6 +17,7 @@ import fs from 'fs'
 import path from 'path'
 import BeatmapMirrorService from './beatmapMirrorService'
 import DownloadService, { DownloadEvent, DownloadTask } from './downloadService'
+import { validateDownloadPath } from './download/fileUtils'
 
 const app = express()
 const port = 3000
@@ -151,26 +152,8 @@ app.get('/api/settings/validate/download-path', (async (
   }
 
   try {
-    // Check if path exists
-    if (!fs.existsSync(downloadPath)) {
-      res.json({ valid: false, error: 'Download path does not exist' })
-      return
-    }
-
-    // Check if path is a directory
-    const stats = await fs.promises.stat(downloadPath)
-    if (!stats.isDirectory()) {
-      res.json({ valid: false, error: 'Download path is not a directory' })
-      return
-    }
-
-    // Check write permission
-    try {
-      await fs.promises.access(downloadPath, fs.constants.W_OK)
-      res.json({ valid: true, error: null })
-    } catch {
-      res.json({ valid: false, error: 'No write permission in download path' })
-    }
+    await validateDownloadPath(downloadPath)
+    res.json({ valid: true, error: null })
   } catch (error) {
     res.json({
       valid: false,

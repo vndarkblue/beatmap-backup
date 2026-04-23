@@ -15,7 +15,7 @@ interface ElectronAPI {
   selectDirectory: () => Promise<string>
   checkSubDir: (dir: string, sub: string) => Promise<boolean>
   checkFile: (dir: string, file: string) => Promise<boolean>
-  exportData: (options: { stable: boolean, lazer: boolean }) => Promise<void>
+  exportData: (options: { stable: boolean; lazer: boolean }) => Promise<void>
 }
 
 declare global {

@@ -1,5 +1,7 @@
 {
   "settings": {
+    "general": "General",
+    "download": "Download",
     "title": "Settings",
     "osuStablePath": "osu!stable directory",
     "osuLazerPath": "osu!lazer directory",
@@ -44,7 +46,8 @@
     },
     "button": "Download",
     "started": "Download started",
-    "success": "Successfully downloaded {count} beatmaps",
+    "finished": "Downloaded {success} beatmaps",
+    "finishedWithErrors": "Downloaded {success}/{total} beatmaps · {failed} failed",
     "error": "Download failed",
     "errors": {
       "invalidFile": "Invalid file type. Only .txt files are allowed.",
@@ -144,6 +147,8 @@
     "pause": "Pause Queue",
     "resume": "Resume Queue",
     "stop": "Stop Download",
+    "stopConfirmYes": "Confirm stop",
+    "stopConfirmNo": "Cancel",
     "table": {
       "status": "Status",
       "filename": "Filename",

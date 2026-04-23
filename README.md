@@ -20,9 +20,8 @@ A desktop application that helps osu! players backup and share their beatmap set
 
 ## Features
 
-- Create backup files containing beatmapset IDs
-- Share backup files with other players
-- Import backup files to download beatmaps
+- Create backup files containing beatmapset IDs to backup or share with others
+- Import backup files to download beatmaps (W.I.P)
 - Support for multiple languages
 - Modern and intuitive user interface
 - Cross-platform support (Windows, macOS, Linux)

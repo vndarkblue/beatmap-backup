@@ -1,9 +1,7 @@
 <template>
-  <div class="view-container">
-    <h1 class="text-h4 mb-4" :lang="currentLocale">{{ $t('backup.title') }}</h1>
-    <v-card class="view-card">
-      <v-card-text>
-        <v-form class="view-form">
+  <AppViewShell :title="$t('backup.title')" :lang="currentLocale">
+    <AppIsland>
+        <AppForm>
           <v-switch
             v-model="stableBackup"
             :label="$t('backup.stableBackup')"
@@ -38,15 +36,17 @@
           >
             {{ statusMessage }}
           </div>
-        </v-form>
-      </v-card-text>
-    </v-card>
-  </div>
+        </AppForm>
+    </AppIsland>
+  </AppViewShell>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppViewShell from './common/AppViewShell.vue'
+import AppIsland from './common/AppIsland.vue'
+import AppForm from './common/AppForm.vue'
 
 const { locale, t } = useI18n()
 const currentLocale = computed(() => locale.value)

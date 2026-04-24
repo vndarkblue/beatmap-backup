@@ -8,6 +8,9 @@ interface Settings {
   selectedMirrors: string[]
   waitForDownloadsOnPause: boolean
   downloadPath: string
+  queueAutoResume: boolean
+  queueCheckpointIntervalMs: number
+  maxCheckpointFileSizeMB: number
 }
 
 const defaultSettings: Settings = {
@@ -17,7 +20,10 @@ const defaultSettings: Settings = {
   downloadThreadCount: 5,
   selectedMirrors: [],
   waitForDownloadsOnPause: true,
-  downloadPath: ''
+  downloadPath: '',
+  queueAutoResume: true,
+  queueCheckpointIntervalMs: 1500,
+  maxCheckpointFileSizeMB: 20
 }
 
 // @ts-ignore - Store type definition is incomplete in electron-store package
@@ -34,7 +40,10 @@ export const getSettings = (): Settings => {
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
     selectedMirrors: settingsStore.get('selectedMirrors', []),
     waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true),
-    downloadPath: settingsStore.get('downloadPath', '')
+    downloadPath: settingsStore.get('downloadPath', ''),
+    queueAutoResume: settingsStore.get('queueAutoResume', true),
+    queueCheckpointIntervalMs: settingsStore.get('queueCheckpointIntervalMs', 1500),
+    maxCheckpointFileSizeMB: settingsStore.get('maxCheckpointFileSizeMB', 20)
   }
 }
 
@@ -92,4 +101,16 @@ export const getDownloadPath = (): string => {
 
 export const setDownloadPath = (path: string): void => {
   settingsStore.set('downloadPath', path)
+}
+
+export const getQueueAutoResume = (): boolean => {
+  return settingsStore.get('queueAutoResume', true)
+}
+
+export const getQueueCheckpointIntervalMs = (): number => {
+  return settingsStore.get('queueCheckpointIntervalMs', 1500)
+}
+
+export const getMaxCheckpointFileSizeMB = (): number => {
+  return settingsStore.get('maxCheckpointFileSizeMB', 20)
 }

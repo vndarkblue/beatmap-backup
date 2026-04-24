@@ -6,6 +6,7 @@ import { startServer, stopServer } from '../services/api'
 import { exportService } from '../services/exportService'
 import fs from 'fs'
 import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/constants'
+import DownloadService from '../services/downloadService'
 
 function createWindow(): void {
   // Create the browser window.
@@ -147,6 +148,7 @@ app.whenReady().then(() => {
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    void DownloadService.getInstance().flushCheckpointWithTimeout()
     stopServer()
     app.quit()
   }

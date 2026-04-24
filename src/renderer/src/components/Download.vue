@@ -1,146 +1,146 @@
 <template>
   <AppViewShell :title="$t('download.title')" :lang="currentLocale">
     <AppIsland :card-class="{ 'recovery-blur': showRecoveryDialog }">
-        <!-- Download Form - shown when not downloading -->
-        <AppForm v-if="!showDownloadManager">
-          <!-- File Selection -->
-          <PathField
-            :model-value="selectedFileName"
-            mode="file"
-            :label="$t('download.selectFile')"
-            :rules="[(v) => !!v || $t('download.fileRequired')]"
-            :lang="currentLocale"
-            @browse="handleFileSelect"
-          />
+      <!-- Download Form - shown when not downloading -->
+      <AppForm v-if="!showDownloadManager">
+        <!-- File Selection -->
+        <PathField
+          :model-value="selectedFileName"
+          mode="file"
+          :label="$t('download.selectFile')"
+          :rules="[(v) => !!v || $t('download.fileRequired')]"
+          :lang="currentLocale"
+          @browse="handleFileSelect"
+        />
 
-          <!-- Download Path -->
-          <PathField
-            v-model="downloadPath"
-            mode="directory"
-            :label="$t('download.path')"
-            clearable
-            @clear="clearDownloadPath"
-            @browse="selectDownloadPath"
-          />
+        <!-- Download Path -->
+        <PathField
+          v-model="downloadPath"
+          mode="directory"
+          :label="$t('download.path')"
+          clearable
+          @clear="clearDownloadPath"
+          @browse="selectDownloadPath"
+        />
 
-          <!-- Download Button -->
-          <v-btn
-            color="primary"
-            block
-            class="view-field"
-            :lang="currentLocale"
-            :disabled="!isDownloadEnabled"
-            :loading="isDownloading"
-            @click="handleDownload"
-          >
-            {{ $t('download.button') }}
-          </v-btn>
+        <!-- Download Button -->
+        <v-btn
+          color="primary"
+          block
+          class="view-field"
+          :lang="currentLocale"
+          :disabled="!isDownloadEnabled"
+          :loading="isDownloading"
+          @click="handleDownload"
+        >
+          {{ $t('download.button') }}
+        </v-btn>
 
-          <!-- Status Message -->
-          <div
-            v-if="statusMessage"
-            class="text-center mt-2"
-            :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
-          >
-            {{ statusMessage }}
-          </div>
-        </AppForm>
-
-        <!-- Download Manager - shown when downloading -->
-        <div v-else>
-          <!-- Queue Overview -->
-          <div class="d-flex align-center justify-space-between mb-4">
-            <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
-            <div class="d-flex">
-              <v-btn
-                :icon="isPaused ? 'mdi-play' : 'mdi-pause'"
-                variant="text"
-                :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
-                :lang="currentLocale"
-                :disabled="confirmingStop"
-                @click="togglePause"
-              ></v-btn>
-              <template v-if="confirmingStop">
-                <v-btn
-                  icon="mdi-check"
-                  variant="text"
-                  color="error"
-                  :title="$t('downloadManager.stopConfirmYes')"
-                  :lang="currentLocale"
-                  @click="confirmStopDownload"
-                ></v-btn>
-                <v-btn
-                  icon="mdi-close"
-                  variant="text"
-                  :title="$t('downloadManager.stopConfirmNo')"
-                  :lang="currentLocale"
-                  @click="cancelStopDownload"
-                ></v-btn>
-              </template>
-              <v-btn
-                v-else
-                icon="mdi-stop"
-                variant="text"
-                :title="$t('downloadManager.stop')"
-                :lang="currentLocale"
-                @click="requestStopDownload"
-              ></v-btn>
-            </div>
-          </div>
-
-          <!-- Progress Bar -->
-          <div class="mb-4">
-            <div class="d-flex justify-space-between mb-2">
-              <div>{{ $t('downloadManager.progress') }}</div>
-              <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('downloadManager.files') }}</div>
-            </div>
-            <v-progress-linear
-              :model-value="queueProgress"
-              color="primary"
-              height="8"
-              rounded
-            ></v-progress-linear>
-          </div>
-
-          <!-- Files Table -->
-          <v-table>
-            <thead>
-              <tr>
-                <th>{{ $t('downloadManager.table.status') }}</th>
-                <th>{{ $t('downloadManager.table.filename') }}</th>
-                <th>{{ $t('downloadManager.table.speed') }}</th>
-                <th>{{ $t('downloadManager.table.progress') }}</th>
-                <th>{{ $t('downloadManager.table.remaining') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="file in downloadFiles" :key="file.id">
-                <td>
-                  <v-tooltip :text="getStatusText(file.status)" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :color="getStatusColor(file.status)"
-                        :icon="getStatusIcon(file.status)"
-                      ></v-icon>
-                    </template>
-                  </v-tooltip>
-                </td>
-                <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
-                <td>{{ formatSpeed(file.speed) }}</td>
-                <td>
-                  <v-progress-linear
-                    :model-value="file.progress"
-                    color="primary"
-                    height="4"
-                    rounded
-                  ></v-progress-linear>
-                </td>
-                <td>{{ formatTime(file.remainingTime) }}</td>
-              </tr>
-            </tbody>
-          </v-table>
+        <!-- Status Message -->
+        <div
+          v-if="statusMessage"
+          class="text-center mt-2"
+          :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
+        >
+          {{ statusMessage }}
         </div>
+      </AppForm>
+
+      <!-- Download Manager - shown when downloading -->
+      <div v-else>
+        <!-- Queue Overview -->
+        <div class="d-flex align-center justify-space-between mb-4">
+          <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
+          <div class="d-flex">
+            <v-btn
+              :icon="isPaused ? 'mdi-play' : 'mdi-pause'"
+              variant="text"
+              :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
+              :lang="currentLocale"
+              :disabled="confirmingStop"
+              @click="togglePause"
+            ></v-btn>
+            <template v-if="confirmingStop">
+              <v-btn
+                icon="mdi-check"
+                variant="text"
+                color="error"
+                :title="$t('downloadManager.stopConfirmYes')"
+                :lang="currentLocale"
+                @click="confirmStopDownload"
+              ></v-btn>
+              <v-btn
+                icon="mdi-close"
+                variant="text"
+                :title="$t('downloadManager.stopConfirmNo')"
+                :lang="currentLocale"
+                @click="cancelStopDownload"
+              ></v-btn>
+            </template>
+            <v-btn
+              v-else
+              icon="mdi-stop"
+              variant="text"
+              :title="$t('downloadManager.stop')"
+              :lang="currentLocale"
+              @click="requestStopDownload"
+            ></v-btn>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mb-4">
+          <div class="d-flex justify-space-between mb-2">
+            <div>{{ $t('downloadManager.progress') }}</div>
+            <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('downloadManager.files') }}</div>
+          </div>
+          <v-progress-linear
+            :model-value="queueProgress"
+            color="primary"
+            height="8"
+            rounded
+          ></v-progress-linear>
+        </div>
+
+        <!-- Files Table -->
+        <v-table>
+          <thead>
+            <tr>
+              <th>{{ $t('downloadManager.table.status') }}</th>
+              <th>{{ $t('downloadManager.table.filename') }}</th>
+              <th>{{ $t('downloadManager.table.speed') }}</th>
+              <th>{{ $t('downloadManager.table.progress') }}</th>
+              <th>{{ $t('downloadManager.table.remaining') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="file in downloadFiles" :key="file.id">
+              <td>
+                <v-tooltip :text="getStatusText(file.status)" location="top">
+                  <template #activator="{ props }">
+                    <v-icon
+                      v-bind="props"
+                      :color="getStatusColor(file.status)"
+                      :icon="getStatusIcon(file.status)"
+                    ></v-icon>
+                  </template>
+                </v-tooltip>
+              </td>
+              <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
+              <td>{{ formatSpeed(file.speed) }}</td>
+              <td>
+                <v-progress-linear
+                  :model-value="file.progress"
+                  color="primary"
+                  height="4"
+                  rounded
+                ></v-progress-linear>
+              </td>
+              <td>{{ formatTime(file.remainingTime) }}</td>
+            </tr>
+          </tbody>
+        </v-table>
+      </div>
     </AppIsland>
 
     <!-- Recovery Download Queue Dialog -->

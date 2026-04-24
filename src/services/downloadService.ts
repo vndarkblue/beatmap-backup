@@ -10,11 +10,12 @@ import {
 import { downloadFile, MirrorHealth } from './download/httpDownloader'
 import fs from 'fs'
 import BeatmapMirrorService from './beatmapMirrorService'
-import { QueuePersistence, type QueueSnapshot, QUEUE_SNAPSHOT_VERSION } from './download/queuePersistence'
 import {
-  getMaxCheckpointFileSizeMB,
-  getQueueCheckpointIntervalMs
-} from './settingsStore'
+  QueuePersistence,
+  type QueueSnapshot,
+  QUEUE_SNAPSHOT_VERSION
+} from './download/queuePersistence'
+import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs } from './settingsStore'
 
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }

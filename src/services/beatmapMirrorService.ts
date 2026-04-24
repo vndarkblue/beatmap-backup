@@ -86,7 +86,9 @@ class BeatmapMirrorService {
   }
 
   public async refreshStatusCache(): Promise<void> {
-    const checks = await Promise.all(DefaultBeatmapMirrors.map((mirror) => this.checkMirrorStatus(mirror)))
+    const checks = await Promise.all(
+      DefaultBeatmapMirrors.map((mirror) => this.checkMirrorStatus(mirror))
+    )
     for (const status of checks) {
       this.statusCache.set(status.name, status)
     }

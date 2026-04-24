@@ -4,6 +4,7 @@
 </a>
 
 Beatmap Backup
+
 </h1>
 
 <div align="center">
@@ -31,14 +32,14 @@ A desktop application that helps osu! players back up and share their beatmapset
 
 ## 🖥️ Platform Support
 
-| Platform | Status |
-|----------|--------|
-| Windows 10/11 | ✅ Tested |
-| Linux | ⚠️ Builds available (AppImage, deb, snap) — not tested |
+| Platform      | Status                                                 |
+| ------------- | ------------------------------------------------------ |
+| Windows 10/11 | ✅ Tested                                              |
+| Linux         | ⚠️ Builds available (AppImage, deb, snap) — not tested |
 
 ## 🖼️ Screenshots
 
-*Coming soon*
+_Coming soon_
 
 ## 🚀 Quick Start (For Users)
 
@@ -58,17 +59,20 @@ A desktop application that helps osu! players back up and share their beatmapset
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/vndarkblue/beatmap-backup.git
 cd beatmap-backup
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -142,7 +146,6 @@ To reduce pressure on beatmap mirrors, download behavior is conservative by defa
 - Download flow avoids unnecessary repeated API calls for the same task
 
 If you run one of the beatmap mirrors above and notice any problematic traffic pattern, please open an issue so we can adjust quickly.
-
 
 ## 📄 License
 

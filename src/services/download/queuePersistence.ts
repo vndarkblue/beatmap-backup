@@ -85,10 +85,13 @@ export class QueuePersistence {
   }
 
   public serializeTasks(tasks: DownloadTask[]): PersistedTask[] {
-    return tasks.map(({ mirror, request, ...task }) => ({
-      ...task,
-      mirrorName: mirror.name,
-    }))
+    return tasks.map(({ mirror, request, ...task }) => {
+      void request
+      return {
+        ...task,
+        mirrorName: mirror.name
+      }
+    })
   }
 
   public deserializeTasks(tasks: PersistedTask[]): DownloadTask[] {

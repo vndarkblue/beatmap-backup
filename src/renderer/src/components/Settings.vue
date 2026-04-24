@@ -1,119 +1,118 @@
 <template>
   <AppViewShell :title="$t('settings.title')" :lang="currentLocale">
-
     <!-- General Settings Section -->
     <AppIsland :title="$t('settings.general')" card-class="mb-4">
-        <AppForm>
-          <PathField
-            v-model="osuStablePath"
-            mode="directory"
-            :label="$t('settings.osuStablePath')"
-            :browse-title="$t('settings.selectFolder')"
-            @browse="selectOsuStablePath"
-          />
+      <AppForm>
+        <PathField
+          v-model="osuStablePath"
+          mode="directory"
+          :label="$t('settings.osuStablePath')"
+          :browse-title="$t('settings.selectFolder')"
+          @browse="selectOsuStablePath"
+        />
 
-          <PathField
-            v-model="osuLazerPath"
-            mode="directory"
-            :label="$t('settings.osuLazerPath')"
-            :browse-title="$t('settings.selectFolder')"
-            @browse="selectOsuLazerPath"
-          />
-        </AppForm>
-        <v-divider></v-divider>
-        <!-- Language Selection -->
-        <v-select
-          v-model="currentLocale"
-          :items="availableLocales"
-          :label="$t('language.title')"
-          prepend-icon="mdi-translate"
-          item-title="text"
-          item-value="value"
-          class="view-field"
-          :lang="currentLocale"
-        >
-          <template #item="{ props, item }">
-            <v-list-item v-bind="props" :title="undefined" :lang="item.raw.value">
-              <template #prepend>
-                <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
-              </template>
-              {{ item.raw.text }}
-            </v-list-item>
-          </template>
-          <template #selection="{ item }">
-            <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
-            <span class="ml-2" :lang="item.raw.value">{{ item.raw.text }}</span>
-          </template>
-        </v-select>
+        <PathField
+          v-model="osuLazerPath"
+          mode="directory"
+          :label="$t('settings.osuLazerPath')"
+          :browse-title="$t('settings.selectFolder')"
+          @browse="selectOsuLazerPath"
+        />
+      </AppForm>
+      <v-divider></v-divider>
+      <!-- Language Selection -->
+      <v-select
+        v-model="currentLocale"
+        :items="availableLocales"
+        :label="$t('language.title')"
+        prepend-icon="mdi-translate"
+        item-title="text"
+        item-value="value"
+        class="view-field"
+        :lang="currentLocale"
+      >
+        <template #item="{ props, item }">
+          <v-list-item v-bind="props" :title="undefined" :lang="item.raw.value">
+            <template #prepend>
+              <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
+            </template>
+            {{ item.raw.text }}
+          </v-list-item>
+        </template>
+        <template #selection="{ item }">
+          <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
+          <span class="ml-2" :lang="item.raw.value">{{ item.raw.text }}</span>
+        </template>
+      </v-select>
     </AppIsland>
 
     <!-- Download Settings Section -->
     <AppIsland :title="$t('settings.download')">
-        <!-- Thread Count -->
-        <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
-          <div class="text-subtitle-1 mb-2 mb-sm-0 mr-sm-4 pb-6" :lang="currentLocale">
-            {{ threadCountLabel }}
+      <!-- Thread Count -->
+      <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
+        <div class="text-subtitle-1 mb-2 mb-sm-0 mr-sm-4 pb-6" :lang="currentLocale">
+          {{ threadCountLabel }}
+        </div>
+        <v-slider
+          v-model="threadCount"
+          :min="1"
+          :max="10"
+          :step="1"
+          thumb-label
+          class="view-field"
+          :lang="currentLocale"
+          color="primary"
+        ></v-slider>
+      </div>
+
+      <!-- Two column layout for ignore existing and other options -->
+      <div class="d-flex flex-column flex-sm-row">
+        <!-- Ignore Existing Beatmaps Column -->
+        <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0">
+          <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
+            {{ $t('download.options.ignoreExisting') }}
           </div>
-          <v-slider
-            v-model="threadCount"
-            :min="1"
-            :max="10"
-            :step="1"
-            thumb-label
-            class="view-field"
-            :lang="currentLocale"
+          <v-checkbox
+            v-model="removeFromStable"
+            :label="$t('download.options.ignoreStable')"
             color="primary"
-          ></v-slider>
+            hide-details
+            class="view-field"
+            :disabled="!isStablePathValid"
+          ></v-checkbox>
+          <v-checkbox
+            v-model="removeFromLazer"
+            :label="$t('download.options.ignoreLazer')"
+            color="primary"
+            hide-details
+            class="view-field"
+            :disabled="!isLazerPathValid"
+          ></v-checkbox>
         </div>
 
-        <!-- Two column layout for ignore existing and other options -->
-        <div class="d-flex flex-column flex-sm-row">
-          <!-- Ignore Existing Beatmaps Column -->
-          <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0">
-            <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-              {{ $t('download.options.ignoreExisting') }}
-            </div>
-            <v-checkbox
-              v-model="removeFromStable"
-              :label="$t('download.options.ignoreStable')"
-              color="primary"
-              hide-details
-              class="view-field"
-              :disabled="!isStablePathValid"
-            ></v-checkbox>
-            <v-checkbox
-              v-model="removeFromLazer"
-              :label="$t('download.options.ignoreLazer')"
-              color="primary"
-              hide-details
-              class="view-field"
-              :disabled="!isLazerPathValid"
-            ></v-checkbox>
-          </div>
+        <v-divider vertical class="mx-4 d-none d-sm-flex"></v-divider>
 
-          <v-divider vertical class="mx-4 d-none d-sm-flex"></v-divider>
-
-          <!-- Other Options Column -->
-          <div class="flex-grow-1">
-            <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-              {{ $t('download.options.other') }}
-            </div>
-            <v-switch
-              v-model="noVideo"
-              :label="$t('download.options.noVideo')"
-              color="primary"
-              hide-details
-              class="view-field pl-2"
-            ></v-switch>
-            <v-switch
-              v-model="waitForDownloadsOnPause"
-              :label="$t('download.options.waitForDownloads')"
-              color="primary"
-              hide-details
-              class="view-field pl-2"
-            ></v-switch>
+        <!-- Other Options Column -->
+        <div class="flex-grow-1">
+          <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
+            {{ $t('download.options.other') }}
           </div>
+          <v-switch
+            v-model="noVideo"
+            :label="$t('download.options.noVideo')"
+            color="primary"
+            hide-details
+            class="view-field pl-2"
+          ></v-switch>
+          <v-switch
+            v-model="waitForDownloadsOnPause"
+            :label="$t('download.options.waitForDownloads')"
+            color="primary"
+            hide-details
+            class="view-field pl-2"
+          ></v-switch>
         </div>
+      </div>
     </AppIsland>
   </AppViewShell>
 </template>
@@ -251,5 +250,4 @@ onMounted(() => {
 .v-divider {
   margin-bottom: 16px;
 }
-
 </style>

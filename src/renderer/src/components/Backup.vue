@@ -1,42 +1,42 @@
 <template>
   <AppViewShell :title="$t('backup.title')" :lang="currentLocale">
     <AppIsland>
-        <AppForm>
-          <v-switch
-            v-model="stableBackup"
-            :label="$t('backup.stableBackup')"
-            :lang="currentLocale"
-            class="view-field"
-            color="primary"
-            hide-details
-          ></v-switch>
-          <v-switch
-            v-model="lazerBackup"
-            :label="$t('backup.lazerBackup')"
-            :lang="currentLocale"
-            class="view-field"
-            color="primary"
-            hide-details
-          ></v-switch>
-          <v-btn
-            color="primary"
-            block
-            class="view-field"
-            :lang="currentLocale"
-            :disabled="!isButtonEnabled"
-            :loading="isExporting"
-            @click="handleExport"
-          >
-            {{ $t('backup.button') }}
-          </v-btn>
-          <div
-            v-if="statusMessage"
-            class="text-center mt-2"
-            :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
-          >
-            {{ statusMessage }}
-          </div>
-        </AppForm>
+      <AppForm>
+        <v-switch
+          v-model="stableBackup"
+          :label="$t('backup.stableBackup')"
+          :lang="currentLocale"
+          class="view-field"
+          color="primary"
+          hide-details
+        ></v-switch>
+        <v-switch
+          v-model="lazerBackup"
+          :label="$t('backup.lazerBackup')"
+          :lang="currentLocale"
+          class="view-field"
+          color="primary"
+          hide-details
+        ></v-switch>
+        <v-btn
+          color="primary"
+          block
+          class="view-field"
+          :lang="currentLocale"
+          :disabled="!isButtonEnabled"
+          :loading="isExporting"
+          @click="handleExport"
+        >
+          {{ $t('backup.button') }}
+        </v-btn>
+        <div
+          v-if="statusMessage"
+          class="text-center mt-2"
+          :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
+        >
+          {{ statusMessage }}
+        </div>
+      </AppForm>
     </AppIsland>
   </AppViewShell>
 </template>

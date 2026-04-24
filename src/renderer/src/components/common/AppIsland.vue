@@ -36,7 +36,7 @@ withDefaults(
   padding-bottom: 26px;
 }
 
-.view-card{
+.view-card {
   padding-top: 10px;
 }
 </style>

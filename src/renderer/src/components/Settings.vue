@@ -1,46 +1,25 @@
 <template>
-  <div class="view-container">
-    <h1 class="text-h4 mb-4" :lang="currentLocale">{{ $t('settings.title') }}</h1>
+  <AppViewShell :title="$t('settings.title')" :lang="currentLocale">
 
     <!-- General Settings Section -->
-    <v-card class="view-card mb-4">
-      <v-card-title class="text-h6">{{ $t('settings.general') }}</v-card-title>
-      <v-card-text>
-        <v-form class="view-form">
-          <v-text-field
+    <AppIsland :title="$t('settings.general')" card-class="mb-4">
+        <AppForm>
+          <PathField
             v-model="osuStablePath"
+            mode="directory"
             :label="$t('settings.osuStablePath')"
-            prepend-icon="mdi-folder"
-            readonly
-            class="view-field"
-          >
-            <template #append>
-              <v-btn
-                icon="mdi-folder-open"
-                variant="text"
-                :title="$t('settings.selectFolder')"
-                @click="selectOsuStablePath"
-              ></v-btn>
-            </template>
-          </v-text-field>
+            :browse-title="$t('settings.selectFolder')"
+            @browse="selectOsuStablePath"
+          />
 
-          <v-text-field
+          <PathField
             v-model="osuLazerPath"
+            mode="directory"
             :label="$t('settings.osuLazerPath')"
-            prepend-icon="mdi-folder"
-            readonly
-            class="view-field"
-          >
-            <template #append>
-              <v-btn
-                icon="mdi-folder-open"
-                variant="text"
-                :title="$t('settings.selectFolder')"
-                @click="selectOsuLazerPath"
-              ></v-btn>
-            </template>
-          </v-text-field>
-        </v-form>
+            :browse-title="$t('settings.selectFolder')"
+            @browse="selectOsuLazerPath"
+          />
+        </AppForm>
         <v-divider></v-divider>
         <!-- Language Selection -->
         <v-select
@@ -66,13 +45,10 @@
             <span class="ml-2" :lang="item.raw.value">{{ item.raw.text }}</span>
           </template>
         </v-select>
-      </v-card-text>
-    </v-card>
+    </AppIsland>
 
     <!-- Download Settings Section -->
-    <v-card class="view-card">
-      <v-card-title class="text-h6">{{ $t('settings.download') }}</v-card-title>
-      <v-card-text>
+    <AppIsland :title="$t('settings.download')">
         <!-- Thread Count -->
         <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
           <div class="text-subtitle-1 mb-2 mb-sm-0 mr-sm-4 pb-6" :lang="currentLocale">
@@ -138,9 +114,8 @@
             ></v-switch>
           </div>
         </div>
-      </v-card-text>
-    </v-card>
-  </div>
+    </AppIsland>
+  </AppViewShell>
 </template>
 
 <script setup lang="ts">
@@ -150,6 +125,10 @@ import { API_ENDPOINTS } from '../../../config/constants'
 import { languageNames, languageFlags } from '../i18n/languageProperties'
 import 'flag-icons/css/flag-icons.min.css'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
+import AppViewShell from './common/AppViewShell.vue'
+import AppIsland from './common/AppIsland.vue'
+import AppForm from './common/AppForm.vue'
+import PathField from './common/PathField.vue'
 
 const { t, locale } = useI18n()
 

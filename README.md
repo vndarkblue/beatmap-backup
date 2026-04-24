@@ -134,6 +134,16 @@ This app uses public beatmap mirror APIs. Big thanks to these projects and maint
 - [Nekoha](https://mirror.nekoha.moe/)
 - [BeatConnect](https://beatconnect.io/)
 
+To reduce pressure on beatmap mirrors, download behavior is conservative by default:
+
+- Mirror health is checked before use
+- Requests are distributed across multiple mirrors instead of targeting a single endpoint continuously
+- Retry/fallback logic switches to other mirrors when a mirror is slow or temporarily down
+- Download flow avoids unnecessary repeated API calls for the same task
+
+If you run one of the beatmap mirrors above and notice any problematic traffic pattern, please open an issue so we can adjust quickly.
+
+
 ## 📄 License
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.

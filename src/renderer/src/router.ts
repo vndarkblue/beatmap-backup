@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Settings from './components/Settings.vue'
 import Backup from './components/Backup.vue'
 import Download from './components/Download.vue'
-import BeatmapFilter from './components/BeatmapFilter.vue'
+// import BeatmapFilter from './components/BeatmapFilter.vue'
 
 // Define route types
 export interface RouteItem {
@@ -31,13 +31,13 @@ export const routes: RouteItem[] = [
     icon: 'mdi-download',
     to: '/download',
     name: 'download'
-  },
-  {
-    title: 'navigation.beatmapFilter',
-    icon: 'mdi-filter-variant',
-    to: '/filter',
-    name: 'filter'
   }
+  // {
+  //   title: 'navigation.beatmapFilter',
+  //   icon: 'mdi-filter-variant',
+  //   to: '/filter',
+  //   name: 'filter'
+  // }
 ]
 
 const router = createRouter({
@@ -61,12 +61,12 @@ const router = createRouter({
       path: '/download',
       name: 'download',
       component: Download
-    },
-    {
-      path: '/filter',
-      name: 'filter',
-      component: BeatmapFilter
     }
+    // {
+    //   path: '/filter',
+    //   name: 'filter',
+    //   component: BeatmapFilter
+    // }
   ]
 })
 

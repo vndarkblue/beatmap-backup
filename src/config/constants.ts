@@ -18,12 +18,15 @@ export const API_ENDPOINTS = {
   DOWNLOAD_PAUSE: `${API_BASE_URL}/download/pause`,
   DOWNLOAD_RESUME: `${API_BASE_URL}/download/resume`,
   DOWNLOAD_STOP: `${API_BASE_URL}/download/stop`,
-  DOWNLOAD_EVENTS: `${API_BASE_URL}/download/events`
+  DOWNLOAD_EVENTS: `${API_BASE_URL}/download/events`,
+  DOWNLOAD_RECOVERY: `${API_BASE_URL}/download/recovery`,
+  DOWNLOAD_RECOVERY_RESUME: `${API_BASE_URL}/download/recovery/resume`,
+  DOWNLOAD_RECOVERY_DISCARD: `${API_BASE_URL}/download/recovery/discard`
 }
 
 // Window settings
 export const WINDOW_CONFIG = {
-  DEFAULT_WIDTH: 900,
+  DEFAULT_WIDTH: 950,
   DEFAULT_HEIGHT: 670,
   MIN_WIDTH: 700,
   MIN_HEIGHT: 300

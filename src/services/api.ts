@@ -204,6 +204,41 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
   }
 }) as RequestHandler)
 
+app.get('/api/download/recovery', (async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    res.json(downloadService.getRecoveryState())
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to load recovery state'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/download/recovery/resume', (async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    const resumed = await downloadService.resumeRecoveredQueue()
+    res.json({ success: resumed })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to resume recovered queue'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/download/recovery/discard', (async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    await downloadService.discardRecoveryState()
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to discard recovery state'
+    })
+  }
+}) as RequestHandler)
+
 // SSE endpoint for download events
 app.get('/api/download/events', (async (req: Request, res: Response): Promise<void> => {
   // Set headers for SSE
@@ -261,7 +296,16 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
 
   // Send initial state
   const tasks = downloadService.getTasks()
-  sendEvent('initialState', tasks)
+  const chunkSize = 500
+  if (tasks.length <= chunkSize) {
+    sendEvent('initialState', tasks)
+  } else {
+    for (let i = 0; i < tasks.length; i += chunkSize) {
+      const chunk = tasks.slice(i, i + chunkSize)
+      sendEvent('initialStateChunk', chunk)
+    }
+    sendEvent('initialStateComplete', null)
+  }
 
   // Set up event listeners
   const eventHandlers = {
@@ -323,6 +367,7 @@ app.post('/api/download/resume', ((_req: Request, res: Response) => {
 app.post('/api/download/stop', ((_req: Request, res: Response) => {
   try {
     const downloadService = DownloadService.getInstance()
+    void downloadService.discardRecoveryState()
     downloadService.clearQueue()
     res.json({ success: true })
   } catch (error) {
@@ -350,6 +395,8 @@ export function startServer(): void {
   try {
     const mirrorService = BeatmapMirrorService.getInstance()
     mirrorService.startBackgroundHealthChecks()
+    const downloadService = DownloadService.getInstance()
+    void downloadService.preloadRecoveryState()
 
     httpServer = app.listen(port, () => {
       console.log(`API server is running on port ${port}`)
@@ -372,6 +419,8 @@ export function stopServer(): void {
   if (httpServer) {
     const mirrorService = BeatmapMirrorService.getInstance()
     mirrorService.stopBackgroundHealthChecks()
+    const downloadService = DownloadService.getInstance()
+    void downloadService.flushCheckpointWithTimeout()
     httpServer.close(() => {
       console.log('API server stopped')
     })

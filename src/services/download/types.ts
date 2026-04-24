@@ -3,6 +3,7 @@ import type https from 'https'
 
 export interface DownloadTask {
   id: string
+  queueId?: string
   beatmapsetId: string
   mirror: BeatmapMirror
   noVideo: boolean
@@ -16,6 +17,10 @@ export interface DownloadTask {
   /** Final file name and full path, set once headers are known / completed */
   fileName?: string
   filePath?: string
+  createdAt?: number
+  updatedAt?: number
+  attemptCount?: number
+  lastErrorAt?: number
   request?: ReturnType<typeof https.get>
 }
 

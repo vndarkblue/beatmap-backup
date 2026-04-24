@@ -124,6 +124,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## 🙏 Credits
+
+This app uses public beatmap mirror APIs. Big thanks to these projects and maintainers:
+
+- [osu.direct](https://osu.direct/)
+- [NeriNyan](https://nerinyan.moe/)
+- [Mino (former chimu.moe)](https://catboy.best/)
+- [Nekoha](https://mirror.nekoha.moe/)
+- [BeatConnect](https://beatconnect.io/)
+
 ## 📄 License
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.

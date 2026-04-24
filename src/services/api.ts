@@ -348,6 +348,9 @@ app.get('/api/mirrors/status', (async (_req: Request, res: Response) => {
 
 export function startServer(): void {
   try {
+    const mirrorService = BeatmapMirrorService.getInstance()
+    mirrorService.startBackgroundHealthChecks()
+
     httpServer = app.listen(port, () => {
       console.log(`API server is running on port ${port}`)
       console.log(`Server URL: http://localhost:${port}`)
@@ -367,6 +370,8 @@ export function startServer(): void {
 
 export function stopServer(): void {
   if (httpServer) {
+    const mirrorService = BeatmapMirrorService.getInstance()
+    mirrorService.stopBackgroundHealthChecks()
     httpServer.close(() => {
       console.log('API server stopped')
     })

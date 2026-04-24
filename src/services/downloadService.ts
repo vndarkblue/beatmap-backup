@@ -9,6 +9,7 @@ import {
 } from './download/fileUtils'
 import { downloadFile, MirrorHealth } from './download/httpDownloader'
 import fs from 'fs'
+import BeatmapMirrorService from './beatmapMirrorService'
 
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }
@@ -28,6 +29,10 @@ class DownloadService extends EventEmitter {
   /** Stored so resumeQueue can re-add waiting tasks without needing closure args */
   private currentMirrors: BeatmapMirror[] = []
   private currentOptions: DownloadOptions | null = null
+  private currentMirrorIndex = 0
+  private currentRotationLimit = 20
+  private mirrorCompletionCounts: Map<string, number> = new Map()
+  private retryingTaskIds: Set<string> = new Set()
 
   private constructor() {
     super()
@@ -73,12 +78,24 @@ class DownloadService extends EventEmitter {
 
       this.queue.concurrency = options.threadCount
 
-      const availableMirrors = DefaultBeatmapMirrors.filter((mirror) =>
+      const mirrorService = BeatmapMirrorService.getInstance()
+      const healthyMirrorNames = await mirrorService.getHealthyMirrorNames()
+
+      const selectedMirrors = DefaultBeatmapMirrors.filter((mirror) =>
         options.sources.includes(mirror.name)
+      )
+      const noVideoSupportedMirrors = options.noVideo
+        ? selectedMirrors.filter((mirror) => mirror.supportsNoVideo !== false)
+        : selectedMirrors
+      const availableMirrors = noVideoSupportedMirrors.filter((mirror) =>
+        healthyMirrorNames.has(mirror.name)
       )
 
       if (availableMirrors.length === 0) {
-        throw new Error('No available mirrors selected')
+        if (options.noVideo && noVideoSupportedMirrors.length === 0) {
+          throw new Error('No selected mirrors support no-video download')
+        }
+        throw new Error('No healthy mirrors available for the selected sources')
       }
 
       const dlPath = options.downloadPath || getDefaultDownloadPath()
@@ -86,12 +103,22 @@ class DownloadService extends EventEmitter {
 
       this.currentMirrors = availableMirrors
       this.currentOptions = options
+      this.currentMirrorIndex = 0
+      this.currentRotationLimit = this.calculateRotationLimit(availableMirrors.length)
+      this.mirrorCompletionCounts.clear()
+      for (const mirror of availableMirrors) {
+        this.mirrorCompletionCounts.set(mirror.name, 0)
+      }
+      console.log(
+        `[MirrorRotation] healthy=${availableMirrors.length}, limitPerMirror=${this.currentRotationLimit}`
+      )
 
       for (const beatmapsetId of filteredIds) {
+        const initialMirror = this.getCurrentQueueMirror(availableMirrors)
         const task: DownloadTask = {
           id: `${beatmapsetId}-${Date.now()}`,
           beatmapsetId,
-          mirror: availableMirrors[0],
+          mirror: initialMirror,
           noVideo: options.noVideo,
           status: 'waiting',
           progress: 0,
@@ -140,6 +167,37 @@ class DownloadService extends EventEmitter {
     setTimeout(() => this.clearQueue(), 2000)
   }
 
+  private calculateRotationLimit(healthyCount: number): number {
+    const raw = Math.round(120 / Math.max(healthyCount, 1))
+    return Math.min(40, Math.max(10, raw))
+  }
+
+  private getCurrentQueueMirror(availableMirrors: BeatmapMirror[]): BeatmapMirror {
+    if (availableMirrors.length === 0) {
+      throw new Error('No mirrors available')
+    }
+    const safeIndex = this.currentMirrorIndex % availableMirrors.length
+    return availableMirrors[safeIndex]
+  }
+
+  private recordMirrorCompletionAndRotate(
+    availableMirrors: BeatmapMirror[],
+    completedMirrorName: string
+  ): void {
+    const currentCount = this.mirrorCompletionCounts.get(completedMirrorName) ?? 0
+    const nextCount = currentCount + 1
+    this.mirrorCompletionCounts.set(completedMirrorName, nextCount)
+
+    const currentMirror = this.getCurrentQueueMirror(availableMirrors)
+    if (currentMirror.name === completedMirrorName && nextCount >= this.currentRotationLimit) {
+      this.mirrorCompletionCounts.set(completedMirrorName, 0)
+      this.currentMirrorIndex = (this.currentMirrorIndex + 1) % availableMirrors.length
+      console.log(
+        `[MirrorRotation] rotate to ${this.getCurrentQueueMirror(availableMirrors).name} after ${nextCount} completions on ${completedMirrorName}`
+      )
+    }
+  }
+
   private async downloadTask(
     task: DownloadTask,
     availableMirrors: typeof DefaultBeatmapMirrors,
@@ -151,6 +209,13 @@ class DownloadService extends EventEmitter {
       return
     }
 
+    const hasMirrorRetryOverride = this.retryingTaskIds.has(task.id)
+    if (!hasMirrorRetryOverride) {
+      // Pick mirror from current queue rotation for first attempt.
+      task.mirror = this.getCurrentQueueMirror(availableMirrors)
+    } else {
+      this.retryingTaskIds.delete(task.id)
+    }
     task.status = 'downloading'
     this.emit(DownloadEvent.TASK_UPDATED, task)
 
@@ -172,6 +237,8 @@ class DownloadService extends EventEmitter {
       health.avgResponseTime =
         (health.avgResponseTime * (health.success - 1) + (Date.now() - startTime)) / health.success
       this.mirrorHealth.set(mirrorName, health)
+      task.error = undefined
+      this.recordMirrorCompletionAndRotate(availableMirrors, mirrorName)
 
       this.emit(DownloadEvent.TASK_COMPLETED, task)
       this.checkQueueCompletion()
@@ -214,7 +281,8 @@ class DownloadService extends EventEmitter {
             for (const [, t] of this.tasks) {
               if (t.status === 'error') {
                 t.status = 'waiting'
-                t.mirror = availableMirrors[0]
+                t.mirror = this.getCurrentQueueMirror(availableMirrors)
+                this.retryingTaskIds.add(t.id)
                 this.emit(DownloadEvent.TASK_UPDATED, t)
                 this.queue.add(() => this.downloadTask(t, availableMirrors, options))
               }
@@ -227,6 +295,7 @@ class DownloadService extends EventEmitter {
         }
       } else {
         task.mirror = availableMirrors[nextIndex]
+        this.retryingTaskIds.add(task.id)
         task.status = 'waiting'
         this.emit(DownloadEvent.TASK_UPDATED, task)
         this.queue.add(() => this.downloadTask(task, availableMirrors, options))
@@ -280,6 +349,10 @@ class DownloadService extends EventEmitter {
     this.tasks.clear()
     this.currentMirrors = []
     this.currentOptions = null
+    this.currentMirrorIndex = 0
+    this.currentRotationLimit = 20
+    this.mirrorCompletionCounts.clear()
+    this.retryingTaskIds.clear()
     this.emit(DownloadEvent.QUEUE_CLEARED)
   }
 

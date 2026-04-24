@@ -12,39 +12,50 @@ Beatmap Backup
 [![typescript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff)](https://github.com/microsoft/TypeScript)
 [![vue](https://img.shields.io/badge/Vue.js-4FC08D?logo=vuedotjs&logoColor=fff)](https://github.com/vuejs/)
 [![Vuetify](https://img.shields.io/badge/Vuetify-1867C0?logo=vuetify&logoColor=fff)](https://github.com/vuetifyjs/vuetify)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
+
 </div>
 
-## About
-A desktop application that helps osu! players backup and share their beatmap sets. Built with Electron, Vue 3, and TypeScript.
+## ℹ️ About
 
+A desktop application that helps osu! players back up and share their beatmapsets. Built with Electron, Vue 3, and TypeScript.
 
-## Features
+## ✨ Features
 
-- Create backup files containing beatmapset IDs to backup or share with others
-- Import backup files to download beatmaps (W.I.P)
-- Support for multiple languages
-- Modern and intuitive user interface
-- Cross-platform support (Windows, macOS, Linux)
+- **Create backups** — Export a list of your installed beatmapset IDs to a backup file
+- **Download** — Load a backup file and download beatmaps from multiple mirror sources
+- **Multi-language support** (English & Vietnamese for now)
+- **Modern, intuitive UI**
+- **Supports both osu! stable and osu!lazer**
 
-## Screenshots
+## 🖥️ Platform Support
+
+| Platform | Status |
+|----------|--------|
+| Windows 10/11 | ✅ Tested |
+| Linux | ⚠️ Builds available (AppImage, deb, snap) — not tested |
+
+## 🖼️ Screenshots
 
 *Coming soon*
 
-## Prerequisites
+## 🚀 Quick Start (For Users)
 
-- [Node.js](https://nodejs.org/) (v16 or higher)
-- [npm](https://www.npmjs.com/) (v7 or higher)
-- [osu!](https://osu.ppy.sh/) game installed. Both stable and lazer are suppported.
+1. Go to the [Releases](https://github.com/vndarkblue/beatmap-backup/releases) page
+2. Download the latest installer for your operating system
+3. Install and launch **Beatmap Backup**
+4. Make sure **osu!** (stable or lazer) is installed on your system
 
-## Installation
+## 🛠️ Development Setup
 
-### For Users
+### Prerequisites
 
-1. Download the latest release from the [Releases](https://github.com/vndarkblue/beatmap-backup/releases) page
-2. Run the installer for your operating system
-3. Launch the application
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [npm](https://www.npmjs.com/) (v8 or higher)
+- [osu!](https://osu.ppy.sh/) installed (stable and/or lazer)
 
-### For Developers
+### Installation
 
 1. Clone the repository:
 ```bash
@@ -62,12 +73,6 @@ npm install
 npm run dev
 ```
 
-## Development
-
-### Recommended IDE Setup
-
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
-
 ### Available Scripts
 
 ```bash
@@ -79,7 +84,6 @@ npm run build
 
 # Build for specific platform
 npm run build:win    # Windows
-npm run build:mac    # macOS
 npm run build:linux  # Linux
 
 # Run linter
@@ -89,21 +93,28 @@ npm run lint
 npm run typecheck
 ```
 
-## Project Structure
+### Project Structure
 
 ```
 beatmap-backup/
 ├── src/
-│   ├── main/           # Electron main process
-│   ├── renderer/       # Vue application
-│   ├── preload/        # Preload scripts
-│   ├── services/       # Back-end logic
-│   └── config/         # Configuration files
-├── resources/          # Static resources
-└── build/             # Build configuration
+│   ├── main/               # Electron main process
+│   ├── preload/            # Preload scripts (context bridge)
+│   ├── renderer/           # Vue application
+│   │   └── src/
+│   │       ├── assets/     # Global CSS and static assets
+│   │       ├── components/ # Vue components
+│   │       ├── composables/# Reusable Vue composables
+│   │       ├── i18n/       # Translations
+│   │       └── router/     # Vue router config
+│   ├── services/           # Backend logic
+│   │   └── download/       # Download service modules
+│   └── config/             # Shared constants and configuration
+├── resources/              # Static resources
+└── build/                  # Build configuration (electron-builder)
 ```
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -113,6 +124,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+## 📄 License
 
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.

@@ -40,7 +40,35 @@ A desktop application that helps osu! players back up and share their beatmapset
 
 ## 🖼️ Screenshots
 
-_Coming soon_
+### Settings
+
+![Settings UI](doc/screenshots/settings.png)
+
+Main configuration screen for app preferences, osu! path selection, and download behavior.
+
+### Backup
+
+![Backup UI](doc/screenshots/backup.png)
+
+Create a backup file from your installed beatmapsets to restore or share later.
+
+### Download
+
+![Download UI](doc/screenshots/download_1.png)
+
+Load a backup file and start downloading beatmaps.
+
+### Download Queue
+
+![Download Queue UI](doc/screenshots/download_2.png)
+
+Track queue progress in real time, including running tasks and completed downloads.
+
+### Resume Download
+
+![Resume Download UI](doc/screenshots/download_resume.png)
+
+Continue unfinished downloads from the previous session without restarting from scratch.
 
 ## 🚀 Quick Start (For Users)
 

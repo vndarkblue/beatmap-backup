@@ -6,6 +6,7 @@ import { startServer, stopServer } from '../services/api'
 import { exportService } from '../services/exportService'
 import fs from 'fs'
 import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/constants'
+import DownloadService from '../services/downloadService'
 
 function createWindow(): void {
   // Create the browser window.
@@ -25,8 +26,6 @@ function createWindow(): void {
       sandbox: false
     }
   })
-
-  console.log('Window created with preload path:', join(__dirname, '../preload/index.js'))
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -63,9 +62,6 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
 
   // Register IPC handlers for electronAPI
   ipcMain.handle('select-directory', async () => {
@@ -112,19 +108,10 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('export-data', async (_, options: { stable: boolean; lazer: boolean }) => {
-    console.log('Export data handler called with options:', options)
     try {
-      console.log('Calling exportService.exportData...')
-      const result = await exportService.exportData(options)
-      console.log('Export result:', result)
-      return result
+      return await exportService.exportData(options)
     } catch (error) {
-      console.error('Export failed with error:', error)
-      if (error instanceof Error) {
-        console.error('Error name:', error.name)
-        console.error('Error message:', error.message)
-        console.error('Error stack:', error.stack)
-      }
+      console.error('Export failed:', error)
       return {
         success: false,
         count: 0,
@@ -161,6 +148,7 @@ app.whenReady().then(() => {
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    void DownloadService.getInstance().flushCheckpointWithTimeout()
     stopServer()
     app.quit()
   }

@@ -1,5 +1,7 @@
 {
   "settings": {
+    "general": "General",
+    "download": "Download",
     "title": "Settings",
     "osuStablePath": "osu!stable directory",
     "osuLazerPath": "osu!lazer directory",
@@ -44,8 +46,21 @@
     },
     "button": "Download",
     "started": "Download started",
-    "success": "Successfully downloaded {count} beatmaps",
+    "finished": "Downloaded {success} beatmaps",
+    "finishedWithErrors": "Downloaded {success}/{total} beatmaps · {failed} failed",
     "error": "Download failed",
+    "recovery": {
+      "title": "Recover previous download queue",
+      "description": "A previous download queue with {total} beatmaps was found.",
+      "hint": "You can continue from the saved state, or discard it and start fresh.",
+      "stats": "Waiting: {waiting} · Downloading: {downloading}",
+      "resume": "Resume",
+      "discard": "Discard",
+      "discardConfirm": "Discarding will permanently remove the saved queue state.",
+      "discardConfirmButton": "Confirm discard",
+      "resumeFailed": "Failed to resume saved queue",
+      "discardFailed": "Failed to discard saved queue"
+    },
     "errors": {
       "invalidFile": "Invalid file type. Only .txt files are allowed.",
       "getFilePath": "Failed to get file path",
@@ -144,6 +159,8 @@
     "pause": "Pause Queue",
     "resume": "Resume Queue",
     "stop": "Stop Download",
+    "stopConfirmYes": "Confirm stop",
+    "stopConfirmNo": "Cancel",
     "table": {
       "status": "Status",
       "filename": "Filename",
@@ -188,4 +205,4 @@
       "dismiss": "Dismiss"
     }
   }
-} 
+}

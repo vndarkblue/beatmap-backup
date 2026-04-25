@@ -146,7 +146,6 @@ onMounted(() => {
 </script>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
 .v-navigation-drawer {
   transition: width 0.2s ease-in-out !important;
   background: var(--v-theme-background) !important;
@@ -232,6 +231,23 @@ onMounted(() => {
   font-family: var(--font-default-vi) !important;
 }
 
+.v-navigation-drawer .v-list .v-list-item .v-list-item-title {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.v-navigation-drawer.v-navigation-drawer--rail .v-list .v-list-item .v-list-item-title {
+  opacity: 0 !important;
+  transform: translateX(-12px) !important;
+}
+
+.v-navigation-drawer:not(.v-navigation-drawer--rail) .v-list .v-list-item .v-list-item-title {
+  opacity: 0;
+  transform: translateX(-12px);
+  animation: navTitleSlideIn 180ms ease-out 40ms forwards;
+}
+
 .v-btn .v-btn__content {
   font-family: var(--font-default) !important;
 }
@@ -274,5 +290,16 @@ onMounted(() => {
 
 .simplebar-container:hover .simplebar-scrollbar.simplebar-visible::before {
   opacity: 1;
+}
+
+@keyframes navTitleSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 </style>

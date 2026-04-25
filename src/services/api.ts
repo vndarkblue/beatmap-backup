@@ -17,6 +17,7 @@ import fs from 'fs'
 import path from 'path'
 import BeatmapMirrorService from './beatmapMirrorService'
 import DownloadService, { DownloadEvent, DownloadTask } from './downloadService'
+import { validateDownloadPath } from './download/fileUtils'
 
 const app = express()
 const port = 3000
@@ -151,26 +152,8 @@ app.get('/api/settings/validate/download-path', (async (
   }
 
   try {
-    // Check if path exists
-    if (!fs.existsSync(downloadPath)) {
-      res.json({ valid: false, error: 'Download path does not exist' })
-      return
-    }
-
-    // Check if path is a directory
-    const stats = await fs.promises.stat(downloadPath)
-    if (!stats.isDirectory()) {
-      res.json({ valid: false, error: 'Download path is not a directory' })
-      return
-    }
-
-    // Check write permission
-    try {
-      await fs.promises.access(downloadPath, fs.constants.W_OK)
-      res.json({ valid: true, error: null })
-    } catch {
-      res.json({ valid: false, error: 'No write permission in download path' })
-    }
+    await validateDownloadPath(downloadPath)
+    res.json({ valid: true, error: null })
   } catch (error) {
     res.json({
       valid: false,
@@ -217,6 +200,41 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
     console.error('Download error:', error)
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Download failed'
+    })
+  }
+}) as RequestHandler)
+
+app.get('/api/download/recovery', (async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    res.json(downloadService.getRecoveryState())
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to load recovery state'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/download/recovery/resume', (async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    const resumed = await downloadService.resumeRecoveredQueue()
+    res.json({ success: resumed })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to resume recovered queue'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/download/recovery/discard', (async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    await downloadService.discardRecoveryState()
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to discard recovery state'
     })
   }
 }) as RequestHandler)
@@ -278,7 +296,16 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
 
   // Send initial state
   const tasks = downloadService.getTasks()
-  sendEvent('initialState', tasks)
+  const chunkSize = 500
+  if (tasks.length <= chunkSize) {
+    sendEvent('initialState', tasks)
+  } else {
+    for (let i = 0; i < tasks.length; i += chunkSize) {
+      const chunk = tasks.slice(i, i + chunkSize)
+      sendEvent('initialStateChunk', chunk)
+    }
+    sendEvent('initialStateComplete', null)
+  }
 
   // Set up event listeners
   const eventHandlers = {
@@ -340,6 +367,7 @@ app.post('/api/download/resume', ((_req: Request, res: Response) => {
 app.post('/api/download/stop', ((_req: Request, res: Response) => {
   try {
     const downloadService = DownloadService.getInstance()
+    void downloadService.discardRecoveryState()
     downloadService.clearQueue()
     res.json({ success: true })
   } catch (error) {
@@ -365,6 +393,11 @@ app.get('/api/mirrors/status', (async (_req: Request, res: Response) => {
 
 export function startServer(): void {
   try {
+    const mirrorService = BeatmapMirrorService.getInstance()
+    mirrorService.startBackgroundHealthChecks()
+    const downloadService = DownloadService.getInstance()
+    void downloadService.preloadRecoveryState()
+
     httpServer = app.listen(port, () => {
       console.log(`API server is running on port ${port}`)
       console.log(`Server URL: http://localhost:${port}`)
@@ -384,6 +417,10 @@ export function startServer(): void {
 
 export function stopServer(): void {
   if (httpServer) {
+    const mirrorService = BeatmapMirrorService.getInstance()
+    mirrorService.stopBackgroundHealthChecks()
+    const downloadService = DownloadService.getInstance()
+    void downloadService.flushCheckpointWithTimeout()
     httpServer.close(() => {
       console.log('API server stopped')
     })

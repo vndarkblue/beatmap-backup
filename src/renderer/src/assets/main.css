@@ -56,7 +56,7 @@
 
 .v-theme--dark {
   --card-bg-color: #212121;
-  --main-bg-color: #000;  
+  --main-bg-color: #000;
   --main-text-color: #fff;
 }
 
@@ -69,9 +69,11 @@
 
 :root {
   /* Font variables */
-  --font-default: 'Torus Notched', 'Quicksand', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --font-default-vi: 'Quicksand', 'Torus Notched', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  
+  --font-default:
+    'Torus Notched', 'Quicksand', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-default-vi:
+    'Quicksand', 'Torus Notched', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
   font-family: var(--font-default) !important;
   line-height: 1.5;
   font-weight: 400;
@@ -86,26 +88,26 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-:root[lang="vi"] {
+:root[lang='vi'] {
   font-family: var(--font-default-vi) !important;
 }
 
 /* Font settings for different languages */
-h1[lang="vi"] {
+h1[lang='vi'] {
   font-family: var(--font-default-vi) !important;
   font-weight: 700;
 }
 
-h1[lang="en"] {
+h1[lang='en'] {
   font-family: var(--font-default) !important;
   font-weight: 600;
 }
 
-.text-subtitle-1[lang="vi"] {
+.text-subtitle-1[lang='vi'] {
   font-family: var(--font-default-vi) !important;
 }
 
-.text-subtitle-1[lang="en"] {
+.text-subtitle-1[lang='en'] {
   font-family: var(--font-default) !important;
 }
 
@@ -174,7 +176,9 @@ button:focus-visible {
   }
 }
 
-html, body, #app {
+html,
+body,
+#app {
   height: 100%;
   width: 100%;
   margin: 0;
@@ -198,7 +202,8 @@ html, body, #app {
   background: var(--v-theme-surface);
 }
 
-.main-white, .container-white {
+.main-white,
+.container-white {
   background: var(--v-theme-background) !important;
 }
 
@@ -220,8 +225,7 @@ html, body, #app {
   margin: 0 auto;
   background: var(--card-bg-color) !important;
   border-radius: 20px !important;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.06);
-  padding: 32px 24px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06);
   margin-bottom: 40px;
 }
 
@@ -239,11 +243,11 @@ html, body, #app {
   min-width: 190px;
 }
 
-.v-btn{
+.v-btn {
   font-weight: 700 !important;
 }
 
-.v-card-text{
+.v-card-text {
   margin-top: 10px !important;
 }
 
@@ -275,11 +279,22 @@ html, body, #app {
   font-size: 1.1rem !important;
 }
 
-.text-subtitle-1{
+.text-subtitle-1 {
   font-weight: 500 !important;
   color: var(--main-text-color) !important;
 }
 
-.v-slider__label{
+.v-slider__label {
   opacity: 1 !important;
+}
+
+.text-success {
+  color: #4caf50;
+}
+.text-error {
+  color: #f44336;
+}
+
+.text-h6 {
+  font-family: var(--font-default) !important;
 }

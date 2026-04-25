@@ -1,5 +1,5 @@
 appId: com.vndarkblue.beatmap-backup
-productName: beatmap-backup
+productName: Beatmap Backup
 directories:
   buildResources: build
 files:
@@ -13,7 +13,7 @@ asarUnpack:
   - resources/**
 win:
   executableName: beatmap-backup
-  icon: renderer/src/assets/logo.ico
+  icon: src/renderer/src/assets/logo.ico
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -41,8 +41,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

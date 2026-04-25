@@ -1,151 +1,202 @@
 <template>
-  <div class="view-container">
-    <h1 class="text-h4 mb-4" :lang="currentLocale">{{ $t('download.title') }}</h1>
-    <v-card class="view-card">
-      <v-card-text>
-        <!-- Download Form - shown when not downloading -->
-        <v-form v-if="!showDownloadManager" class="view-form">
-          <!-- File Selection -->
-          <v-text-field
-            v-model="selectedFileName"
-            :label="$t('download.selectFile')"
-            prepend-icon="mdi-file-document"
-            class="view-field"
-            :rules="[(v) => !!v || $t('download.fileRequired')]"
-            :lang="currentLocale"
-            readonly
-          >
-            <template #append>
+  <AppViewShell :title="$t('download.title')" :lang="currentLocale">
+    <AppIsland :card-class="{ 'recovery-blur': showRecoveryDialog }">
+      <!-- Download Form - shown when not downloading -->
+      <AppForm v-if="!showDownloadManager">
+        <!-- File Selection -->
+        <PathField
+          :model-value="selectedFileName"
+          mode="file"
+          :label="$t('download.selectFile')"
+          :rules="[(v) => !!v || $t('download.fileRequired')]"
+          :lang="currentLocale"
+          @browse="handleFileSelect"
+        />
+
+        <!-- Download Path -->
+        <PathField
+          v-model="downloadPath"
+          mode="directory"
+          :label="$t('download.path')"
+          clearable
+          @clear="clearDownloadPath"
+          @browse="selectDownloadPath"
+        />
+
+        <!-- Download Button -->
+        <v-btn
+          color="primary"
+          block
+          class="view-field"
+          :lang="currentLocale"
+          :disabled="!isDownloadEnabled"
+          :loading="isDownloading"
+          @click="handleDownload"
+        >
+          {{ $t('download.button') }}
+        </v-btn>
+
+        <!-- Status Message -->
+        <div
+          v-if="statusMessage"
+          class="text-center mt-2"
+          :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
+        >
+          {{ statusMessage }}
+        </div>
+      </AppForm>
+
+      <!-- Download Manager - shown when downloading -->
+      <div v-else>
+        <!-- Queue Overview -->
+        <div class="d-flex align-center justify-space-between mb-4">
+          <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
+          <div class="d-flex">
+            <v-btn
+              :icon="isPaused ? 'mdi-play' : 'mdi-pause'"
+              variant="text"
+              :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
+              :lang="currentLocale"
+              :disabled="confirmingStop"
+              @click="togglePause"
+            ></v-btn>
+            <template v-if="confirmingStop">
               <v-btn
-                icon="mdi-file-search"
+                icon="mdi-check"
                 variant="text"
-                :title="$t('download.selectFile')"
-                @click="handleFileSelect"
+                color="error"
+                :title="$t('downloadManager.stopConfirmYes')"
+                :lang="currentLocale"
+                @click="confirmStopDownload"
+              ></v-btn>
+              <v-btn
+                icon="mdi-close"
+                variant="text"
+                :title="$t('downloadManager.stopConfirmNo')"
+                :lang="currentLocale"
+                @click="cancelStopDownload"
               ></v-btn>
             </template>
-          </v-text-field>
+            <v-btn
+              v-else
+              icon="mdi-stop"
+              variant="text"
+              :title="$t('downloadManager.stop')"
+              :lang="currentLocale"
+              @click="requestStopDownload"
+            ></v-btn>
+          </div>
+        </div>
 
-          <!-- Download Path -->
-          <v-text-field
-            v-model="downloadPath"
-            :label="$t('download.path')"
-            prepend-icon="mdi-folder"
-            readonly
-            class="view-field"
-            clearable
-            @click:clear="clearDownloadPath"
+        <!-- Progress Bar -->
+        <div class="mb-4">
+          <div class="d-flex justify-space-between mb-2">
+            <div>{{ $t('downloadManager.progress') }}</div>
+            <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('downloadManager.files') }}</div>
+          </div>
+          <v-progress-linear
+            :model-value="queueProgress"
+            color="primary"
+            height="8"
+            rounded
+          ></v-progress-linear>
+        </div>
+
+        <!-- Files Table -->
+        <v-table>
+          <thead>
+            <tr>
+              <th>{{ $t('downloadManager.table.status') }}</th>
+              <th>{{ $t('downloadManager.table.filename') }}</th>
+              <th>{{ $t('downloadManager.table.speed') }}</th>
+              <th>{{ $t('downloadManager.table.progress') }}</th>
+              <th>{{ $t('downloadManager.table.remaining') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="file in downloadFiles" :key="file.id">
+              <td>
+                <v-tooltip :text="getStatusText(file.status)" location="top">
+                  <template #activator="{ props }">
+                    <v-icon
+                      v-bind="props"
+                      :color="getStatusColor(file.status)"
+                      :icon="getStatusIcon(file.status)"
+                    ></v-icon>
+                  </template>
+                </v-tooltip>
+              </td>
+              <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
+              <td>{{ formatSpeed(file.speed) }}</td>
+              <td>
+                <v-progress-linear
+                  :model-value="file.progress"
+                  color="primary"
+                  height="4"
+                  rounded
+                ></v-progress-linear>
+              </td>
+              <td>{{ formatTime(file.remainingTime) }}</td>
+            </tr>
+          </tbody>
+        </v-table>
+      </div>
+    </AppIsland>
+
+    <!-- Recovery Download Queue Dialog -->
+    <v-dialog v-model="showRecoveryDialog" max-width="520" persistent>
+      <v-card class="recovery-dialog">
+        <v-card-title class="d-flex align-center ga-2">
+          <v-icon icon="mdi-restore-alert" color="primary" />
+          <span>{{ $t('download.recovery.title') }}</span>
+        </v-card-title>
+        <v-card-text>
+          <div class="mb-2">
+            {{
+              $t('download.recovery.description', {
+                total: recoveryState?.taskCount ?? 0
+              })
+            }}
+          </div>
+          <div class="text-medium-emphasis mb-3">{{ $t('download.recovery.hint') }}</div>
+          <div class="text-medium-emphasis">
+            {{
+              $t('download.recovery.stats', {
+                waiting: recoveryState?.waitingCount ?? 0,
+                downloading: recoveryState?.downloadingCount ?? 0
+              })
+            }}
+          </div>
+          <div v-if="showDiscardConfirm" class="recovery-warning mt-4">
+            <v-icon icon="mdi-alert" size="18" />
+            {{ $t('download.recovery.discardConfirm') }}
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            :color="showDiscardConfirm ? 'error' : undefined"
+            variant="text"
+            :disabled="recoveryActionLoading"
+            @click="handleDiscardRecovery"
           >
-            <template #append>
-              <v-btn
-                icon="mdi-folder-open"
-                variant="text"
-                :title="$t('download.path')"
-                @click="selectDownloadPath"
-              ></v-btn>
-            </template>
-          </v-text-field>
-
-          <!-- Download Button -->
+            {{
+              showDiscardConfirm
+                ? $t('download.recovery.discardConfirmButton')
+                : $t('download.recovery.discard')
+            }}
+          </v-btn>
           <v-btn
             color="primary"
-            block
-            class="view-field"
-            :lang="currentLocale"
-            :disabled="!isDownloadEnabled"
-            :loading="isDownloading"
-            @click="handleDownload"
+            variant="flat"
+            :loading="recoveryActionLoading"
+            @click="handleResumeRecovery"
           >
-            {{ $t('download.button') }}
+            {{ $t('download.recovery.resume') }}
           </v-btn>
-
-          <!-- Status Message -->
-          <div
-            v-if="statusMessage"
-            class="text-center mt-2"
-            :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
-          >
-            {{ statusMessage }}
-          </div>
-        </v-form>
-
-        <!-- Download Manager - shown when downloading -->
-        <div v-else>
-          <!-- Queue Overview -->
-          <div class="d-flex align-center justify-space-between mb-4">
-            <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
-            <div class="d-flex">
-              <v-btn
-                :icon="isPaused ? 'mdi-play' : 'mdi-pause'"
-                variant="text"
-                :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
-                :lang="currentLocale"
-                @click="togglePause"
-              ></v-btn>
-              <v-btn
-                icon="mdi-stop"
-                variant="text"
-                :title="$t('downloadManager.stop')"
-                :lang="currentLocale"
-                @click="stopDownload"
-              ></v-btn>
-            </div>
-          </div>
-
-          <!-- Progress Bar -->
-          <div class="mb-4">
-            <div class="d-flex justify-space-between mb-2">
-              <div>{{ $t('downloadManager.progress') }}</div>
-              <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('downloadManager.files') }}</div>
-            </div>
-            <v-progress-linear
-              :model-value="queueProgress"
-              color="primary"
-              height="8"
-              rounded
-            ></v-progress-linear>
-          </div>
-
-          <!-- Files Table -->
-          <v-table>
-            <thead>
-              <tr>
-                <th>{{ $t('downloadManager.table.status') }}</th>
-                <th>{{ $t('downloadManager.table.filename') }}</th>
-                <th>{{ $t('downloadManager.table.speed') }}</th>
-                <th>{{ $t('downloadManager.table.progress') }}</th>
-                <th>{{ $t('downloadManager.table.remaining') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="file in downloadFiles" :key="file.id">
-                <td>
-                  <v-tooltip :text="getStatusText(file.status)" location="top">
-                    <template #activator="{ props }">
-                      <v-icon
-                        v-bind="props"
-                        :color="getStatusColor(file.status)"
-                        :icon="getStatusIcon(file.status)"
-                      ></v-icon>
-                    </template>
-                  </v-tooltip>
-                </td>
-                <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
-                <td>{{ formatSpeed(file.speed) }}</td>
-                <td>
-                  <v-progress-linear
-                    :model-value="file.progress"
-                    color="primary"
-                    height="4"
-                    rounded
-                  ></v-progress-linear>
-                </td>
-                <td>{{ formatTime(file.remainingTime) }}</td>
-              </tr>
-            </tbody>
-          </v-table>
-        </div>
-      </v-card-text>
-    </v-card>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Completion Toast -->
     <v-snackbar v-model="showCompletedToast" color="success" timeout="8000">
@@ -168,14 +219,19 @@
         </v-btn>
       </template>
     </v-snackbar>
-  </div>
+  </AppViewShell>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
 import { API_ENDPOINTS } from '../../../config/constants'
+import { useDownloadSettings } from '../composables/useDownloadSettings'
+import AppViewShell from './common/AppViewShell.vue'
+import AppIsland from './common/AppIsland.vue'
+import AppForm from './common/AppForm.vue'
+import PathField from './common/PathField.vue'
 
 const { locale, t } = useI18n()
 const currentLocale = computed(() => locale.value)
@@ -210,85 +266,69 @@ type QueueSummary = {
   durationMs?: number
 }
 
+type RecoveryState = {
+  canResume: boolean
+  taskCount: number
+  waitingCount: number
+  downloadingCount: number
+}
+
+// Download settings from composable
+const {
+  threadCount,
+  selectedSources,
+  removeFromStable,
+  removeFromLazer,
+  noVideo,
+  load: loadDownloadSettings
+} = useDownloadSettings()
+
 // Download Form State
 const selectedFile = ref<ElectronFile | null>(null)
 const selectedFileName = ref('')
-const threadCount = ref(5)
 const downloadPath = ref('')
 const isDownloading = ref(false)
 const statusMessage = ref('')
 const isSuccess = ref(false)
-const removeFromStable = ref(false)
-const removeFromLazer = ref(false)
-const noVideo = ref(false)
 
 // Load beatmap mirrors from backend
 const beatmapMirrors = ref(DefaultBeatmapMirrors)
-const selectedSources = ref<string[]>(DefaultBeatmapMirrors.map((source) => source.name))
 
 // Download Manager State
 const showDownloadManager = ref(false)
 const isPaused = ref(false)
+const confirmingStop = ref(false)
 const completedFiles = ref(0)
 const totalFiles = ref(0)
 const queueProgress = ref(0)
 const downloadFiles = ref<DownloadTask[]>([])
 const showCompletedToast = ref(false)
 const completedSummary = ref<QueueSummary | null>(null)
+const showRecoveryDialog = ref(false)
+const showDiscardConfirm = ref(false)
+const recoveryActionLoading = ref(false)
+const recoveryState = ref<RecoveryState | null>(null)
 
 // SSE connection
 let eventSource: EventSource | null = null
 
-// Load mirror statuses
-// Save to localStorage
-const saveToLocalStorage = (): void => {
-  const settings = {
-    threadCount: threadCount.value,
-    selectedSources: selectedSources.value,
-    removeFromStable: removeFromStable.value,
-    removeFromLazer: removeFromLazer.value,
-    noVideo: noVideo.value
-  }
-  localStorage.setItem('downloadSettings', JSON.stringify(settings))
-}
-
-// Load from localStorage
-const loadFromLocalStorage = (): void => {
-  const savedSettings = localStorage.getItem('downloadSettings')
-  if (savedSettings) {
-    const settings = JSON.parse(savedSettings)
-    threadCount.value = settings.threadCount ?? 5
-    selectedSources.value = settings.selectedSources?.length
-      ? settings.selectedSources
-      : beatmapMirrors.value.map((source) => source.name)
-    removeFromStable.value = settings.removeFromStable || false
-    removeFromLazer.value = settings.removeFromLazer || false
-    noVideo.value = settings.noVideo || false
-  }
-}
-
 // Load settings
 const loadSettings = async (): Promise<void> => {
   try {
-    // Load beatmap mirrors from backend
     const res = await fetch(API_ENDPOINTS.SETTINGS)
     const data = await res.json()
 
-    // Update beatmap mirrors if available
     if (data.beatmapMirrors && Array.isArray(data.beatmapMirrors)) {
       beatmapMirrors.value = data.beatmapMirrors
     }
 
-    // Load download path from backend
     try {
       const downloadPathRes = await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH)
       const downloadPathData = await downloadPathRes.json()
       if (downloadPathData.downloadPath) {
         downloadPath.value = downloadPathData.downloadPath
-        // Validate the loaded path
         const validation = await validateDownloadPath(downloadPath.value)
         if (!validation.valid) {
-          // Clear invalid path and show warning
           downloadPath.value = ''
           await saveDownloadPath('')
           console.warn('Loaded download path is invalid:', validation.error)
@@ -298,23 +338,17 @@ const loadSettings = async (): Promise<void> => {
       console.error('Failed to load download path:', error)
     }
 
-    // Load download options from localStorage
-    loadFromLocalStorage()
+    loadDownloadSettings()
   } catch (error) {
     console.error('Failed to load settings:', error)
-    // If backend load fails, use default mirrors and localStorage settings
-    loadFromLocalStorage()
+    loadDownloadSettings()
   }
 }
-
-// Watch for changes and save to localStorage only
-watch([threadCount, selectedSources, removeFromStable, removeFromLazer, noVideo], () => {
-  saveToLocalStorage()
-})
 
 // Make sure settings are loaded when component is mounted
 onMounted(() => {
   loadSettings()
+  void checkRecoveryQueue()
   // Check if there's an active download queue
   connectSSE()
 })
@@ -335,11 +369,7 @@ const handleFileSelect = async (): Promise<void> => {
     if (filePath) {
       const fileName = filePath.split(/[\\/]/).pop() || ''
       selectedFileName.value = fileName
-      selectedFile.value = {
-        name: fileName,
-        path: filePath
-      } as ElectronFile
-      console.log(`File selected: ${fileName}, path: ${filePath}`)
+      selectedFile.value = { name: fileName, path: filePath } as ElectronFile
     }
   } catch (error) {
     console.error('Failed to get file path:', error)
@@ -435,7 +465,6 @@ const handleDownload = async (): Promise<void> => {
       }
     }
 
-    // Prepare download data
     const downloadData = {
       filePath,
       options: {
@@ -447,13 +476,6 @@ const handleDownload = async (): Promise<void> => {
       },
       downloadPath: downloadPath.value || undefined
     }
-
-    console.log('Download request data:', {
-      filePath: downloadData.filePath,
-      threadCount: downloadData.options.threadCount,
-      selectedMirrors: downloadData.options.sources,
-      downloadPath: downloadData.downloadPath
-    })
 
     const response = await fetch(API_ENDPOINTS.DOWNLOAD, {
       method: 'POST',
@@ -476,15 +498,6 @@ const handleDownload = async (): Promise<void> => {
       throw new Error(errorMessage)
     }
 
-    let result
-    try {
-      result = await response.json()
-    } catch (e) {
-      console.warn('Failed to parse response JSON:', e)
-      result = { success: true }
-    }
-    console.log('Download started:', result)
-
     isSuccess.value = true
     statusMessage.value = t('download.started')
     // Show download manager instead of navigating
@@ -501,6 +514,66 @@ const handleDownload = async (): Promise<void> => {
 }
 
 // Download Manager Methods
+const checkRecoveryQueue = async (): Promise<void> => {
+  try {
+    const res = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY)
+    if (!res.ok) return
+    const data = await res.json()
+    if (!data?.canResume) return
+    recoveryState.value = data
+    showDiscardConfirm.value = false
+    showRecoveryDialog.value = true
+  } catch (error) {
+    console.error('Failed to check recovery queue:', error)
+  }
+}
+
+const handleResumeRecovery = async (): Promise<void> => {
+  recoveryActionLoading.value = true
+  try {
+    const resumeRes = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY_RESUME, { method: 'POST' })
+    if (resumeRes.ok) {
+      showDownloadManager.value = true
+      showRecoveryDialog.value = false
+      showDiscardConfirm.value = false
+      recoveryState.value = null
+      return
+    }
+    isSuccess.value = false
+    statusMessage.value = t('download.recovery.resumeFailed')
+  } catch (error) {
+    console.error('Failed to resume queue:', error)
+    isSuccess.value = false
+    statusMessage.value = t('download.recovery.resumeFailed')
+  } finally {
+    recoveryActionLoading.value = false
+  }
+}
+
+const handleDiscardRecovery = async (): Promise<void> => {
+  if (!showDiscardConfirm.value) {
+    showDiscardConfirm.value = true
+    return
+  }
+  recoveryActionLoading.value = true
+  try {
+    const discardRes = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY_DISCARD, { method: 'POST' })
+    if (discardRes.ok) {
+      showRecoveryDialog.value = false
+      showDiscardConfirm.value = false
+      recoveryState.value = null
+      return
+    }
+    isSuccess.value = false
+    statusMessage.value = t('download.recovery.discardFailed')
+  } catch (error) {
+    console.error('Failed to discard recovered queue:', error)
+    isSuccess.value = false
+    statusMessage.value = t('download.recovery.discardFailed')
+  } finally {
+    recoveryActionLoading.value = false
+  }
+}
 
 // Status helpers
 const getStatusIcon = (status: string): string => {
@@ -586,7 +659,12 @@ const togglePause = async (): Promise<void> => {
   }
 }
 
-const stopDownload = async (): Promise<void> => {
+const requestStopDownload = (): void => {
+  confirmingStop.value = true
+}
+
+const confirmStopDownload = async (): Promise<void> => {
+  confirmingStop.value = false
   try {
     const response = await fetch(API_ENDPOINTS.DOWNLOAD_STOP, { method: 'POST' })
     if (!response.ok) {
@@ -595,6 +673,10 @@ const stopDownload = async (): Promise<void> => {
   } catch (error) {
     console.error('Failed to stop download:', error)
   }
+}
+
+const cancelStopDownload = (): void => {
+  confirmingStop.value = false
 }
 
 const openFolder = async (): Promise<void> => {
@@ -617,12 +699,8 @@ const openFolder = async (): Promise<void> => {
 
 // SSE setup
 const connectSSE = (): void => {
-  if (eventSource) {
-    console.log('SSE connection already exists')
-    return
-  }
+  if (eventSource) return
 
-  console.log('Creating new SSE connection')
   eventSource = new EventSource(API_ENDPOINTS.DOWNLOAD_EVENTS)
 
   eventSource.addEventListener('initialState', (e) => {
@@ -639,6 +717,20 @@ const connectSSE = (): void => {
       console.error('Failed to parse initialState:', error)
       updateDownloadState([])
     }
+  })
+  eventSource.addEventListener('initialStateChunk', (e) => {
+    try {
+      const data = JSON.parse(e.data)
+      if (Array.isArray(data)) {
+        downloadFiles.value = [...downloadFiles.value, ...data]
+        updateDownloadState(downloadFiles.value)
+      }
+    } catch (error) {
+      console.error('Failed to parse initialStateChunk:', error)
+    }
+  })
+  eventSource.addEventListener('initialStateComplete', () => {
+    updateDownloadState(downloadFiles.value)
   })
 
   eventSource.addEventListener('taskAdded', (e) => {
@@ -701,10 +793,31 @@ const connectSSE = (): void => {
   eventSource.addEventListener('queueCleared', () => {
     showDownloadManager.value = false
     isPaused.value = false
+    confirmingStop.value = false
     completedFiles.value = 0
     totalFiles.value = 0
     queueProgress.value = 0
     downloadFiles.value = []
+
+    const summary = completedSummary.value
+    if (summary) {
+      // Natural completion
+      isSuccess.value = summary.failed === 0
+      statusMessage.value =
+        summary.failed > 0
+          ? t('download.finishedWithErrors', {
+              success: summary.success,
+              total: summary.total,
+              failed: summary.failed
+            })
+          : t('download.finished', { success: summary.success })
+      completedSummary.value = null
+    } else {
+      // Stopped by user
+      isSuccess.value = false
+      statusMessage.value = t('download.cancelled')
+    }
+
     // Close SSE connection when queue is cleared
     disconnectSSE()
   })
@@ -738,7 +851,6 @@ const connectSSE = (): void => {
 
 const disconnectSSE = (): void => {
   if (eventSource) {
-    console.log('Closing SSE connection')
     eventSource.close()
     eventSource = null
   }
@@ -746,17 +858,23 @@ const disconnectSSE = (): void => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
-.text-success {
-  color: #4caf50;
-}
-.text-error {
-  color: #f44336;
+.recovery-blur {
+  filter: blur(2px);
+  pointer-events: none;
+  user-select: none;
 }
 
-.view-container {
-  position: relative;
-  min-height: 100%;
-  width: 100%;
+.recovery-dialog {
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 16px !important;
+  padding: 8px 10px 6px;
+}
+
+.recovery-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgb(var(--v-theme-error));
+  font-size: 0.95rem;
 }
 </style>

@@ -1,7 +1,7 @@
 {
   "name": "beatmap-backup",
   "version": "1.0.0",
-  "description": "A tool to backup and share osu! beatmap sets",
+  "description": "Beatmap Backup",
   "main": "./out/main/index.js",
   "author": "vnDarkBlue",
   "scripts": {

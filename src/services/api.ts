@@ -215,6 +215,17 @@ app.get('/api/download/recovery', (async (_req: Request, res: Response): Promise
   }
 }) as RequestHandler)
 
+app.get('/api/download/status', ((_req: Request, res: Response) => {
+  try {
+    const downloadService = DownloadService.getInstance()
+    res.json(downloadService.getQueueRuntimeState())
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to get download status'
+    })
+  }
+}) as RequestHandler)
+
 app.post('/api/download/recovery/resume', (async (_req: Request, res: Response): Promise<void> => {
   try {
     const downloadService = DownloadService.getInstance()

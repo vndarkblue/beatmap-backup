@@ -103,11 +103,19 @@ h1[lang='en'] {
   font-weight: 600;
 }
 
-.text-subtitle-1[lang='vi'] {
+.text-subtitle-1[lang='vi'],
+.text-subtitle-2[lang='vi'],
+.text-body-1[lang='vi'],
+.text-body-2[lang='vi'],
+.text-caption[lang='vi'] {
   font-family: var(--font-default-vi) !important;
 }
 
-.text-subtitle-1[lang='en'] {
+.text-subtitle-1[lang='en'],
+.text-subtitle-2[lang='en'],
+.text-body-1[lang='en'],
+.text-body-2[lang='en'],
+.text-caption[lang='en'] {
   font-family: var(--font-default) !important;
 }
 

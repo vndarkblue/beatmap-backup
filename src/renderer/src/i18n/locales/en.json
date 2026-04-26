@@ -10,6 +10,19 @@
     "error": {
       "songsNotFound": "The Songs folder is not found in the directory",
       "realmNotFound": "The client.realm database is not found in the directory"
+    },
+    "database": {
+      "title": "Beatmap Database",
+      "stable": "osu!stable",
+      "lazer": "osu!lazer",
+      "lastSync": "Last sync",
+      "never": "Never",
+      "syncNow": "Sync now",
+      "syncing": "Syncing database...",
+      "upToDate": "Up to date",
+      "outOfDate": "Out of date",
+      "totalBeatmapsets": "Beatmapsets: {count}",
+      "totalBeatmaps": "Beatmaps: {count}"
     }
   },
   "backup": {
@@ -82,6 +95,7 @@
       "loved": "Loved",
       "hasLeaderboard": "Has Leaderboard",
       "approved": "Approved",
+      "qualified": "Qualified",
       "unranked": "Unranked",
       "wip": "WIP",
       "pending": "Pending",
@@ -95,6 +109,8 @@
     "hp": "HP",
     "od": "OD",
     "beatmapInfo": "Beatmap Info",
+    "generalSearch": "Search",
+    "generalSearchHint": "Match any word in artist, title, mapper, source, or tags (space-separated)",
     "artist": "Artist",
     "mapTitle": "Title",
     "mapper": "Mapper",
@@ -140,6 +156,32 @@
     },
     "resetAll": "Reset All",
     "applyFilter": "Apply Filter",
+    "modeLabels": {
+      "osu": "osu!",
+      "taiko": "Taiko",
+      "fruits": "Catch",
+      "mania": "Mania"
+    },
+    "results": {
+      "title": "Results",
+      "summary": "{beatmaps} beatmaps · {sets} beatmapsets · {ms} ms",
+      "empty": "No beatmaps matched these filters.",
+      "error": "Could not run filter.",
+      "loading": "Searching…",
+      "pageSize": "Per page",
+      "columns": {
+        "artist": "Artist",
+        "title": "Title",
+        "creator": "Creator",
+        "version": "Difficulty",
+        "mode": "Mode",
+        "stars": "Stars",
+        "bpm": "BPM",
+        "length": "Length",
+        "status": "Status",
+        "source": "Source"
+      }
+    },
     "min": "Min",
     "max": "Max",
     "seconds": "s",

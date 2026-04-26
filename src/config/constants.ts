@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   DOWNLOAD_RESUME: `${API_BASE_URL}/download/resume`,
   DOWNLOAD_STOP: `${API_BASE_URL}/download/stop`,
   DOWNLOAD_EVENTS: `${API_BASE_URL}/download/events`,
+  DOWNLOAD_STATUS: `${API_BASE_URL}/download/status`,
   DOWNLOAD_RECOVERY: `${API_BASE_URL}/download/recovery`,
   DOWNLOAD_RECOVERY_RESUME: `${API_BASE_URL}/download/recovery/resume`,
   DOWNLOAD_RECOVERY_DISCARD: `${API_BASE_URL}/download/recovery/discard`

@@ -134,6 +134,22 @@ class DownloadService extends EventEmitter {
     downloadingCount: number
     snapshotUpdatedAt: number | null
   } {
+    // Recovery prompt is only for restoring a previous session after app restart.
+    // If a queue is already active in current process, do not offer resume dialog.
+    const hasActiveInMemoryQueue =
+      this.queueId !== null ||
+      Array.from(this.tasks.values()).some((t) => t.status === 'waiting' || t.status === 'downloading')
+    if (hasActiveInMemoryQueue) {
+      return {
+        canResume: false,
+        queueId: null,
+        taskCount: 0,
+        waitingCount: 0,
+        downloadingCount: 0,
+        snapshotUpdatedAt: null
+      }
+    }
+
     const snapshot = this.latestSnapshot
     if (!snapshot) {
       return {
@@ -154,6 +170,25 @@ class DownloadService extends EventEmitter {
       waitingCount,
       downloadingCount,
       snapshotUpdatedAt: snapshot.updatedAt
+    }
+  }
+
+  public getQueueRuntimeState(): {
+    hasQueue: boolean
+    isPaused: boolean
+    taskCount: number
+    waitingCount: number
+    downloadingCount: number
+  } {
+    const tasks = Array.from(this.tasks.values())
+    const waitingCount = tasks.filter((t) => t.status === 'waiting').length
+    const downloadingCount = tasks.filter((t) => t.status === 'downloading').length
+    return {
+      hasQueue: tasks.length > 0,
+      isPaused: this.isPaused,
+      taskCount: tasks.length,
+      waitingCount,
+      downloadingCount
     }
   }
 

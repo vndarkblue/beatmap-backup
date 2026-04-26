@@ -304,6 +304,7 @@ const queueProgress = ref(0)
 const downloadFiles = ref<DownloadTask[]>([])
 const showCompletedToast = ref(false)
 const completedSummary = ref<QueueSummary | null>(null)
+const completedDownloadPath = ref('')
 const showRecoveryDialog = ref(false)
 const showDiscardConfirm = ref(false)
 const recoveryActionLoading = ref(false)
@@ -348,6 +349,7 @@ const loadSettings = async (): Promise<void> => {
 // Make sure settings are loaded when component is mounted
 onMounted(() => {
   loadSettings()
+  void syncQueueRuntimeState()
   void checkRecoveryQueue()
   // Check if there's an active download queue
   connectSSE()
@@ -515,6 +517,7 @@ const handleDownload = async (): Promise<void> => {
 
 // Download Manager Methods
 const checkRecoveryQueue = async (): Promise<void> => {
+  if (showDownloadManager.value) return
   try {
     const res = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY)
     if (!res.ok) return
@@ -525,6 +528,17 @@ const checkRecoveryQueue = async (): Promise<void> => {
     showRecoveryDialog.value = true
   } catch (error) {
     console.error('Failed to check recovery queue:', error)
+  }
+}
+
+const syncQueueRuntimeState = async (): Promise<void> => {
+  try {
+    const res = await fetch(API_ENDPOINTS.DOWNLOAD_STATUS)
+    if (!res.ok) return
+    const data = await res.json()
+    isPaused.value = Boolean(data?.isPaused)
+  } catch (error) {
+    console.error('Failed to sync queue runtime state:', error)
   }
 }
 
@@ -680,7 +694,7 @@ const cancelStopDownload = (): void => {
 }
 
 const openFolder = async (): Promise<void> => {
-  const dir = completedSummary.value?.downloadPath
+  const dir = completedDownloadPath.value.trim()
   const electronAPI = (
     window as unknown as {
       electronAPI?: { openPath?: (p: string) => Promise<string> }
@@ -826,6 +840,7 @@ const connectSSE = (): void => {
     try {
       const summary = JSON.parse(e.data)
       completedSummary.value = summary
+      completedDownloadPath.value = typeof summary?.downloadPath === 'string' ? summary.downloadPath : ''
       showCompletedToast.value = true
     } catch (error) {
       console.error('Failed to parse queueCompleted:', error)

@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 export const CREATE_TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS beatmapsets (
@@ -55,6 +55,16 @@ CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS collection_map_cache (
+  md5hash TEXT PRIMARY KEY,
+  beatmapid INTEGER NULL,
+  beatmapsetid INTEGER NULL,
+  missing INTEGER NOT NULL DEFAULT 0,
+  resolve_status TEXT NOT NULL DEFAULT 'pending',
+  source_hint TEXT NULL,
+  last_checked_at INTEGER NOT NULL DEFAULT 0
+);
 `
 
 export const CREATE_INDEXES_SQL = `
@@ -69,5 +79,8 @@ CREATE INDEX IF NOT EXISTS idx_beatmapsets_status ON beatmapsets(status);
 CREATE INDEX IF NOT EXISTS idx_beatmapsets_creator ON beatmapsets(creator);
 CREATE INDEX IF NOT EXISTS idx_beatmapsets_artist ON beatmapsets(artist);
 CREATE INDEX IF NOT EXISTS idx_beatmapsets_title ON beatmapsets(title);
+CREATE INDEX IF NOT EXISTS idx_collection_map_cache_missing ON collection_map_cache(missing);
+CREATE INDEX IF NOT EXISTS idx_collection_map_cache_status ON collection_map_cache(resolve_status);
+CREATE INDEX IF NOT EXISTS idx_collection_map_cache_checked ON collection_map_cache(last_checked_at);
 `
 

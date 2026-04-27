@@ -3,16 +3,27 @@ import { realmService } from './realmService'
 import path from 'path'
 import fs from 'fs'
 import { dialog } from 'electron'
+import { collectionService } from './collection/collectionService'
+import type { CollectionMergeMode } from './collection/types'
 
 export interface ExportOptions {
   stable: boolean
   lazer: boolean
+  backupByCollection?: boolean
+  collectionMergeMode?: CollectionMergeMode
+  selectedCollections?: string[]
 }
 
 export interface ExportResult {
   success: boolean
   count: number
   outputPath: string
+  stats?: {
+    resolved: number
+    pendingSync: number
+    missingLocal: number
+    apiNotFound: number
+  }
   error?: string
 }
 
@@ -21,8 +32,21 @@ export const exportService = {
     console.log('exportService.exportData called with options:', options)
     try {
       const beatmapsetIds: number[] = []
+      let collectionStats: ExportResult['stats'] | undefined
 
-      if (options.stable) {
+      let defaultPath = ''
+
+      if (options.backupByCollection) {
+        const resolved = await collectionService.resolveCollectionBeatmapsetIds({
+          stable: options.stable,
+          lazer: options.lazer,
+          mergeMode: options.collectionMergeMode ?? 'merge',
+          selectedKeys: options.selectedCollections ?? []
+        })
+        beatmapsetIds.push(...resolved.ids)
+        defaultPath = resolved.defaultFileName
+        collectionStats = resolved.stats
+      } else if (options.stable) {
         console.log('Processing stable beatmaps...')
         const osuStablePath = getOsuStablePath()
         console.log('Osu stable path:', osuStablePath)
@@ -50,7 +74,7 @@ export const exportService = {
         console.log('Found', beatmapsetIds.length, 'stable beatmapset IDs')
       }
 
-      if (options.lazer) {
+      if (!options.backupByCollection && options.lazer) {
         console.log('Processing lazer beatmaps...')
         const lazerIds = await realmService.getBeatmapsetIds()
         console.log('Found', lazerIds.length, 'lazer beatmapset IDs')
@@ -67,7 +91,7 @@ export const exportService = {
       const formattedDate = today.toISOString().slice(0, 10).replace(/-/g, '')
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save Beatmapset IDs',
-        defaultPath: `backup-${formattedDate}.bbak`,
+        defaultPath: defaultPath || `backup-${formattedDate}.bbak`,
         filters: [
           { name: 'Beatmap Backup Files', extensions: ['bbak'] },
           { name: 'All Files', extensions: ['*'] }
@@ -96,11 +120,13 @@ export const exportService = {
       fs.writeFileSync(filePath, header + uniqueIds.join('\n'))
       console.log('File saved successfully')
 
-      return {
+      const result: ExportResult = {
         success: true,
         count: uniqueIds.length,
         outputPath: filePath
       }
+      if (options.backupByCollection) result.stats = collectionStats
+      return result
     } catch (error: unknown) {
       console.error('Export failed in exportService:', error)
       if (error instanceof Error) {

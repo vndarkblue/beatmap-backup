@@ -78,6 +78,18 @@ function pickObjectTypeName(schema: DynamicRealmSchema[], preferred: string): st
   return schema.find((s) => s.name.toLowerCase().includes(preferred.toLowerCase()))?.name
 }
 
+function toUnknownArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value
+  if (value && typeof value === 'object' && Symbol.iterator in value) {
+    try {
+      return Array.from(value as Iterable<unknown>)
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 function mapRulesetToModeInt(ruleset: unknown): number {
   if (typeof ruleset === 'number') return ruleset
   if (typeof ruleset === 'string') {
@@ -344,6 +356,67 @@ export const realmService = {
           })(),
           video: Boolean(readProperty(beatmapsetObject, ['Video', 'video']) ?? false),
           storyboard: Boolean(readProperty(beatmapsetObject, ['Storyboard', 'storyboard']) ?? false)
+        })
+      }
+
+      return rows
+    } finally {
+      if (!realm.isClosed) {
+        realm.close()
+      }
+    }
+  },
+
+  async getCollections(): Promise<Array<{ name: string; beatmapMd5s: string[] }>> {
+    const realmPath = getResolvedRealmPath()
+    const realm = await Realm.open({
+      path: realmPath,
+      readOnly: true
+    })
+
+    try {
+      const realmSchema = realm.schema as DynamicRealmSchema[]
+      // Prefer explicit osu!lazer type name, then fall back to generic "Collection".
+      const collectionType =
+        pickObjectTypeName(realmSchema, 'BeatmapCollection') ??
+        pickObjectTypeName(realmSchema, 'Collection')
+      if (!collectionType) {
+        return []
+      }
+
+      const rows: Array<{ name: string; beatmapMd5s: string[] }> = []
+      const collections = realm.objects(collectionType)
+      for (const collection of collections) {
+        const name = String(readProperty(collection, ['Name', 'name']) ?? '').trim()
+        if (!name) continue
+
+        const hashCandidates = [
+          readProperty(collection, ['BeatmapMD5Hashes', 'beatmapMD5Hashes']),
+          readProperty(collection, ['MD5Hashes', 'md5Hashes']),
+          readProperty(collection, ['BeatmapHashes', 'beatmapHashes']),
+          readProperty(collection, ['Hashes', 'hashes'])
+        ]
+        const beatmapsObject = readProperty(collection, ['Beatmaps', 'beatmaps'])
+        const md5Set = new Set<string>()
+
+        for (const candidate of hashCandidates) {
+          for (const value of toUnknownArray(candidate)) {
+            if (typeof value === 'string' && value.trim().length > 0) {
+              md5Set.add(value.trim().toLowerCase())
+            }
+          }
+        }
+
+        for (const beatmap of toUnknownArray(beatmapsObject)) {
+          const md5Value = readProperty(beatmap, ['MD5Hash', 'Hash', 'md5'])
+          if (typeof md5Value === 'string' && md5Value.trim().length > 0) {
+            md5Set.add(md5Value.trim().toLowerCase())
+          }
+        }
+
+        rows.push({
+          name,
+          beatmapMd5s: Array.from(md5Set)
         })
       }
 

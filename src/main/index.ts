@@ -7,8 +7,10 @@ import { exportService } from '../services/exportService'
 import fs from 'fs'
 import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/constants'
 import DownloadService from '../services/downloadService'
+import { collectionService } from '../services/collection/collectionService'
+import CollectionSyncService from '../services/collection/collectionSyncService'
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     title: APP_NAME,
@@ -47,6 +49,8 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return mainWindow
 }
 
 // This method will be called when Electron has finished
@@ -107,19 +111,72 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('export-data', async (_, options: { stable: boolean; lazer: boolean }) => {
+  ipcMain.handle(
+    'preview-collections',
+    async (_, options: { stable: boolean; lazer: boolean; mergeMode: 'merge' | 'split' }) => {
+      try {
+        return await collectionService.previewCollections({
+          stable: options.stable,
+          lazer: options.lazer,
+          mergeMode: options.mergeMode
+        })
+      } catch (error) {
+        return {
+          success: false,
+          collections: [],
+          syncStatus: CollectionSyncService.getInstance().getStatus(),
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    }
+  )
+
+  ipcMain.handle('sync-collection-md5-cache', async () => {
     try {
-      return await exportService.exportData(options)
+      const result = await CollectionSyncService.getInstance().requestManualSync()
+      return {
+        success: true,
+        ...result,
+        status: CollectionSyncService.getInstance().getStatus()
+      }
     } catch (error) {
-      console.error('Export failed:', error)
       return {
         success: false,
-        count: 0,
-        outputPath: '',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        status: CollectionSyncService.getInstance().getStatus()
       }
     }
   })
+
+  ipcMain.handle('get-collection-sync-status', async () => {
+    return CollectionSyncService.getInstance().getStatus()
+  })
+
+  ipcMain.handle(
+    'export-data',
+    async (
+      _,
+      options: {
+        stable: boolean
+        lazer: boolean
+        backupByCollection?: boolean
+        collectionMergeMode?: 'merge' | 'split'
+        selectedCollections?: string[]
+      }
+    ) => {
+      try {
+        return await exportService.exportData(options)
+      } catch (error) {
+        console.error('Export failed:', error)
+        return {
+          success: false,
+          count: 0,
+          outputPath: '',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    }
+  )
 
   // Open a file or directory path on host OS
   ipcMain.handle('open-path', async (_event, targetPath: string) => {
@@ -133,8 +190,19 @@ app.whenReady().then(() => {
     }
   })
 
-  createWindow()
-  startServer()
+  const mainWindow = createWindow()
+  let startupTasksStarted = false
+  const startDeferredStartupTasks = (): void => {
+    if (startupTasksStarted) return
+    startupTasksStarted = true
+    startServer()
+    CollectionSyncService.getInstance().startBackgroundSync()
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    // Defer heavy startup tasks until first paint to improve first-run window time.
+    setTimeout(startDeferredStartupTasks, 0)
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -149,6 +217,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     void DownloadService.getInstance().flushCheckpointWithTimeout()
+    CollectionSyncService.getInstance().stopBackgroundSync()
     stopServer()
     app.quit()
   }

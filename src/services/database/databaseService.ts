@@ -3,10 +3,26 @@ import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 import { CREATE_INDEXES_SQL, CREATE_TABLES_SQL, CURRENT_SCHEMA_VERSION } from './schema'
-import type { NormalizedBeatmapRecord, NormalizedBeatmapsetRecord, SyncSource } from './types'
+import type {
+  CollectionMapCacheRecord,
+  CollectionResolveStatus,
+  NormalizedBeatmapRecord,
+  NormalizedBeatmapsetRecord,
+  SyncSource
+} from './types'
 import { runBeatmapFilter, type BeatmapFilterResult } from './beatmapFilterQuery'
 
 type MetaRow = { value: string }
+type BeatmapSetIdRow = { beatmapset_id: number }
+type CollectionMapCacheRow = {
+  md5hash: string
+  beatmapid: number | null
+  beatmapsetid: number | null
+  missing: number
+  resolve_status: string
+  source_hint: string | null
+  last_checked_at: number
+}
 
 export class DatabaseService {
   private static instance: DatabaseService
@@ -65,6 +81,18 @@ export class DatabaseService {
     ]
   >
   private readonly markBeatmapSourceStmt: Database.Statement<[string, string]>
+  private readonly selectBeatmapsetByMd5Stmt: Database.Statement<[string], BeatmapSetIdRow | undefined>
+  private readonly upsertCollectionMapCacheStmt: Database.Statement<
+    [string, number | null, number | null, number, string, string | null, number]
+  >
+  private readonly selectCollectionMapCacheByMd5Stmt: Database.Statement<
+    [string],
+    CollectionMapCacheRow | undefined
+  >
+  private readonly selectPendingCollectionMapCacheStmt: Database.Statement<
+    [number, number],
+    CollectionMapCacheRow
+  >
 
   private constructor() {
     const userDataPath = app.getPath('userData')
@@ -148,6 +176,32 @@ export class DatabaseService {
     this.markBeatmapSourceStmt = this.db.prepare(
       'UPDATE beatmaps SET source_origin = ? WHERE source_origin = ?'
     )
+    this.selectBeatmapsetByMd5Stmt = this.db.prepare(
+      'SELECT beatmapset_id FROM beatmaps WHERE md5 = ? LIMIT 1'
+    )
+    this.upsertCollectionMapCacheStmt = this.db.prepare(`
+      INSERT INTO collection_map_cache (
+        md5hash, beatmapid, beatmapsetid, missing, resolve_status, source_hint, last_checked_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(md5hash) DO UPDATE SET
+        beatmapid = excluded.beatmapid,
+        beatmapsetid = excluded.beatmapsetid,
+        missing = excluded.missing,
+        resolve_status = excluded.resolve_status,
+        source_hint = COALESCE(excluded.source_hint, collection_map_cache.source_hint),
+        last_checked_at = excluded.last_checked_at
+    `)
+    this.selectCollectionMapCacheByMd5Stmt = this.db.prepare(
+      'SELECT md5hash, beatmapid, beatmapsetid, missing, resolve_status, source_hint, last_checked_at FROM collection_map_cache WHERE md5hash = ?'
+    )
+    this.selectPendingCollectionMapCacheStmt = this.db.prepare(`
+      SELECT md5hash, beatmapid, beatmapsetid, missing, resolve_status, source_hint, last_checked_at
+      FROM collection_map_cache
+      WHERE resolve_status IN ('pending', 'failed')
+        AND (last_checked_at <= ?)
+      ORDER BY last_checked_at ASC
+      LIMIT ?
+    `)
   }
 
   static getInstance(): DatabaseService {
@@ -275,5 +329,106 @@ export class DatabaseService {
 
   filterBeatmaps(body: unknown): BeatmapFilterResult {
     return runBeatmapFilter(this.db, body)
+  }
+
+  getBeatmapsetIdByMd5(md5: string): number | null {
+    const row = this.selectBeatmapsetByMd5Stmt.get(md5)
+    return row?.beatmapset_id ?? null
+  }
+
+  getCollectionMapCacheByMd5(md5: string): CollectionMapCacheRecord | null {
+    const row = this.selectCollectionMapCacheByMd5Stmt.get(md5)
+    if (!row) return null
+    return {
+      md5hash: row.md5hash,
+      beatmapid: row.beatmapid,
+      beatmapsetid: row.beatmapsetid,
+      missing: row.missing === 1,
+      resolveStatus: row.resolve_status as CollectionResolveStatus,
+      sourceHint: row.source_hint,
+      lastCheckedAt: row.last_checked_at
+    }
+  }
+
+  upsertCollectionMapCache(record: CollectionMapCacheRecord): void {
+    this.upsertCollectionMapCacheStmt.run(
+      record.md5hash,
+      record.beatmapid,
+      record.beatmapsetid,
+      record.missing ? 1 : 0,
+      record.resolveStatus,
+      record.sourceHint,
+      record.lastCheckedAt
+    )
+  }
+
+  upsertCollectionMapCacheBatch(records: CollectionMapCacheRecord[]): void {
+    if (records.length === 0) return
+    const tx = this.db.transaction((rows: CollectionMapCacheRecord[]) => {
+      for (const record of rows) {
+        this.upsertCollectionMapCacheStmt.run(
+          record.md5hash,
+          record.beatmapid,
+          record.beatmapsetid,
+          record.missing ? 1 : 0,
+          record.resolveStatus,
+          record.sourceHint,
+          record.lastCheckedAt
+        )
+      }
+    })
+    tx(records)
+  }
+
+  getCollectionMapCachePendingForSync(options?: {
+    limit?: number
+    retryBeforeMs?: number
+  }): CollectionMapCacheRecord[] {
+    const limit = options?.limit ?? 50
+    const retryBeforeMs = options?.retryBeforeMs ?? Date.now()
+    return this.selectPendingCollectionMapCacheStmt.all(retryBeforeMs, limit).map((row) => ({
+      md5hash: row.md5hash,
+      beatmapid: row.beatmapid,
+      beatmapsetid: row.beatmapsetid,
+      missing: row.missing === 1,
+      resolveStatus: row.resolve_status as CollectionResolveStatus,
+      sourceHint: row.source_hint,
+      lastCheckedAt: row.last_checked_at
+    }))
+  }
+
+  getCollectionSyncStats(): {
+    pending: number
+    resolved: number
+    notFound: number
+    failed: number
+    missingLocal: number
+  } {
+    const row = this.db
+      .prepare(
+        `
+        SELECT
+          SUM(CASE WHEN resolve_status = 'pending' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN resolve_status = 'resolved' THEN 1 ELSE 0 END) AS resolved,
+          SUM(CASE WHEN resolve_status = 'notFound' THEN 1 ELSE 0 END) AS notFound,
+          SUM(CASE WHEN resolve_status = 'failed' THEN 1 ELSE 0 END) AS failed,
+          SUM(CASE WHEN missing = 1 THEN 1 ELSE 0 END) AS missingLocal
+        FROM collection_map_cache
+      `
+      )
+      .get() as {
+      pending: number | null
+      resolved: number | null
+      notFound: number | null
+      failed: number | null
+      missingLocal: number | null
+    }
+    return {
+      pending: row.pending ?? 0,
+      resolved: row.resolved ?? 0,
+      notFound: row.notFound ?? 0,
+      failed: row.failed ?? 0,
+      missingLocal: row.missingLocal ?? 0
+    }
   }
 }

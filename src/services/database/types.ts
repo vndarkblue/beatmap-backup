@@ -83,3 +83,15 @@ export interface DatabaseStatus {
     isDirty: boolean
   }
 }
+
+export type CollectionResolveStatus = 'pending' | 'resolved' | 'notFound' | 'failed'
+
+export interface CollectionMapCacheRecord {
+  md5hash: string
+  beatmapid: number | null
+  beatmapsetid: number | null
+  missing: boolean
+  resolveStatus: CollectionResolveStatus
+  sourceHint: string | null
+  lastCheckedAt: number
+}

@@ -47,7 +47,7 @@
     </AppIsland>
 
     <!-- Download Settings Section -->
-    <AppIsland :title="$t('settings.download')">
+    <AppIsland :title="$t('settings.download')" card-class="mb-4">
       <!-- Thread Count -->
       <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
         <div class="text-subtitle-1 mb-2 mb-sm-0 mr-sm-4 pb-6" :lang="currentLocale">
@@ -114,11 +114,65 @@
         </div>
       </div>
     </AppIsland>
+
+    <AppIsland :title="$t('settings.database.title')">
+      <div class="text-subtitle-1 mb-3" :lang="currentLocale">
+        {{ $t('settings.database.totalBeatmapsets', { count: databaseStatus?.totals.beatmapsets ?? 0 }) }}
+      </div>
+      <div class="text-subtitle-1 mb-3" :lang="currentLocale">
+        {{ $t('settings.database.totalBeatmaps', { count: databaseStatus?.totals.beatmaps ?? 0 }) }}
+      </div>
+      <div class="mb-4">
+        <div class="text-subtitle-2 mb-1" :lang="currentLocale">
+          {{ $t('settings.database.stable') }}:
+          <span :class="databaseStatus?.stable.isDirty ? 'text-warning' : 'text-success'">
+            {{
+              databaseStatus?.stable.isDirty
+                ? $t('settings.database.outOfDate')
+                : $t('settings.database.upToDate')
+            }}
+          </span>
+        </div>
+        <div class="text-caption" :lang="currentLocale">
+          {{ $t('settings.database.lastSync') }}:
+          {{ formatSyncTime(databaseStatus?.stable.lastSyncAt ?? null) }}
+        </div>
+      </div>
+      <div class="mb-4">
+        <div class="text-subtitle-2 mb-1" :lang="currentLocale">
+          {{ $t('settings.database.lazer') }}:
+          <span :class="databaseStatus?.lazer.isDirty ? 'text-warning' : 'text-success'">
+            {{
+              databaseStatus?.lazer.isDirty
+                ? $t('settings.database.outOfDate')
+                : $t('settings.database.upToDate')
+            }}
+          </span>
+        </div>
+        <div class="text-caption" :lang="currentLocale">
+          {{ $t('settings.database.lastSync') }}:
+          {{ formatSyncTime(databaseStatus?.lazer.lastSyncAt ?? null) }}
+        </div>
+      </div>
+
+      <v-progress-linear
+        v-if="isSyncing"
+        indeterminate
+        color="primary"
+        class="mb-3"
+      ></v-progress-linear>
+
+      <div v-if="syncMessage" class="text-caption mb-3" :lang="currentLocale">{{ syncMessage }}</div>
+
+      <v-btn color="primary" :loading="isSyncing" :lang="currentLocale" @click="triggerDatabaseSync">
+        {{ $t('settings.database.syncNow') }}
+      </v-btn>
+    </AppIsland>
   </AppViewShell>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { API_ENDPOINTS } from '../../../config/constants'
 import { languageNames, languageFlags } from '../i18n/languageProperties'
@@ -170,6 +224,26 @@ const threadCountLabel = computed(() => {
 const isStablePathValid = computed(() => !!osuStablePath.value)
 const isLazerPathValid = computed(() => !!osuLazerPath.value)
 
+type DatabaseStatus = {
+  totals: {
+    beatmapsets: number
+    beatmaps: number
+  }
+  stable: {
+    isDirty: boolean
+    lastSyncAt: number | null
+  }
+  lazer: {
+    isDirty: boolean
+    lastSyncAt: number | null
+  }
+}
+
+const databaseStatus = ref<DatabaseStatus | null>(null)
+const isSyncing = ref(false)
+const syncMessage = ref('')
+let databaseEventSource: EventSource | null = null
+
 const loadSettings = async (): Promise<void> => {
   try {
     const res = await fetch(API_ENDPOINTS.SETTINGS)
@@ -180,6 +254,15 @@ const loadSettings = async (): Promise<void> => {
   } catch (error) {
     console.error('Failed to load settings:', error)
     loadDownloadSettings()
+  }
+}
+
+const loadDatabaseStatus = async (): Promise<void> => {
+  try {
+    const res = await fetch(API_ENDPOINTS.DATABASE_STATUS)
+    databaseStatus.value = await res.json()
+  } catch (error) {
+    console.error('Failed to load database status:', error)
   }
 }
 
@@ -206,6 +289,7 @@ const selectOsuStablePath = async (): Promise<void> => {
   if (hasSongs) {
     osuStablePath.value = dir
     await saveOsuStablePath(dir)
+    await loadDatabaseStatus()
   } else {
     alert(t('settings.error.songsNotFound'))
   }
@@ -218,9 +302,57 @@ const selectOsuLazerPath = async (): Promise<void> => {
   if (hasRealm) {
     osuLazerPath.value = dir
     await saveOsuLazerPath(dir)
+    await loadDatabaseStatus()
   } else {
     alert(t('settings.error.realmNotFound'))
   }
+}
+
+const formatSyncTime = (timestamp: number | null): string => {
+  if (!timestamp) return t('settings.database.never')
+  return new Date(timestamp).toLocaleString()
+}
+
+const ensureDatabaseEvents = (): void => {
+  if (databaseEventSource) return
+  databaseEventSource = new EventSource(API_ENDPOINTS.DATABASE_SYNC_EVENTS)
+
+  const updateByEvent = (event: MessageEvent<string>) => {
+    try {
+      const payload = JSON.parse(event.data) as { message?: string; error?: string }
+      syncMessage.value = payload.error || payload.message || ''
+      void loadDatabaseStatus()
+    } catch {
+      // no-op
+    }
+  }
+
+  databaseEventSource.addEventListener('started', () => {
+    isSyncing.value = true
+  })
+  databaseEventSource.addEventListener('progress', updateByEvent)
+  databaseEventSource.addEventListener('completed', () => {
+    isSyncing.value = false
+    void loadDatabaseStatus()
+  })
+  databaseEventSource.addEventListener('skipped', () => {
+    isSyncing.value = false
+    void loadDatabaseStatus()
+  })
+  databaseEventSource.addEventListener('error', (event) => {
+    isSyncing.value = false
+    updateByEvent(event as MessageEvent<string>)
+  })
+}
+
+const triggerDatabaseSync = async (): Promise<void> => {
+  isSyncing.value = true
+  syncMessage.value = t('settings.database.syncing')
+  await fetch(API_ENDPOINTS.DATABASE_SYNC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source: 'all', force: true })
+  })
 }
 
 // Sync waitForDownloadsOnPause to backend whenever it changes
@@ -238,7 +370,16 @@ watch(waitForDownloadsOnPause, async (newValue) => {
 
 onMounted(() => {
   loadSettings()
+  loadDatabaseStatus()
+  ensureDatabaseEvents()
   document.documentElement.lang = locale.value
+})
+
+onBeforeUnmount(() => {
+  if (databaseEventSource) {
+    databaseEventSource.close()
+    databaseEventSource = null
+  }
 })
 </script>
 

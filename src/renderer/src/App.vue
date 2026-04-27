@@ -56,7 +56,7 @@
     </v-navigation-drawer>
 
     <v-main class="main-bg">
-      <SimpleBar class="simplebar-container">
+      <SimpleBar ref="scrollHostRef" class="simplebar-container">
         <v-container fluid class="container-bg">
           <router-view></router-view>
         </v-container>
@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onBeforeUnmount, onMounted, computed } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useRouter, type NavigationFailure } from 'vue-router'
@@ -81,6 +81,10 @@ const { t, locale } = useI18n()
 const router = useRouter()
 const drawer = ref(true)
 const rail = ref(true)
+const scrollHostRef = ref<InstanceType<typeof SimpleBar> | null>(null)
+const routeScrollPositions = new Map<string, number>()
+let removeBeforeEachGuard: (() => void) | null = null
+let removeAfterEachHook: (() => void) | null = null
 
 const currentLocale = computed(() => locale.value)
 
@@ -125,6 +129,77 @@ const validateOsuPaths = async (): Promise<void> => {
   }
 }
 
+const prefetchSecondaryViews = (): void => {
+  // Warm secondary route chunks after first paint to keep initial tab responsive.
+  setTimeout(() => {
+    void import('./components/Backup.vue')
+    void import('./components/Download.vue')
+  }, 0)
+}
+
+type BackupToggleState = {
+  stableBackup: boolean
+  lazerBackup: boolean
+  backupByCollection: boolean
+  mergeCollectionNames: boolean
+}
+
+const prewarmBackupCollectionPreview = (): void => {
+  // Warm preview data in background so first Backup tab open feels instant.
+  setTimeout(() => {
+    try {
+      const raw = localStorage.getItem('backup.toggle.state.v1')
+      if (!raw) return
+      const state = JSON.parse(raw) as Partial<BackupToggleState>
+      const stable = Boolean(state.stableBackup)
+      const lazer = Boolean(state.lazerBackup)
+      const backupByCollection = Boolean(state.backupByCollection)
+      if (!backupByCollection || (!stable && !lazer)) return
+      const mergeMode: 'merge' | 'split' = state.mergeCollectionNames === false ? 'split' : 'merge'
+      void window.electronAPI.previewCollections({ stable, lazer, mergeMode })
+    } catch {
+      // Ignore invalid persisted state.
+    }
+  }, 1_000)
+}
+
+const getRouteScrollElement = (): HTMLElement | null => {
+  const rootEl = scrollHostRef.value?.$el as HTMLElement | undefined
+  if (!rootEl) return null
+  return rootEl.querySelector('.simplebar-content-wrapper')
+}
+
+const saveRouteScrollPosition = (path: string): void => {
+  const scrollEl = getRouteScrollElement()
+  if (!scrollEl) return
+  routeScrollPositions.set(path, scrollEl.scrollTop)
+}
+
+const restoreRouteScrollPosition = (path: string): void => {
+  const scrollEl = getRouteScrollElement()
+  if (!scrollEl) return
+  const nextScrollTop = routeScrollPositions.get(path) ?? 0
+  scrollEl.scrollTop = nextScrollTop
+}
+
+const setupRouteScrollMemory = (): void => {
+  removeBeforeEachGuard = router.beforeEach((_to, from, next) => {
+    saveRouteScrollPosition(from.fullPath)
+    next()
+  })
+
+  removeAfterEachHook = router.afterEach((to) => {
+    setTimeout(() => {
+      restoreRouteScrollPosition(to.fullPath)
+    }, 0)
+  })
+
+  // Ensure current route also starts from remembered position.
+  setTimeout(() => {
+    restoreRouteScrollPosition(router.currentRoute.value.fullPath)
+  }, 0)
+}
+
 const saveDarkMode = async (isDark: boolean): Promise<void> => {
   await fetch(API_ENDPOINTS.SETTINGS_DARK_MODE, {
     method: 'POST',
@@ -142,6 +217,17 @@ const toggleTheme = async (): Promise<void> => {
 onMounted(() => {
   fetchDarkMode()
   validateOsuPaths()
+  prefetchSecondaryViews()
+  prewarmBackupCollectionPreview()
+  setupRouteScrollMemory()
+})
+
+onBeforeUnmount(() => {
+  saveRouteScrollPosition(router.currentRoute.value.fullPath)
+  removeBeforeEachGuard?.()
+  removeAfterEachHook?.()
+  removeBeforeEachGuard = null
+  removeAfterEachHook = null
 })
 </script>
 

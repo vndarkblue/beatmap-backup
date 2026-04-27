@@ -1,7 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import Settings from './components/Settings.vue'
-import Backup from './components/Backup.vue'
-import Download from './components/Download.vue'
 // import BeatmapFilter from './components/BeatmapFilter.vue'
 
 // Define route types
@@ -55,12 +53,12 @@ const router = createRouter({
     {
       path: '/backup',
       name: 'backup',
-      component: Backup
+      component: () => import('./components/Backup.vue')
     },
     {
       path: '/download',
       name: 'download',
-      component: Download
+      component: () => import('./components/Download.vue')
     }
     // {
     //   path: '/filter',

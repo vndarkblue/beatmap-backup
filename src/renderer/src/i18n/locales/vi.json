@@ -10,6 +10,19 @@
     "error": {
       "songsNotFound": "Không tìm thấy thư mục Songs trong đường dẫn!",
       "realmNotFound": "Không tìm thấy file client.realm trong đường dẫn!"
+    },
+    "database": {
+      "title": "Cơ sở dữ liệu Beatmap",
+      "stable": "osu!stable",
+      "lazer": "osu!lazer",
+      "lastSync": "Đồng bộ lần cuối",
+      "never": "Chưa từng",
+      "syncNow": "Đồng bộ ngay",
+      "syncing": "Đang đồng bộ cơ sở dữ liệu...",
+      "upToDate": "Đã cập nhật",
+      "outOfDate": "Cần đồng bộ",
+      "totalBeatmapsets": "Beatmapset: {count}",
+      "totalBeatmaps": "Beatmap: {count}"
     }
   },
   "backup": {
@@ -19,7 +32,35 @@
     "lazerBackup": "Sao lưu từ osu!lazer",
     "success": "Đã sao lưu thành công {count} beatmap",
     "error": "Sao lưu thất bại",
-    "cancelled": "Đã huỷ thao tác"
+    "cancelled": "Đã huỷ thao tác",
+    "collection": {
+      "enabled": "Sao lưu theo Bộ sưu tập",
+      "mergeByName": "Gộp Bộ sưu tập trùng tên",
+      "syncNow": "Đồng bộ beatmap còn thiếu",
+      "secondsShort": "giây",
+      "syncStatus": "Có sẵn: {resolved} · Chờ đồng bộ: {pending} · API không thấy: {notFound} · Thiếu local: {missingLocal}",
+      "itemStats": "{maps} map · {source} · có sẵn {resolved} · chờ {pending} · không thấy {notFound}",
+      "empty": "Không tìm thấy collection theo nguồn đã chọn.",
+      "successStats": "Đã sao lưu {count} beatmap (chờ đồng bộ: {pending}, thiếu local: {missing}, api không thấy: {notFound})",
+      "status": {
+        "resolved": "có sẵn",
+        "pending": "chờ đồng bộ",
+        "notFound": "không tìm thấy",
+        "failed": "thất bại",
+        "missingLocal": "thiếu local"
+      },
+      "sources": {
+        "stable": "stable",
+        "lazer": "lazer",
+        "both": "cả hai"
+      },
+      "table": {
+        "name": "Bộ sưu tập",
+        "maps": "Số map",
+        "source": "Nguồn",
+        "status": "Trạng thái"
+      }
+    }
   },
   "download": {
     "title": "Tải xuống beatmap",
@@ -81,6 +122,7 @@
       "loved": "Được yêu thích",
       "hasLeaderboard": "Có Bảng xếp hạng",
       "approved": "Được chấp nhận",
+      "qualified": "Đủ điều kiện",
       "unranked": "Chưa được xếp hạng",
       "wip": "Chưa hoàn thành",
       "pending": "Đang chờ",
@@ -94,6 +136,8 @@
     "hp": "HP",
     "od": "OD",
     "beatmapInfo": "Thông tin Beatmap",
+    "generalSearch": "Tìm kiếm chung",
+    "generalSearchHint": "Khớp bất kỳ từ nào trong nghệ sĩ, tiêu đề, mapper, nguồn hoặc thẻ (cách nhau bởi dấu cách)",
     "artist": "Nghệ sĩ",
     "mapTitle": "Tiêu đề",
     "mapper": "Người tạo map",
@@ -139,6 +183,32 @@
     },
     "resetAll": "Khôi phục gốc",
     "applyFilter": "Áp dụng",
+    "modeLabels": {
+      "osu": "osu!",
+      "taiko": "Taiko",
+      "fruits": "Catch",
+      "mania": "Mania"
+    },
+    "results": {
+      "title": "Kết quả",
+      "summary": "{beatmaps} beatmap · {sets} beatmapset · {ms} ms",
+      "empty": "Không có beatmap khớp bộ lọc.",
+      "error": "Không thể chạy bộ lọc.",
+      "loading": "Đang tìm…",
+      "pageSize": "Mỗi trang",
+      "columns": {
+        "artist": "Nghệ sĩ",
+        "title": "Tiêu đề",
+        "creator": "Mapper",
+        "version": "Độ khó",
+        "mode": "Chế độ",
+        "stars": "Sao",
+        "bpm": "BPM",
+        "length": "Thời lượng",
+        "status": "Trạng thái",
+        "source": "Nguồn"
+      }
+    },
     "min": "Tối thiểu",
     "max": "Tối đa",
     "seconds": "s",

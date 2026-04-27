@@ -18,6 +18,9 @@ import path from 'path'
 import BeatmapMirrorService from './beatmapMirrorService'
 import DownloadService, { DownloadEvent, DownloadTask } from './downloadService'
 import { validateDownloadPath } from './download/fileUtils'
+import SyncManager from './database/syncManager'
+import type { SyncProgressEvent } from './database/types'
+import { DatabaseService } from './database/databaseService'
 
 const app = express()
 const port = 3000
@@ -402,12 +405,74 @@ app.get('/api/mirrors/status', (async (_req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
+app.get('/api/database/status', ((_: Request, res: Response) => {
+  try {
+    const syncManager = SyncManager.getInstance()
+    res.json(syncManager.getStatus())
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to get database status'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/database/sync', (async (req: Request, res: Response): Promise<void> => {
+  try {
+    const source = req.body?.source as 'stable' | 'lazer' | 'all' | undefined
+    const force = req.body?.force !== false
+    const syncSource = source ?? 'all'
+    if (!['stable', 'lazer', 'all'].includes(syncSource)) {
+      res.status(400).json({ error: 'Invalid source. Expected stable, lazer, or all.' })
+      return
+    }
+    const syncManager = SyncManager.getInstance()
+    void syncManager.runManualSync(syncSource, force)
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to trigger database sync'
+    })
+  }
+}) as RequestHandler)
+
+app.post('/api/database/beatmaps/filter', ((req: Request, res: Response) => {
+  try {
+    const db = DatabaseService.getInstance()
+    const result = db.filterBeatmaps(req.body)
+    res.json(result)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Filter failed'
+    const status = message === 'Invalid filter body' ? 400 : 500
+    res.status(status).json({ error: message })
+  }
+}) as RequestHandler)
+
+app.get('/api/database/sync/events', ((req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+
+  const syncManager = SyncManager.getInstance()
+  const listener = (event: SyncProgressEvent): void => {
+    res.write(`event: ${event.phase}\n`)
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  syncManager.on('sync', listener)
+  req.on('close', () => {
+    syncManager.removeListener('sync', listener)
+  })
+}) as RequestHandler)
+
 export function startServer(): void {
   try {
     const mirrorService = BeatmapMirrorService.getInstance()
     mirrorService.startBackgroundHealthChecks()
     const downloadService = DownloadService.getInstance()
     void downloadService.preloadRecoveryState()
+    const syncManager = SyncManager.getInstance()
+    void syncManager.runStartupSync()
 
     httpServer = app.listen(port, () => {
       console.log(`API server is running on port ${port}`)

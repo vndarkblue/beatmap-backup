@@ -1,3 +1,16 @@
+export type ApiDateTime = string
+
+export type Ruleset = 'osu' | 'taiko' | 'fruits' | 'mania'
+
+export type BeatmapStatus =
+  | 'graveyard'
+  | 'wip'
+  | 'pending'
+  | 'ranked'
+  | 'approved'
+  | 'qualified'
+  | 'loved'
+
 export interface User {
   id: number
   username: string
@@ -8,17 +21,12 @@ export interface BeatmapOwner {
   username: string
 }
 
-export interface BeatmapTag {
-  tag_id: number
-  count: number
-}
-
 export interface Beatmap {
   beatmapset_id: number
   difficulty_rating: number
   id: number
-  mode: 'osu' | 'taiko' | 'fruits' | 'mania'
-  status: 'ranked' | 'qualified' | 'loved' | 'pending' | 'graveyard'
+  mode: Ruleset
+  status: BeatmapStatus
   total_length: number
   user_id: number
   version: string
@@ -30,11 +38,11 @@ export interface Beatmap {
   count_sliders: number
   count_spinners: number
   cs: number
-  deleted_at: number | null
+  deleted_at: ApiDateTime | null
   drain: number
   hit_length: number
   is_scoreable: boolean
-  last_updated: number
+  last_updated: ApiDateTime
   mode_int: number
   passcount?: number
   playcount?: number
@@ -42,15 +50,14 @@ export interface Beatmap {
   url: string
   checksum: string
   current_user_tag_ids: number[]
-  max_combo: number
+  max_combo: number | null
   owners: BeatmapOwner[]
-  top_tag_ids: BeatmapTag[]
-  last_checked: number
+  top_tag_ids: number[]
 }
 
 export interface BeatmapsetNomination {
   beatmapset_id: number
-  rulesets: string[] | null
+  rulesets: Ruleset[] | null
   reset: boolean
   user_id: number
 }
@@ -76,102 +83,88 @@ export interface BeatmapsetTag {
   description: string
 }
 
-export class Beatmapset {
-  id: number
+export interface Beatmapset {
   artist: string
   artist_unicode: string
+  beatmaps: Beatmap[]
+  bpm: number
+  converts: Beatmap[]
   creator: string
+  current_nominations: BeatmapsetNomination[]
+  deleted_at: ApiDateTime | null
+  description: BeatmapsetDescription
+  genre: BeatmapsetGenre
+  genre_id: number
+  id: number
+  is_scoreable: boolean
+  language: BeatmapsetLanguage
+  language_id: number
+  last_updated: ApiDateTime
+  pack_tags: string[]
+  preview_url: string
+  ranked: number
+  ranked_date: ApiDateTime | null
+  rating: number
+  related_tags: BeatmapsetTag[]
+  related_users: User[]
   source: string
+  spotlight: boolean
+  status: BeatmapStatus
+  storyboard: boolean
+  submitted_date: ApiDateTime
   tags: string
   title: string
   title_unicode: string
-  next_update: number
-  preview_url: string
-  spotlight: boolean
-  status: string
   track_id: number | null
-  user_id: number
-  video: boolean
-  bpm: number
-  deleted_at: number | null
-  is_scoreable: boolean
-  last_updated: number
-  ranked: number
-  ranked_date: number
-  storyboard: boolean
-  submitted_date: number
-  beatmaps: Beatmap[]
-  converts: Beatmap[]
-  current_nominations: BeatmapsetNomination[]
-  description: BeatmapsetDescription
-  genre: BeatmapsetGenre
-  language: BeatmapsetLanguage
-  pack_tags: string[]
-  related_users: User[]
   user: User
-  last_checked: number
-  rating: number
-  related_tags: BeatmapsetTag[]
-  genre_id: number
-  language_id: number
+  user_id: number
+  version_count: number
+  video: boolean
+}
 
-  constructor(data: Partial<Beatmapset>) {
-    this.id = data.id ?? 0
-    this.artist = data.artist ?? ''
-    this.artist_unicode = data.artist_unicode ?? ''
-    this.creator = data.creator ?? ''
-    this.source = data.source ?? ''
-    this.tags = data.tags ?? ''
-    this.title = data.title ?? ''
-    this.title_unicode = data.title_unicode ?? ''
-    this.next_update = data.next_update ?? 0
-    this.preview_url = data.preview_url ?? ''
-    this.spotlight = data.spotlight ?? false
-    this.status = data.status ?? ''
-    this.track_id = data.track_id ?? null
-    this.user_id = data.user_id ?? 0
-    this.video = data.video ?? false
-    this.bpm = data.bpm ?? 0
-    this.deleted_at = data.deleted_at ?? null
-    this.is_scoreable = data.is_scoreable ?? true
-    this.last_updated = data.last_updated ?? 0
-    this.ranked = data.ranked ?? 0
-    this.ranked_date = data.ranked_date ?? 0
-    this.storyboard = data.storyboard ?? false
-    this.submitted_date = data.submitted_date ?? 0
-    this.beatmaps = data.beatmaps ?? []
-    this.converts = data.converts ?? []
-    this.current_nominations = data.current_nominations ?? []
-    this.description = data.description ?? { description: '' }
-    this.genre = data.genre ?? { id: 0, name: '' }
-    this.language = data.language ?? { id: 0, name: '' }
-    this.pack_tags = data.pack_tags ?? []
-    this.related_users = data.related_users ?? []
-    this.user = data.user ?? ({} as User)
-    this.last_checked = data.last_checked ?? 0
-    this.rating = data.rating ?? 0
-    this.related_tags = data.related_tags ?? []
-    this.genre_id = data.genre_id ?? 0
-    this.language_id = data.language_id ?? 0
-  }
+// Local database row shapes (Phase 1 foundation)
+export interface LocalBeatmapsetRecord {
+  id: number
+  artist: string
+  artist_unicode: string
+  title: string
+  title_unicode: string
+  creator: string
+  source: string
+  tags: string
+  status: BeatmapStatus | 'unranked'
+  bpm: number
+  ranked_date: ApiDateTime | null
+  submitted_date: ApiDateTime | null
+  last_updated: ApiDateTime | null
+  genre_id: number | null
+  language_id: number | null
+  rating: number | null
+  spotlight: boolean
+  video: boolean
+  storyboard: boolean
+  is_scoreable: boolean
+  source_origin: 'stable' | 'lazer' | 'both' | 'online'
+}
 
-  // Helper methods
-  getDifficultyRange(): { min: number; max: number } {
-    if (this.beatmaps.length === 0) {
-      return { min: 0, max: 0 }
-    }
-    const difficulties = this.beatmaps.map((b) => b.difficulty_rating)
-    return {
-      min: Math.min(...difficulties),
-      max: Math.max(...difficulties)
-    }
-  }
-  // {0, 1, 2, 3} = {osu, taiko, fruits, mania}
-  getBeatmapsByMode(mode: Beatmap['mode']): Beatmap[] {
-    return this.beatmaps.filter((b) => b.mode === mode)
-  }
-
-  getBeatmapsByDifficultyRange(min: number, max: number): Beatmap[] {
-    return this.beatmaps.filter((b) => b.difficulty_rating >= min && b.difficulty_rating <= max)
-  }
+export interface LocalBeatmapRecord {
+  id: number | null
+  beatmapset_id: number | null
+  md5: string
+  mode_int: number
+  mode: Ruleset
+  status: BeatmapStatus | 'unranked'
+  version: string
+  difficulty_rating: number
+  total_length: number
+  hit_length: number
+  bpm: number
+  cs: number
+  ar: number
+  drain: number
+  accuracy: number
+  max_combo: number | null
+  playcount: number | null
+  passcount: number | null
+  source_origin: 'stable' | 'lazer' | 'both' | 'online'
 }

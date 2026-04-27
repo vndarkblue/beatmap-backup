@@ -32,7 +32,35 @@
     "lazerBackup": "Backup from osu!lazer",
     "success": "Successfully backed up {count} beatmaps",
     "error": "Backup failed",
-    "cancelled": "Backup cancelled"
+    "cancelled": "Backup cancelled",
+    "collection": {
+      "enabled": "Backup by collections",
+      "mergeByName": "Merge duplicate collection names from both stable and lazer",
+      "syncNow": "Resolve missing beatmaps",
+      "secondsShort": "s",
+      "syncStatus": "Resolved: {resolved} · Pending: {pending} · API not found: {notFound} · Missing local: {missingLocal}",
+      "itemStats": "{maps} maps · {source} · resolved {resolved} · pending {pending} · not found {notFound}",
+      "empty": "No collections found for selected sources.",
+      "successStats": "Backed up {count} beatmaps (pending sync: {pending}, missing local: {missing}, api not found: {notFound})",
+      "status": {
+        "resolved": "resolved",
+        "pending": "pending",
+        "notFound": "not found",
+        "failed": "failed",
+        "missingLocal": "missing local"
+      },
+      "sources": {
+        "stable": "stable",
+        "lazer": "lazer",
+        "both": "both"
+      },
+      "table": {
+        "name": "Collection",
+        "maps": "Beatmaps",
+        "source": "Source",
+        "status": "Status"
+      }
+    }
   },
   "download": {
     "title": "Download beatmaps",

@@ -9,6 +9,7 @@ import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/constants'
 import DownloadService from '../services/downloadService'
 import { collectionService } from '../services/collection/collectionService'
 import CollectionSyncService from '../services/collection/collectionSyncService'
+import { safeJoinWithinRoot } from './pathGuards'
 import { startupMark } from '../services/startupTrace'
 
 function createWindow(): BrowserWindow {
@@ -100,7 +101,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('check-subdir', async (_, dir: string, sub: string) => {
     try {
-      const subDirPath = join(dir, sub)
+      const safePath = safeJoinWithinRoot(dir, sub)
+      if (!safePath.valid || !safePath.joinedPath) {
+        return false
+      }
+      const subDirPath = safePath.joinedPath
       return fs.existsSync(subDirPath) && fs.statSync(subDirPath).isDirectory()
     } catch (error) {
       console.error('Error checking subdirectory:', error)
@@ -110,7 +115,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('check-file', async (_, dir: string, file: string) => {
     try {
-      const filePath = join(dir, file)
+      const safePath = safeJoinWithinRoot(dir, file)
+      if (!safePath.valid || !safePath.joinedPath) {
+        return false
+      }
+      const filePath = safePath.joinedPath
       return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
     } catch (error) {
       console.error('Error checking file:', error)

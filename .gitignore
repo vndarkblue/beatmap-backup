@@ -49,3 +49,6 @@ repomix-output.xml
 # Project notes
 notes.md
 example.json
+
+feedback/
+.branch-split-temp/

@@ -21,6 +21,7 @@ import { validateDownloadPath } from './download/fileUtils'
 import SyncManager from './database/syncManager'
 import type { SyncProgressEvent } from './database/types'
 import { DatabaseService } from './database/databaseService'
+import { startupMark } from './startupTrace'
 
 const app = express()
 const port = 3000
@@ -467,6 +468,7 @@ app.get('/api/database/sync/events', ((req: Request, res: Response) => {
 
 export function startServer(): void {
   try {
+    startupMark('api:startServer:begin')
     const mirrorService = BeatmapMirrorService.getInstance()
     mirrorService.startBackgroundHealthChecks()
     const downloadService = DownloadService.getInstance()
@@ -475,6 +477,7 @@ export function startServer(): void {
     void syncManager.runStartupSync()
 
     httpServer = app.listen(port, () => {
+      startupMark('api:startServer:listening', { port })
       console.log(`API server is running on port ${port}`)
       console.log(`Server URL: http://localhost:${port}`)
     })

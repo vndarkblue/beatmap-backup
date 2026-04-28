@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../renderer/src/assets/logo.ico?asset'
 import { startServer, stopServer } from '../services/api'
@@ -9,9 +9,11 @@ import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/constants'
 import DownloadService from '../services/downloadService'
 import { collectionService } from '../services/collection/collectionService'
 import CollectionSyncService from '../services/collection/collectionSyncService'
+import { startupMark } from '../services/startupTrace'
 
 function createWindow(): BrowserWindow {
   // Create the browser window.
+  startupMark('createWindow:start')
   const mainWindow = new BrowserWindow({
     title: APP_NAME,
     width: WINDOW_CONFIG.DEFAULT_WIDTH,
@@ -22,7 +24,7 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -30,6 +32,7 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.on('ready-to-show', () => {
+    startupMark('window:ready-to-show')
     mainWindow.show()
     // Open DevTools in development
     if (is.dev) {
@@ -45,11 +48,14 @@ function createWindow(): BrowserWindow {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    startupMark('window:loadURL', { url: process.env['ELECTRON_RENDERER_URL'] })
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    startupMark('window:loadFile')
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
+  startupMark('createWindow:end')
   return mainWindow
 }
 
@@ -57,6 +63,7 @@ function createWindow(): BrowserWindow {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  startupMark('app:whenReady')
   // Set app user model id for windows
   electronApp.setAppUserModelId(APP_ID)
 
@@ -195,8 +202,10 @@ app.whenReady().then(() => {
   const startDeferredStartupTasks = (): void => {
     if (startupTasksStarted) return
     startupTasksStarted = true
+    startupMark('startupTasks:start')
     startServer()
     CollectionSyncService.getInstance().startBackgroundSync()
+    startupMark('startupTasks:scheduled')
   }
 
   mainWindow.once('ready-to-show', () => {

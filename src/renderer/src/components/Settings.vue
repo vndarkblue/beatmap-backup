@@ -8,16 +8,24 @@
           mode="directory"
           :label="$t('settings.osuStablePath')"
           :browse-title="$t('settings.selectFolder')"
+          :placeholder="osuStablePlaceholder"
           @browse="selectOsuStablePath"
         />
+        <div v-if="osuStableHint" class="text-caption mt-n2 mb-2">
+          {{ osuStableHint }}
+        </div>
 
         <PathField
           v-model="osuLazerPath"
           mode="directory"
           :label="$t('settings.osuLazerPath')"
           :browse-title="$t('settings.selectFolder')"
+          :placeholder="osuLazerPlaceholder"
           @browse="selectOsuLazerPath"
         />
+        <div v-if="osuLazerHint" class="text-caption mt-n2 mb-2">
+          {{ osuLazerHint }}
+        </div>
       </AppForm>
       <v-divider></v-divider>
       <!-- Language Selection -->
@@ -50,8 +58,19 @@
     <AppIsland :title="$t('settings.download')" card-class="mb-4">
       <!-- Thread Count -->
       <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
-        <div class="text-subtitle-1 mb-2 mb-sm-0 mr-sm-4 pb-6" :lang="currentLocale">
-          {{ threadCountLabel }}
+        <div class="d-flex align-center mb-2 mb-sm-0 mr-sm-4 pb-6 ga-2" :lang="currentLocale">
+          <span class="text-subtitle-1" :lang="currentLocale">{{ threadCountLabel }}</span>
+          <v-tooltip location="top">
+            <template #activator="{ props }">
+              <v-icon
+                v-bind="props"
+                icon="mdi-help-circle-outline"
+                size="18"
+                color="medium-emphasis"
+              />
+            </template>
+            <span :lang="currentLocale">{{ $t('download.options.threadCountHelp') }}</span>
+          </v-tooltip>
         </div>
         <v-slider
           v-model="threadCount"
@@ -111,13 +130,20 @@
             hide-details
             class="view-field pl-2"
           ></v-switch>
+          <div class="text-caption mt-1 ml-2" :lang="currentLocale">
+            {{ waitForDownloadsHelpText }}
+          </div>
         </div>
       </div>
     </AppIsland>
 
     <AppIsland :title="$t('settings.database.title')">
       <div class="text-subtitle-1 mb-3" :lang="currentLocale">
-        {{ $t('settings.database.totalBeatmapsets', { count: databaseStatus?.totals.beatmapsets ?? 0 }) }}
+        {{
+          $t('settings.database.totalBeatmapsets', {
+            count: databaseStatus?.totals.beatmapsets ?? 0
+          })
+        }}
       </div>
       <div class="text-subtitle-1 mb-3" :lang="currentLocale">
         {{ $t('settings.database.totalBeatmaps', { count: databaseStatus?.totals.beatmaps ?? 0 }) }}
@@ -162,9 +188,16 @@
         class="mb-3"
       ></v-progress-linear>
 
-      <div v-if="syncMessage" class="text-caption mb-3" :lang="currentLocale">{{ syncMessage }}</div>
+      <div v-if="syncMessage" class="text-caption mb-3" :lang="currentLocale">
+        {{ syncMessage }}
+      </div>
 
-      <v-btn color="primary" :loading="isSyncing" :lang="currentLocale" @click="triggerDatabaseSync">
+      <v-btn
+        color="primary"
+        :loading="isSyncing"
+        :lang="currentLocale"
+        @click="triggerDatabaseSync"
+      >
         {{ $t('settings.database.syncNow') }}
       </v-btn>
     </AppIsland>
@@ -220,9 +253,31 @@ const currentLocale = computed({
 const threadCountLabel = computed(() => {
   return `${t('download.options.threadCount')}: ${threadCount.value}`
 })
+const waitForDownloadsHelpText = computed(() =>
+  waitForDownloadsOnPause.value
+    ? t('download.options.waitForDownloadsHelpOn')
+    : t('download.options.waitForDownloadsHelpOff')
+)
 
 const isStablePathValid = computed(() => !!osuStablePath.value)
 const isLazerPathValid = computed(() => !!osuLazerPath.value)
+const isWindows = computed(() => navigator.userAgent.toLowerCase().includes('windows'))
+const osuStablePlaceholder = computed(() =>
+  isWindows.value ? 'C:\\Users\\<you>\\AppData\\Local\\osu!' : ''
+)
+const osuLazerPlaceholder = computed(() =>
+  isWindows.value ? 'C:\\Users\\<you>\\AppData\\Local\\osu' : ''
+)
+const osuStableHint = computed(() =>
+  isWindows.value && !osuStablePath.value
+    ? t('settings.defaultPathHint', { path: osuStablePlaceholder.value })
+    : ''
+)
+const osuLazerHint = computed(() =>
+  isWindows.value && !osuLazerPath.value
+    ? t('settings.defaultPathHint', { path: osuLazerPlaceholder.value })
+    : ''
+)
 
 type DatabaseStatus = {
   totals: {
@@ -317,7 +372,7 @@ const ensureDatabaseEvents = (): void => {
   if (databaseEventSource) return
   databaseEventSource = new EventSource(API_ENDPOINTS.DATABASE_SYNC_EVENTS)
 
-  const updateByEvent = (event: MessageEvent<string>) => {
+  const updateByEvent = (event: MessageEvent<string>): void => {
     try {
       const payload = JSON.parse(event.data) as { message?: string; error?: string }
       syncMessage.value = payload.error || payload.message || ''

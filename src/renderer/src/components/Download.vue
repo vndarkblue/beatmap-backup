@@ -35,6 +35,12 @@
         >
           {{ $t('download.button') }}
         </v-btn>
+        <v-progress-linear
+          v-if="isDownloading"
+          indeterminate
+          color="primary"
+          class="mt-3"
+        ></v-progress-linear>
 
         <!-- Status Message -->
         <div
@@ -840,7 +846,8 @@ const connectSSE = (): void => {
     try {
       const summary = JSON.parse(e.data)
       completedSummary.value = summary
-      completedDownloadPath.value = typeof summary?.downloadPath === 'string' ? summary.downloadPath : ''
+      completedDownloadPath.value =
+        typeof summary?.downloadPath === 'string' ? summary.downloadPath : ''
       showCompletedToast.value = true
     } catch (error) {
       console.error('Failed to parse queueCompleted:', error)

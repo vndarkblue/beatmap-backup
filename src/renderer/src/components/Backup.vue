@@ -38,13 +38,21 @@
             hide-details
           ></v-switch>
           <div class="text-caption mb-2" :lang="currentLocale">
-            <span class="status-resolved">{{ $t('backup.collection.status.resolved') }} {{ syncStatus.resolved }}</span>
+            <span class="status-resolved"
+              >{{ $t('backup.collection.status.resolved') }} {{ syncStatus.resolved }}</span
+            >
             <span class="mx-2">·</span>
-            <span class="status-pending">{{ $t('backup.collection.status.pending') }} {{ syncStatus.pending }}</span>
+            <span class="status-pending"
+              >{{ $t('backup.collection.status.pending') }} {{ syncStatus.pending }}</span
+            >
             <span class="mx-2">·</span>
-            <span class="status-not-found">{{ $t('backup.collection.status.notFound') }} {{ syncStatus.notFound }}</span>
+            <span class="status-not-found"
+              >{{ $t('backup.collection.status.notFound') }} {{ syncStatus.notFound }}</span
+            >
             <span class="mx-2">·</span>
-            <span class="status-missing">{{ $t('backup.collection.status.missingLocal') }} {{ syncStatus.missingLocal }}</span>
+            <span class="status-missing"
+              >{{ $t('backup.collection.status.missingLocal') }} {{ syncStatus.missingLocal }}</span
+            >
           </div>
           <v-btn
             variant="tonal"
@@ -142,6 +150,21 @@
         >
           {{ $t('backup.button') }}
         </v-btn>
+        <v-alert
+          v-if="estimateMessage"
+          :type="estimateError ? 'warning' : 'info'"
+          variant="tonal"
+          density="comfortable"
+          class="mt-3"
+        >
+          {{ estimateMessage }}
+        </v-alert>
+        <v-progress-linear
+          v-if="isEstimating"
+          indeterminate
+          color="primary"
+          class="mt-2"
+        ></v-progress-linear>
         <div
           v-if="statusMessage"
           class="text-center mt-2"
@@ -157,6 +180,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { API_ENDPOINTS } from '../../../config/constants'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
@@ -199,6 +223,9 @@ const syncStatus = ref({
   failed: 0,
   missingLocal: 0
 })
+const isEstimating = ref(false)
+const estimateMessage = ref('')
+const estimateError = ref(false)
 
 const STORAGE_KEY = 'backup.toggle.state.v1'
 const PREVIEW_SNAPSHOT_STORAGE_KEY = 'backup.collection.preview.snapshot.v1'
@@ -306,7 +333,10 @@ const loadToggleState = (): void => {
 const buildPreviewCacheKey = (): string =>
   `${stableBackup.value ? '1' : '0'}:${lazerBackup.value ? '1' : '0'}:${mergeMode.value}`
 
-const applyPreviewResult = (nextCollections: CollectionItem[], nextSyncStatus: typeof syncStatus.value): void => {
+const applyPreviewResult = (
+  nextCollections: CollectionItem[],
+  nextSyncStatus: typeof syncStatus.value
+): void => {
   collections.value = nextCollections
   syncStatus.value = nextSyncStatus
   const keys = new Set(collections.value.map((item) => item.key))
@@ -389,9 +419,13 @@ const loadCollectionPreview = async (options?: { forceRefresh?: boolean }): Prom
     syncStatus: response.syncStatus
   })
   savePreviewSnapshot(cacheKey, response.collections, response.syncStatus)
+  void refreshEstimate()
 }
 
-const scheduleCollectionPreviewLoad = (options?: { forceRefresh?: boolean; immediate?: boolean }): void => {
+const scheduleCollectionPreviewLoad = (options?: {
+  forceRefresh?: boolean
+  immediate?: boolean
+}): void => {
   if (previewDebounceTimer) {
     clearTimeout(previewDebounceTimer)
     previewDebounceTimer = null
@@ -404,6 +438,52 @@ const scheduleCollectionPreviewLoad = (options?: { forceRefresh?: boolean; immed
     return
   }
   previewDebounceTimer = setTimeout(run, PREVIEW_DEBOUNCE_MS)
+}
+
+const formatBytes = (bytes: number): string => {
+  if (bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  return `${(bytes / Math.pow(1024, exp)).toFixed(exp === 0 ? 0 : 2)} ${units[exp]}`
+}
+
+const refreshEstimate = async (): Promise<void> => {
+  if (!isSourceSelected.value) {
+    estimateMessage.value = ''
+    estimateError.value = false
+    return
+  }
+
+  isEstimating.value = true
+  estimateError.value = false
+  try {
+    const response = await fetch(API_ENDPOINTS.EXPORT_ESTIMATE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        options: {
+          stable: stableBackup.value,
+          lazer: lazerBackup.value,
+          backupByCollection: backupByCollection.value,
+          collectionMergeMode: mergeMode.value,
+          selectedCollections: [...selectedCollectionKeys.value]
+        }
+      })
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.error || 'Failed to estimate backup')
+    }
+    estimateMessage.value = t('backup.estimate', {
+      count: payload.count,
+      size: formatBytes(payload.estimatedBytes)
+    })
+  } catch (error) {
+    estimateError.value = true
+    estimateMessage.value = error instanceof Error ? error.message : t('backup.estimateUnavailable')
+  } finally {
+    isEstimating.value = false
+  }
 }
 
 const syncMissingNow = async (): Promise<void> => {
@@ -458,6 +538,13 @@ watch([stableBackup, lazerBackup, backupByCollection, mergeCollectionNames], () 
   ensureToggleRules()
   saveToggleState()
   scheduleCollectionPreviewLoad()
+  void refreshEstimate()
+})
+
+watch(selectedCollectionKeys, () => {
+  if (backupByCollection.value) {
+    void refreshEstimate()
+  }
 })
 
 onMounted(() => {
@@ -469,6 +556,7 @@ onMounted(() => {
   saveToggleState()
   loadPreviewSnapshot()
   scheduleCollectionPreviewLoad({ immediate: true })
+  void refreshEstimate()
 })
 
 onBeforeUnmount(() => {

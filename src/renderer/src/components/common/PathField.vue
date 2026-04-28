@@ -9,6 +9,7 @@
     :rules="rules"
     :clearable="clearable"
     :disabled="disabled"
+    :placeholder="placeholder"
     @update:model-value="onUpdate"
     @click:clear="onClear"
   >
@@ -43,6 +44,7 @@ const props = withDefaults(
     lang?: string
     rules?: TextFieldRules
     fieldClass?: string | string[] | Record<string, boolean>
+    placeholder?: string
   }>(),
   {
     browseTitle: undefined,
@@ -51,7 +53,8 @@ const props = withDefaults(
     disabled: false,
     lang: undefined,
     rules: undefined,
-    fieldClass: 'view-field'
+    fieldClass: 'view-field',
+    placeholder: undefined
   }
 )
 

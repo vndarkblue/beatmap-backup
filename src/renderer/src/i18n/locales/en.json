@@ -7,6 +7,7 @@
     "osuLazerPath": "osu!lazer directory",
     "selectFolder": "Select Folder",
     "rememberDownloadPath": "Remember download location",
+    "defaultPathHint": "Common Windows path: {path}",
     "error": {
       "songsNotFound": "The Songs folder is not found in the directory",
       "realmNotFound": "The client.realm database is not found in the directory"
@@ -33,6 +34,8 @@
     "success": "Successfully backed up {count} beatmaps",
     "error": "Backup failed",
     "cancelled": "Backup cancelled",
+    "estimate": "Estimated backup output: {count} beatmapset IDs (~{size})",
+    "estimateUnavailable": "Could not estimate backup size with current settings.",
     "collection": {
       "enabled": "Backup by collections",
       "mergeByName": "Merge duplicate collection names from both stable and lazer",
@@ -83,7 +86,10 @@
       "statusUnknown": "Status unknown",
       "other": "Other options",
       "noVideo": "Download without videos",
-      "waitForDownloads": "Wait for downloads to complete when pausing"
+      "waitForDownloads": "Wait for downloads to complete when pausing",
+      "waitForDownloadsHelpOn": "When pausing, in-progress beatmaps are allowed to finish before the queue pauses.",
+      "waitForDownloadsHelpOff": "When pausing, in-progress beatmaps may stop immediately.",
+      "threadCountHelp": "Number of beatmaps downloaded at the same time. Higher values are faster but less stable."
     },
     "button": "Download",
     "started": "Download started",

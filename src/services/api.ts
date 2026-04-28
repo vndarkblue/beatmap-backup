@@ -207,6 +207,24 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
   }
 }) as RequestHandler)
 
+app.post('/api/export/estimate', (async (req: Request, res: Response): Promise<void> => {
+  const { options } = req.body
+  if (!options) {
+    res.status(400).json({ error: 'Missing export options' })
+    return
+  }
+  try {
+    const { exportService } = await import('./exportService')
+    const estimate = await exportService.estimateExportData(options)
+    res.json({ success: true, ...estimate })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to estimate backup size'
+    })
+  }
+}) as RequestHandler)
+
 app.get('/api/download/recovery', (async (_req: Request, res: Response): Promise<void> => {
   try {
     const downloadService = DownloadService.getInstance()

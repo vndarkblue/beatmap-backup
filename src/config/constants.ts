@@ -23,7 +23,8 @@ export const API_ENDPOINTS = {
   DOWNLOAD_RECOVERY: `${API_BASE_URL}/download/recovery`,
   DOWNLOAD_RECOVERY_RESUME: `${API_BASE_URL}/download/recovery/resume`,
   DOWNLOAD_RECOVERY_DISCARD: `${API_BASE_URL}/download/recovery/discard`,
-  DATABASE_STATUS: `${API_BASE_URL}/database/status`, 
+  EXPORT_ESTIMATE: `${API_BASE_URL}/export/estimate`,
+  DATABASE_STATUS: `${API_BASE_URL}/database/status`,
   DATABASE_SYNC: `${API_BASE_URL}/database/sync`,
   DATABASE_SYNC_EVENTS: `${API_BASE_URL}/database/sync/events`,
   DATABASE_FILTER_BEATMAPS: `${API_BASE_URL}/database/beatmaps/filter`

@@ -2,7 +2,6 @@ import { getOsuStablePath } from './settingsStore'
 import { realmService } from './realmService'
 import path from 'path'
 import fs from 'fs'
-import { dialog } from 'electron'
 import { collectionService } from './collection/collectionService'
 import type { CollectionMergeMode } from './collection/types'
 
@@ -27,10 +26,71 @@ export interface ExportResult {
   error?: string
 }
 
+export interface ExportEstimateResult {
+  count: number
+  estimatedBytes: number
+}
+
+const buildBackupContent = (ids: number[], options: ExportOptions): string => {
+  const header = `# Beatmap Backup File
+# Format: One beatmapset ID per line
+# Created: ${new Date().toISOString()}
+# Total beatmaps: ${ids.length}
+# Source: ${options.stable ? 'Stable' : ''}${options.stable && options.lazer ? ' + ' : ''}${options.lazer ? 'Lazer' : ''}
+
+`
+  return header + ids.join('\n')
+}
+
 export const exportService = {
+  async estimateExportData(options: ExportOptions): Promise<ExportEstimateResult> {
+    const beatmapsetIds: number[] = []
+
+    if (options.backupByCollection) {
+      const resolved = await collectionService.resolveCollectionBeatmapsetIds({
+        stable: options.stable,
+        lazer: options.lazer,
+        mergeMode: options.collectionMergeMode ?? 'merge',
+        selectedKeys: options.selectedCollections ?? []
+      })
+      beatmapsetIds.push(...resolved.ids)
+    } else if (options.stable) {
+      const osuStablePath = getOsuStablePath()
+      if (!osuStablePath) {
+        throw new Error('Osu stable path not set')
+      }
+      const songsPath = path.join(osuStablePath, 'Songs')
+      if (!fs.existsSync(songsPath)) {
+        throw new Error('Songs directory not found')
+      }
+      const folders = fs.readdirSync(songsPath)
+      for (const folder of folders) {
+        const match = folder.match(/^(\d+)\s/)
+        if (match) {
+          const id = parseInt(match[1])
+          if (!isNaN(id)) beatmapsetIds.push(id)
+        }
+      }
+    }
+
+    if (!options.backupByCollection && options.lazer) {
+      const lazerIds = await realmService.getBeatmapsetIds()
+      beatmapsetIds.push(...lazerIds)
+    }
+
+    const uniqueIds = Array.from(new Set(beatmapsetIds)).sort((a, b) => a - b)
+    const estimatedBytes = Buffer.byteLength(buildBackupContent(uniqueIds, options), 'utf-8')
+
+    return {
+      count: uniqueIds.length,
+      estimatedBytes
+    }
+  },
+
   async exportData(options: ExportOptions): Promise<ExportResult> {
     console.log('exportService.exportData called with options:', options)
     try {
+      const { dialog } = await import('electron')
       const beatmapsetIds: number[] = []
       let collectionStats: ExportResult['stats'] | undefined
 
@@ -110,14 +170,7 @@ export const exportService = {
 
       console.log('Saving to file:', filePath)
       // Write to file with header and comments
-      const header = `# Beatmap Backup File
-# Format: One beatmapset ID per line
-# Created: ${new Date().toISOString()}
-# Total beatmaps: ${uniqueIds.length}
-# Source: ${options.stable ? 'Stable' : ''}${options.stable && options.lazer ? ' + ' : ''}${options.lazer ? 'Lazer' : ''}
-
-`
-      fs.writeFileSync(filePath, header + uniqueIds.join('\n'))
+      fs.writeFileSync(filePath, buildBackupContent(uniqueIds, options))
       console.log('File saved successfully')
 
       const result: ExportResult = {

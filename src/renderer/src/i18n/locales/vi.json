@@ -7,6 +7,7 @@
     "osuLazerPath": "Đường dẫn osu!lazer",
     "selectFolder": "Chọn thư mục",
     "rememberDownloadPath": "Ghi nhớ vị trí tải xuống",
+    "defaultPathHint": "Đường dẫn Windows thường gặp: {path}",
     "error": {
       "songsNotFound": "Không tìm thấy thư mục Songs trong đường dẫn!",
       "realmNotFound": "Không tìm thấy file client.realm trong đường dẫn!"
@@ -33,6 +34,8 @@
     "success": "Đã sao lưu thành công {count} beatmap",
     "error": "Sao lưu thất bại",
     "cancelled": "Đã huỷ thao tác",
+    "estimate": "Ước tính file backup: {count} beatmapset ID (~{size})",
+    "estimateUnavailable": "Không thể ước tính kích thước backup với cấu hình hiện tại.",
     "collection": {
       "enabled": "Sao lưu theo Bộ sưu tập",
       "mergeByName": "Gộp Bộ sưu tập trùng tên",
@@ -83,7 +86,10 @@
       "statusUnknown": "Trạng thái không xác định",
       "other": "Tuỳ chọn khác",
       "noVideo": "Không tải xuống video",
-      "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng"
+      "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng",
+      "waitForDownloadsHelpOn": "Khi tạm dừng, các beatmap đang tải sẽ hoàn tất rồi mới dừng hẳn.",
+      "waitForDownloadsHelpOff": "Khi tạm dừng, các beatmap đang tải có thể bị dừng ngay.",
+      "threadCountHelp": "Số lượng beatmap được tải cùng lúc. Nhiều hơn thì nhanh hơn nhưng kém ổn định hơn"
     },
     "button": "Tải xuống",
     "started": "Bắt đầu tải xuống",

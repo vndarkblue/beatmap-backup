@@ -6,6 +6,7 @@ import { importFromLazerRealm } from './lazerImporter'
 import { realmService } from '../realmService'
 import { getOsuLazerPath, getOsuStablePath } from '../settingsStore'
 import type { DatabaseStatus, SyncProgressEvent, SyncSource } from './types'
+import { startupMark } from '../startupTrace'
 
 class SyncManager extends EventEmitter {
   private static instance: SyncManager
@@ -19,8 +20,11 @@ class SyncManager extends EventEmitter {
   }
 
   async runStartupSync(): Promise<void> {
+    startupMark('db:startupSync:begin')
     await this.syncSource('stable', false)
+    startupMark('db:startupSync:afterStable')
     await this.syncSource('lazer', false)
+    startupMark('db:startupSync:done')
   }
 
   async runManualSync(source: SyncSource | 'all', force = true): Promise<void> {
@@ -67,7 +71,9 @@ class SyncManager extends EventEmitter {
         lastFileMtime: stableLastMtime,
         currentFileMtime: stableCurrentMtime,
         beatmapCount: db.getBeatmapCountBySource('stable'),
-        isDirty: Boolean(stableCurrentMtime && stableLastMtime && stableCurrentMtime !== stableLastMtime)
+        isDirty: Boolean(
+          stableCurrentMtime && stableLastMtime && stableCurrentMtime !== stableLastMtime
+        )
       },
       lazer: {
         configured: Boolean(lazerConfiguredPath),
@@ -76,7 +82,9 @@ class SyncManager extends EventEmitter {
         lastFileMtime: lazerLastMtime,
         currentFileMtime: lazerCurrentMtime,
         beatmapCount: db.getBeatmapCountBySource('lazer'),
-        isDirty: Boolean(lazerCurrentMtime && lazerLastMtime && lazerCurrentMtime !== lazerLastMtime)
+        isDirty: Boolean(
+          lazerCurrentMtime && lazerLastMtime && lazerCurrentMtime !== lazerLastMtime
+        )
       }
     }
   }

@@ -52,8 +52,21 @@ export async function downloadFile(
     const startUrl = new URL(downloadUrl)
     const startTime = Date.now()
     let writer: fs.WriteStream | undefined
-    let filePath: string | undefined
+    let finalFilePath: string | undefined
+    let tempFilePath: string | undefined
     let currentResponse: http.IncomingMessage | undefined
+    let requestSettled = false
+
+    const failWithCleanup = (error: Error): void => {
+      if (requestSettled) return
+      requestSettled = true
+      currentResponse?.destroy()
+      writer?.destroy()
+      if (tempFilePath) {
+        fs.unlink(tempFilePath, () => {})
+      }
+      reject(error)
+    }
 
     const makeRequest = (targetUrl: URL, redirectCount = 0): void => {
       const protocol = targetUrl.protocol === 'http:' ? http : https
@@ -89,7 +102,7 @@ export async function downloadFile(
           }
 
           if (response.statusCode !== 200) {
-            reject(new Error(`Failed to download: ${response.statusCode}`))
+            failWithCleanup(new Error(`Failed to download: ${response.statusCode}`))
             return
           }
 
@@ -105,12 +118,13 @@ export async function downloadFile(
             }
           }
           fileName = sanitizeFileName(fileName)
-          filePath = path.join(downloadPath, fileName)
+          finalFilePath = path.join(downloadPath, fileName)
+          tempFilePath = `${finalFilePath}.part`
 
           task.fileName = fileName
           onProgress(task)
 
-          writer = fs.createWriteStream(filePath)
+          writer = fs.createWriteStream(tempFilePath)
           let downloadedBytes = 0
           let lastUpdate = startTime
           let lastBytes = 0
@@ -133,29 +147,44 @@ export async function downloadFile(
             }
           })
 
-          response.on('error', (err) => reject(err))
-          writer.on('error', (err) => reject(err))
+          response.on('error', (err) => failWithCleanup(err))
+          writer.on('error', (err) => failWithCleanup(err))
 
           response.pipe(writer)
 
           writer.on('finish', () => {
-            task.status = 'completed'
-            task.progress = 100
-            task.speed = 0
-            task.remainingTime = 0
-            task.filePath = filePath
-            resolve({ startTime })
+            if (!finalFilePath || !tempFilePath) {
+              failWithCleanup(new Error('Download finalize failed: missing target path'))
+              return
+            }
+            if (totalSize > 0 && downloadedBytes !== totalSize) {
+              failWithCleanup(
+                new Error(
+                  `Download incomplete: expected ${totalSize} bytes but received ${downloadedBytes} bytes`
+                )
+              )
+              return
+            }
+            fs.rename(tempFilePath, finalFilePath, (renameError) => {
+              if (renameError) {
+                failWithCleanup(renameError)
+                return
+              }
+              if (requestSettled) return
+              requestSettled = true
+              task.status = 'completed'
+              task.progress = 100
+              task.speed = 0
+              task.remainingTime = 0
+              task.filePath = finalFilePath
+              resolve({ startTime })
+            })
           })
         }
       )
 
       req.on('error', (error) => {
-        currentResponse?.destroy()
-        writer?.destroy()
-        if (filePath) {
-          fs.unlink(filePath, () => {})
-        }
-        reject(error)
+        failWithCleanup(error)
       })
 
       req.setTimeout(30000, () => {

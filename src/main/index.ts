@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../renderer/src/assets/logo.ico?asset'
 import { startServer, stopServer } from '../services/api'
@@ -9,6 +9,7 @@ import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/constants'
 import DownloadService from '../services/downloadService'
 import { collectionService } from '../services/collection/collectionService'
 import CollectionSyncService from '../services/collection/collectionSyncService'
+import { safeJoinWithinRoot } from './pathGuards'
 
 function createWindow(): BrowserWindow {
   // Create the browser window.
@@ -22,7 +23,7 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -47,7 +48,7 @@ function createWindow(): BrowserWindow {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
   return mainWindow
@@ -93,7 +94,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('check-subdir', async (_, dir: string, sub: string) => {
     try {
-      const subDirPath = join(dir, sub)
+      const safePath = safeJoinWithinRoot(dir, sub)
+      if (!safePath.valid || !safePath.joinedPath) {
+        return false
+      }
+      const subDirPath = safePath.joinedPath
       return fs.existsSync(subDirPath) && fs.statSync(subDirPath).isDirectory()
     } catch (error) {
       console.error('Error checking subdirectory:', error)
@@ -103,7 +108,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('check-file', async (_, dir: string, file: string) => {
     try {
-      const filePath = join(dir, file)
+      const safePath = safeJoinWithinRoot(dir, file)
+      if (!safePath.valid || !safePath.joinedPath) {
+        return false
+      }
+      const filePath = safePath.joinedPath
       return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
     } catch (error) {
       console.error('Error checking file:', error)

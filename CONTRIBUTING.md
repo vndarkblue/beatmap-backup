@@ -1,76 +1,185 @@
-## Contributing Guidelines
+# Contributing Guidelines
 
-Thank you for contributing to **Beatmap Backup**! This document sets some lightweight guardrails so changes stay small, reviewable, and safe for users.
+Thanks for helping improve **Beatmap Backup**.
 
-If anything here is unclear or feels too strict for your use case, feel free to open an issue or discuss it in your pull request.
+Contributions are welcome in any form — bug reports, feedback, or code. This guide helps make them easy to review and act on..
 
-## Workflow
+## Table of Contents
 
-- **Keep changes small and focused**
-  - Prefer a few small PRs over one very large PR.
-  - Each PR should have a clear, single goal (e.g. \"fix download error handling\", \"tweak backup UX copy\").
-- **Branching**
-  - Base off the default branch.
-  - Use descriptive branch names, e.g. `feat/backup-summary`, `fix/download-timeout`, `chore/lint-cleanup`.
-- **Before opening a PR**
-  - Make sure the app still builds and runs.
-  - Manually exercise the flows you touched (see \"Smoke tests\" below).
+- [Quick Links](#quick-links)
+- [Ways to Contribute](#ways-to-contribute)
+- [Report a Bug](#report-a-bug)
+- [Share Feedback (Non-bug)](#share-feedback-non-bug)
+- [Feature Requests and Ideas](#feature-requests-and-ideas)
+- [Issues vs Discussions](#issues-vs-discussions)
+- [Pull Requests](#pull-requests)
+- [Code Quality](#code-quality)
+- [Questions?](#questions)
 
-## Pre-PR Checklist
+## Quick Links
 
-Run these commands locally before requesting review:
+- Issues: [https://github.com/vndarkblue/beatmap-backup/issues](https://github.com/vndarkblue/beatmap-backup/issues)
+- Discussions: [https://github.com/vndarkblue/beatmap-backup/discussions](https://github.com/vndarkblue/beatmap-backup/discussions)
+- Pull Requests: [https://github.com/vndarkblue/beatmap-backup/pulls](https://github.com/vndarkblue/beatmap-backup/pulls)
+- Releases: [https://github.com/vndarkblue/beatmap-backup/releases](https://github.com/vndarkblue/beatmap-backup/releases)
+
+## Ways to Contribute
+
+- Report bugs and regressions
+- Share UX/product feedback
+- Suggest ideas and feature requests
+- Join or start discussions
+- Submit pull requests (docs, tests, bug fixes, features, refactors)
+
+---
+
+## Report a Bug
+
+Open a GitHub issue and include enough detail for someone else to reproduce quickly.
+
+### Bug report checklist
+
+- Clear title
+- What you expected vs what happened
+- Reproduction steps (numbered)
+- App version (`release tag` or commit)
+- OS and environment (`Windows`/`Linux`, install type)
+- Screenshots or logs when available
+- Whether this worked before (possible regression)
+
+### Bug report template
+
+```md
+## Summary
+Short description of the bug.
+
+## Steps to Reproduce
+1. ...
+2. ...
+3. ...
+
+## Expected Behavior
+...
+
+## Actual Behavior
+...
+
+## Environment
+- App version:
+- OS:
+- Install type:
+
+## Extra Context
+Screenshots, logs, related issues, etc.
+```
+
+## Share Feedback (Non-bug)
+
+Use feedback when behavior is technically correct but can be improved (UX copy, workflow friction, defaults, clarity).
+
+Good feedback includes:
+
+- What you were trying to do
+- What felt confusing or slow
+- What outcome you expected
+- Optional suggestion (if you have one)
+
+If you are unsure whether it is a bug or feedback, open an issue anyway and mark it as a question.
+
+## Feature Requests and Ideas
+
+For new features or larger changes:
+
+- Start with a Discussion if scope is unclear or has trade-offs.
+- Open an Issue if the request is concrete and actionable.
+
+Useful details:
+
+- User problem being solved
+- Why current behavior is insufficient
+- Proposed behavior (minimal version first)
+- Risks/trade-offs (performance, compatibility, complexity)
+
+## Issues vs Discussions
+
+- Use **Issues** for actionable work items (bug, task, concrete feature request).
+- Use **Discussions** for open-ended topics (brainstorming, design options, Q&A).
+
+---
+
+## Pull Requests
+
+### Before you start
+
+- Prefer small, focused changes.
+- For larger work, open an issue or discussion first to align on scope.
+- Base your branch from the default branch.
+
+Branch naming examples:
+
+- `fix/download-timeout`
+- `feat/backup-summary`
+- `docs/contributing-update`
+- `chore/test-cleanup`
+
+### Before opening a PR
+
+Run locally:
 
 - `npm run lint`
 - `npm run typecheck`
+- `npm test`
 
-For changes that affect core flows, also do a quick smoke test:
+Then do a quick smoke test for touched flows:
 
-- **Settings**: open the Settings page, adjust one or two options, and confirm they are saved and reloaded correctly.
-- **Backup**: run a small backup and confirm the `.bbak` file is created and can be loaded again.
-- **Download**: start a small download queue and confirm tasks progress and finish without leaving broken `.osz` or `.part` files behind.
+- **Settings**: update settings and confirm persistence after reload.
+- **Backup**: create a small `.bbak` and verify it can be reused.
+- **Download**: run a small queue and confirm completion without broken artifacts.
 
-If any checklist item cannot be satisfied (e.g. temporary platform limitation), explain why in the PR description.
+If something cannot be validated locally, note it explicitly in the PR.
 
-## `eslint-disable` Policy
+### PR description checklist
 
-`eslint-disable` is allowed, but only as a last resort and with clear intent:
+- What changed
+- Why it changed
+- Scope boundaries (what is intentionally not included)
+- How it was tested
+- Screenshots or GIF for UI changes
+- Breaking change or migration notes (if any)
 
-- Prefer **fixing the underlying issue** (types, unused variables, missing null checks) instead of disabling rules.
-- If you must disable a rule:
-  - Scope it as narrowly as possible (single line or small block).
-  - Add a short comment explaining why it is required.
-  - Prefer disabling a specific rule (e.g. `@typescript-eslint/no-explicit-any`) instead of turning off many rules at once.
-- When touching a file that already has `eslint-disable`, consider whether you can safely remove or narrow it as part of your change.
+---
 
-New `eslint-disable` entries without justification may be requested to be fixed or reverted during review.
+## Code Quality
 
-## Abstractions and Over-Engineering
+### Keep it simple
 
-We prefer simple, direct solutions over generic abstractions:
+- Prefer direct, understandable solutions over premature abstractions.
+- Extract abstractions only when there are at least two real use-cases.
+- Avoid adding new dependencies unless they clearly reduce complexity.
 
-- Only extract new abstractions when there are **at least two real use-cases** or a very clear upcoming need.
-- Avoid introducing new top-level modules or packages unless they clearly reduce complexity.
-- Keep naming aligned with domain intent (e.g. `DownloadQueue`, `BackupEstimate`) instead of overly generic names.
+### `eslint-disable` policy
 
-When in doubt, favour a straightforward implementation first. We can extract abstractions later once patterns become clear.
+`eslint-disable` is allowed only as a last resort:
 
-## Refactors and Large Changes
+- Fix root causes first when possible.
+- Scope disable comments as narrowly as possible.
+- Add a short reason comment.
+- Prefer specific rule disables over broad disables.
 
-For larger refactors or behavior changes, follow three steps:
+Unjustified disables may be requested to be removed in review.
 
-1. **Boundary** – Make the boundary explicit (e.g. add a clear service API, or centralize a concept such as download queue persistence).
-2. **Tests / Smoke tests** – Add or update targeted tests where possible, and always run smoke tests for affected flows.
-3. **Migration** – Plan how existing behavior or data will migrate, especially for backup formats or persisted state.
+### Large changes and refactors
 
-Avoid \"big bang\" refactors that touch many flows at once. Prefer incremental, reviewable milestones that can be merged independently.
+For larger behavior changes:
 
-## Simplicity as a Default
+1. Define boundaries clearly.
+2. Add or update targeted tests and smoke-test affected flows.
+3. Document migration impact for persisted data or behavior.
 
-When reviewing or writing code:
+Prefer incremental PRs over big-bang refactors.
 
-- Prefer the simplest approach that is correct and easy to reason about.
-- Avoid introducing configuration or options that do not solve a concrete user problem.
-- Keep cross-cutting concerns (logging, configuration, telemetry) small and clearly owned, instead of spreading them across many modules.
+---
 
-If a trade-off is non-obvious, document it briefly in the PR description so future contributors understand the intent behind the change.
+## Questions?
 
+If anything is unclear, open a Discussion or ask directly in your PR or issue.

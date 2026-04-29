@@ -341,6 +341,14 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
   }
 
   // Set up event listeners
+  type DownloadQueueSummary = {
+    total: number
+    success: number
+    failed: number
+    downloadPath: string
+    durationMs: number
+  }
+
   const eventHandlers = {
     [DownloadEvent.TASK_ADDED]: (task: DownloadTask) => sendEvent('taskAdded', task),
     [DownloadEvent.TASK_UPDATED]: (task: DownloadTask) => sendEvent('taskUpdated', task),
@@ -350,9 +358,7 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
     [DownloadEvent.QUEUE_RESUMED]: () => sendEvent('queueResumed', null),
     [DownloadEvent.QUEUE_CLEARED]: () => sendEvent('queueCleared', null),
     [DownloadEvent.QUEUE_COMPLETED]: (summary: unknown) => {
-      // summary shape: { total, success, failed, downloadPath, durationMs }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const safe = summary as any
+      const safe = summary as DownloadQueueSummary
       res.write(`event: queueCompleted\n`)
       res.write(`data: ${JSON.stringify(safe)}\n\n`)
     }

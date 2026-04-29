@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { BeatmapMirror, DefaultBeatmapMirrors } from '../config/beatmapMirrors'
+import type PQueueType from 'p-queue'
 import { DownloadTask, DownloadOptions, DownloadEvent } from './download/types'
 import {
   getDefaultDownloadPath,
@@ -20,12 +21,14 @@ import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs } from './sett
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }
 
+// `p-queue` needs CommonJS loading in this Electron main-process build.
+// Keep the runtime-compatible require, but preserve the constructor type.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const PQueue = require('p-queue').default
+const PQueue = require('p-queue').default as typeof PQueueType
 
 class DownloadService extends EventEmitter {
   private static instance: DownloadService
-  private queue: typeof PQueue
+  private queue: PQueueType
   private tasks: Map<string, DownloadTask>
   private isPaused: boolean
   private cooldownPeriod: number

@@ -192,8 +192,7 @@ export async function downloadFile(
       })
 
       req.end()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(task as any).request = req
+      task.request = req
     }
 
     makeRequest(startUrl)

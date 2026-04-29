@@ -498,8 +498,7 @@ const handleDownload = async (): Promise<void> => {
       try {
         const errorData = await response.json()
         errorMessage = errorData.error || errorMessage
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e) {
+      } catch {
         // If JSON parsing fails, use status text
         errorMessage = response.statusText || errorMessage
       }

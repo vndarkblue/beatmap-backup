@@ -71,7 +71,8 @@ import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useRouter, type NavigationFailure } from 'vue-router'
 import { routes } from './router'
-import { API_ENDPOINTS } from '../../config/constants'
+import { API_ENDPOINTS } from '../../config/sharedConstants'
+import { STORAGE_KEYS, THEME_PREF_KEY } from '../../config/frontendConstants'
 import logoUrl from './assets/logo.png'
 import SimpleBar from 'simplebar-vue'
 import 'simplebar-vue/dist/simplebar.min.css'
@@ -87,8 +88,6 @@ let removeBeforeEachGuard: (() => void) | null = null
 let removeAfterEachHook: (() => void) | null = null
 
 const currentLocale = computed(() => locale.value)
-const THEME_PREF_KEY = 'theme.preference.v1'
-
 const items = computed(() =>
   routes.map((route) => ({
     ...route,
@@ -145,7 +144,7 @@ const prewarmBackupCollectionPreview = (): void => {
   // Warm preview data in background so first Backup tab open feels instant.
   setTimeout(() => {
     try {
-      const raw = localStorage.getItem('backup.toggle.state.v1')
+      const raw = localStorage.getItem(STORAGE_KEYS.BACKUP_TOGGLE_STATE)
       if (!raw) return
       const state = JSON.parse(raw) as Partial<BackupToggleState>
       const stable = Boolean(state.stableBackup)

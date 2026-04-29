@@ -51,25 +51,31 @@ Open a GitHub issue and include enough detail for someone else to reproduce quic
 
 ```md
 ## Summary
+
 Short description of the bug.
 
 ## Steps to Reproduce
+
 1. ...
 2. ...
 3. ...
 
 ## Expected Behavior
+
 ...
 
 ## Actual Behavior
+
 ...
 
 ## Environment
+
 - App version:
 - OS:
 - Install type:
 
 ## Extra Context
+
 Screenshots, logs, related issues, etc.
 ```
 
@@ -156,6 +162,13 @@ If something cannot be validated locally, note it explicitly in the PR.
 - Prefer direct, understandable solutions over premature abstractions.
 - Extract abstractions only when there are at least two real use-cases.
 - Avoid adding new dependencies unless they clearly reduce complexity.
+
+### Constants placement
+
+- Put shared constants in `src/config/sharedConstants.ts` only when both backend and frontend need them.
+- Put backend-only constants in `src/config/backendConstants.ts` (for example server port, backend route bindings, window config).
+- Put frontend-only constants in `src/config/frontendConstants.ts` (for example storage keys, UI timing, fetch headers, UI defaults).
+- Avoid repeating hardcoded literals that already exist in these files; import the named constant instead.
 
 ### `eslint-disable` policy
 

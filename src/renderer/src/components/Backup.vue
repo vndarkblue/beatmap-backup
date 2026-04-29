@@ -180,7 +180,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { API_ENDPOINTS } from '../../../config/constants'
+import { API_ENDPOINTS } from '../../../config/sharedConstants'
+import { HTTP_HEADERS, STORAGE_KEYS } from '../../../config/frontendConstants'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
@@ -227,8 +228,8 @@ const isEstimating = ref(false)
 const estimateMessage = ref('')
 const estimateError = ref(false)
 
-const STORAGE_KEY = 'backup.toggle.state.v1'
-const PREVIEW_SNAPSHOT_STORAGE_KEY = 'backup.collection.preview.snapshot.v1'
+const STORAGE_KEY = STORAGE_KEYS.BACKUP_TOGGLE_STATE
+const PREVIEW_SNAPSHOT_STORAGE_KEY = STORAGE_KEYS.BACKUP_COLLECTION_PREVIEW_SNAPSHOT
 const PREVIEW_CACHE_TTL_MS = 3_000
 const PREVIEW_DEBOUNCE_MS = 200
 
@@ -459,7 +460,7 @@ const refreshEstimate = async (): Promise<void> => {
   try {
     const response = await fetch(API_ENDPOINTS.EXPORT_ESTIMATE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: HTTP_HEADERS.JSON,
       body: JSON.stringify({
         options: {
           stable: stableBackup.value,

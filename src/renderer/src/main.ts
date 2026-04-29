@@ -4,6 +4,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
+import { THEME_PREF_KEY } from '../../config/frontendConstants'
 
 // Vuetify
 import 'vuetify/styles'
@@ -11,8 +12,6 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.css'
-
-const THEME_PREF_KEY = 'theme.preference.v1'
 
 const getInitialTheme = (): 'light' | 'dark' => {
   try {

@@ -1,7 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
 import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
-
-const STORAGE_KEY = 'downloadSettings'
+import { FRONTEND_DEFAULTS, STORAGE_KEYS } from '../../../config/frontendConstants'
 
 interface DownloadSettingsReturn {
   threadCount: Ref<number>
@@ -14,7 +13,7 @@ interface DownloadSettingsReturn {
 }
 
 export function useDownloadSettings(): DownloadSettingsReturn {
-  const threadCount = ref(5)
+  const threadCount = ref(FRONTEND_DEFAULTS.THREAD_COUNT)
   const selectedSources = ref<string[]>(DefaultBeatmapMirrors.map((s) => s.name))
   const removeFromStable = ref(false)
   const removeFromLazer = ref(false)
@@ -23,7 +22,7 @@ export function useDownloadSettings(): DownloadSettingsReturn {
 
   function save(): void {
     localStorage.setItem(
-      STORAGE_KEY,
+      STORAGE_KEYS.DOWNLOAD_SETTINGS,
       JSON.stringify({
         threadCount: threadCount.value,
         selectedSources: selectedSources.value,
@@ -36,11 +35,11 @@ export function useDownloadSettings(): DownloadSettingsReturn {
   }
 
   function load(): void {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEYS.DOWNLOAD_SETTINGS)
     if (!raw) return
     try {
       const s = JSON.parse(raw)
-      threadCount.value = s.threadCount ?? 5
+      threadCount.value = s.threadCount ?? FRONTEND_DEFAULTS.THREAD_COUNT
       selectedSources.value = s.selectedSources?.length
         ? s.selectedSources
         : DefaultBeatmapMirrors.map((src) => src.name)

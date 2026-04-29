@@ -22,9 +22,10 @@ import type { SyncProgressEvent } from './database/types'
 import { DatabaseService } from './database/databaseService'
 import { startupMark } from './startupTrace'
 import { runStartupAutoDetect, type StartupAutoDetectResult } from './startupAutoDetect'
+import { BACKEND_API_ROUTES, BACKEND_SERVER } from '../config/backendConstants'
 
 const app = express()
-const port = 3000
+const port = BACKEND_SERVER.PORT
 let httpServer: Server
 let startupAutoDetectResult: StartupAutoDetectResult = {
   didUpdateStablePath: false,
@@ -44,15 +45,15 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
 // Settings endpoints
-app.get('/api/settings', ((_req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.SETTINGS, ((_req: Request, res: Response) => {
   res.json(getSettings())
 }) as RequestHandler)
 
-app.get('/api/settings/auto-detect-status', ((_req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.SETTINGS_AUTO_DETECT_STATUS, ((_req: Request, res: Response) => {
   res.json(startupAutoDetectResult)
 }) as RequestHandler)
 
-app.post('/api/settings/osu-stable', ((req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.SETTINGS_OSU_STABLE, ((req: Request, res: Response) => {
   const { path } = req.body
   if (typeof path === 'string') {
     setOsuStablePath(path)
@@ -62,7 +63,7 @@ app.post('/api/settings/osu-stable', ((req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.post('/api/settings/osu-lazer', ((req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.SETTINGS_OSU_LAZER, ((req: Request, res: Response) => {
   const { path } = req.body
   if (typeof path === 'string') {
     setOsuLazerPath(path)
@@ -73,7 +74,7 @@ app.post('/api/settings/osu-lazer', ((req: Request, res: Response) => {
 }) as RequestHandler)
 
 // New endpoints for path validation
-app.get('/api/settings/validate/osu-stable', (async (
+app.get(BACKEND_API_ROUTES.SETTINGS_VALIDATE_OSU_STABLE, (async (
   _req: Request,
   res: Response
 ): Promise<void> => {
@@ -92,7 +93,7 @@ app.get('/api/settings/validate/osu-stable', (async (
   }
 }) as RequestHandler)
 
-app.get('/api/settings/validate/osu-lazer', (async (
+app.get(BACKEND_API_ROUTES.SETTINGS_VALIDATE_OSU_LAZER, (async (
   _req: Request,
   res: Response
 ): Promise<void> => {
@@ -115,16 +116,16 @@ app.get('/api/settings/validate/osu-lazer', (async (
   }
 }) as RequestHandler)
 
-app.post('/api/settings/reset', ((_req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.SETTINGS_RESET, ((_req: Request, res: Response) => {
   resetSettings()
   res.json({ success: true })
 }) as RequestHandler)
 
-app.get('/api/settings/wait-for-downloads', ((_req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.SETTINGS_WAIT_FOR_DOWNLOADS, ((_req: Request, res: Response) => {
   res.json({ waitForDownloadsOnPause: getWaitForDownloadsOnPause() })
 }) as RequestHandler)
 
-app.post('/api/settings/wait-for-downloads', ((req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.SETTINGS_WAIT_FOR_DOWNLOADS, ((req: Request, res: Response) => {
   const { waitForDownloadsOnPause } = req.body
   if (typeof waitForDownloadsOnPause === 'boolean') {
     setWaitForDownloadsOnPause(waitForDownloadsOnPause)
@@ -134,11 +135,11 @@ app.post('/api/settings/wait-for-downloads', ((req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.get('/api/settings/download-path', ((_req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.SETTINGS_DOWNLOAD_PATH, ((_req: Request, res: Response) => {
   res.json({ downloadPath: getDownloadPath() })
 }) as RequestHandler)
 
-app.post('/api/settings/download-path', ((req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.SETTINGS_DOWNLOAD_PATH, ((req: Request, res: Response) => {
   const { path } = req.body
   if (typeof path === 'string') {
     setDownloadPath(path)
@@ -148,7 +149,7 @@ app.post('/api/settings/download-path', ((req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.get('/api/settings/validate/download-path', (async (
+app.get(BACKEND_API_ROUTES.SETTINGS_VALIDATE_DOWNLOAD_PATH, (async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -170,7 +171,7 @@ app.get('/api/settings/validate/download-path', (async (
 }) as RequestHandler)
 
 // Download endpoints
-app.post('/api/download', (async (req: Request, res: Response): Promise<void> => {
+app.post(BACKEND_API_ROUTES.DOWNLOAD, (async (req: Request, res: Response): Promise<void> => {
   const { filePath, options, downloadPath } = req.body
 
   // Validate required fields
@@ -211,7 +212,10 @@ app.post('/api/download', (async (req: Request, res: Response): Promise<void> =>
   }
 }) as RequestHandler)
 
-app.post('/api/export/estimate', (async (req: Request, res: Response): Promise<void> => {
+app.post(BACKEND_API_ROUTES.EXPORT_ESTIMATE, (async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { options } = req.body
   if (!options) {
     res.status(400).json({ error: 'Missing export options' })
@@ -229,7 +233,10 @@ app.post('/api/export/estimate', (async (req: Request, res: Response): Promise<v
   }
 }) as RequestHandler)
 
-app.get('/api/download/recovery', (async (_req: Request, res: Response): Promise<void> => {
+app.get(BACKEND_API_ROUTES.DOWNLOAD_RECOVERY, (async (
+  _req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const downloadService = DownloadService.getInstance()
     res.json(downloadService.getRecoveryState())
@@ -240,7 +247,7 @@ app.get('/api/download/recovery', (async (_req: Request, res: Response): Promise
   }
 }) as RequestHandler)
 
-app.get('/api/download/status', ((_req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.DOWNLOAD_STATUS, ((_req: Request, res: Response) => {
   try {
     const downloadService = DownloadService.getInstance()
     res.json(downloadService.getQueueRuntimeState())
@@ -251,7 +258,10 @@ app.get('/api/download/status', ((_req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.post('/api/download/recovery/resume', (async (_req: Request, res: Response): Promise<void> => {
+app.post(BACKEND_API_ROUTES.DOWNLOAD_RECOVERY_RESUME, (async (
+  _req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const downloadService = DownloadService.getInstance()
     const resumed = await downloadService.resumeRecoveredQueue()
@@ -263,7 +273,10 @@ app.post('/api/download/recovery/resume', (async (_req: Request, res: Response):
   }
 }) as RequestHandler)
 
-app.post('/api/download/recovery/discard', (async (_req: Request, res: Response): Promise<void> => {
+app.post(BACKEND_API_ROUTES.DOWNLOAD_RECOVERY_DISCARD, (async (
+  _req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const downloadService = DownloadService.getInstance()
     await downloadService.discardRecoveryState()
@@ -276,7 +289,7 @@ app.post('/api/download/recovery/discard', (async (_req: Request, res: Response)
 }) as RequestHandler)
 
 // SSE endpoint for download events
-app.get('/api/download/events', (async (req: Request, res: Response): Promise<void> => {
+app.get(BACKEND_API_ROUTES.DOWNLOAD_EVENTS, (async (req: Request, res: Response): Promise<void> => {
   // Set headers for SSE
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
@@ -382,7 +395,7 @@ app.get('/api/download/events', (async (req: Request, res: Response): Promise<vo
 }) as RequestHandler)
 
 // Download control endpoints
-app.post('/api/download/pause', ((_req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.DOWNLOAD_PAUSE, ((_req: Request, res: Response) => {
   try {
     const downloadService = DownloadService.getInstance()
     downloadService.pauseQueue()
@@ -394,7 +407,7 @@ app.post('/api/download/pause', ((_req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.post('/api/download/resume', ((_req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.DOWNLOAD_RESUME, ((_req: Request, res: Response) => {
   try {
     const downloadService = DownloadService.getInstance()
     downloadService.resumeQueue()
@@ -406,7 +419,7 @@ app.post('/api/download/resume', ((_req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.post('/api/download/stop', ((_req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.DOWNLOAD_STOP, ((_req: Request, res: Response) => {
   try {
     const downloadService = DownloadService.getInstance()
     void downloadService.discardRecoveryState()
@@ -420,7 +433,7 @@ app.post('/api/download/stop', ((_req: Request, res: Response) => {
 }) as RequestHandler)
 
 // Mirror status endpoint
-app.get('/api/mirrors/status', (async (_req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.MIRRORS_STATUS, (async (_req: Request, res: Response) => {
   try {
     const mirrorService = BeatmapMirrorService.getInstance()
     const status = await mirrorService.getMirrorsStatus()
@@ -433,7 +446,7 @@ app.get('/api/mirrors/status', (async (_req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.get('/api/database/status', ((_: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.DATABASE_STATUS, ((_: Request, res: Response) => {
   try {
     const syncManager = SyncManager.getInstance()
     res.json(syncManager.getStatus())
@@ -444,7 +457,7 @@ app.get('/api/database/status', ((_: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.post('/api/database/sync', (async (req: Request, res: Response): Promise<void> => {
+app.post(BACKEND_API_ROUTES.DATABASE_SYNC, (async (req: Request, res: Response): Promise<void> => {
   try {
     const source = req.body?.source as 'stable' | 'lazer' | 'all' | undefined
     const force = req.body?.force !== false
@@ -463,7 +476,7 @@ app.post('/api/database/sync', (async (req: Request, res: Response): Promise<voi
   }
 }) as RequestHandler)
 
-app.post('/api/database/beatmaps/filter', ((req: Request, res: Response) => {
+app.post(BACKEND_API_ROUTES.DATABASE_FILTER_BEATMAPS, ((req: Request, res: Response) => {
   try {
     const db = DatabaseService.getInstance()
     const result = db.filterBeatmaps(req.body)
@@ -475,7 +488,7 @@ app.post('/api/database/beatmaps/filter', ((req: Request, res: Response) => {
   }
 }) as RequestHandler)
 
-app.get('/api/database/sync/events', ((req: Request, res: Response) => {
+app.get(BACKEND_API_ROUTES.DATABASE_SYNC_EVENTS, ((req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('Connection', 'keep-alive')

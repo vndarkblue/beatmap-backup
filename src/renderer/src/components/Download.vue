@@ -205,7 +205,11 @@
     </v-dialog>
 
     <!-- Completion Toast -->
-    <v-snackbar v-model="showCompletedToast" color="success" timeout="8000">
+    <v-snackbar
+      v-model="showCompletedToast"
+      color="success"
+      :timeout="FRONTEND_TIMINGS_MS.DOWNLOAD_COMPLETED_TOAST"
+    >
       <div>
         <strong>{{ $t('notifications.download.completed.title') }}</strong>
         <div v-if="completedSummary">
@@ -232,7 +236,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
-import { API_ENDPOINTS } from '../../../config/constants'
+import { API_ENDPOINTS } from '../../../config/sharedConstants'
+import { FRONTEND_TIMINGS_MS, HTTP_HEADERS } from '../../../config/frontendConstants'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
@@ -406,7 +411,7 @@ const saveDownloadPath = async (path: string): Promise<void> => {
   try {
     await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: HTTP_HEADERS.JSON,
       body: JSON.stringify({ path })
     })
   } catch (error) {
@@ -487,9 +492,7 @@ const handleDownload = async (): Promise<void> => {
 
     const response = await fetch(API_ENDPOINTS.DOWNLOAD, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: HTTP_HEADERS.JSON,
       body: JSON.stringify(downloadData)
     })
 
@@ -863,7 +866,7 @@ const connectSSE = (): void => {
           eventSource = null
           connectSSE()
         }
-      }, 5000)
+      }, FRONTEND_TIMINGS_MS.DOWNLOAD_SSE_RECONNECT)
     } else {
       disconnectSSE()
     }

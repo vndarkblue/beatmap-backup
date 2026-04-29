@@ -246,7 +246,9 @@
         <div class="text-caption text-warning mb-2" :lang="currentLocale">
           {{ $t('settings.resetConfirmWarning') }}
         </div>
-        <div class="text-caption mb-2" :lang="currentLocale">{{ $t('settings.resetHoldHint') }}</div>
+        <div class="text-caption mb-2" :lang="currentLocale">
+          {{ $t('settings.resetHoldHint') }}
+        </div>
       </div>
       <div class="d-flex justify-end ga-2">
         <v-btn
@@ -282,7 +284,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { API_ENDPOINTS } from '../../../config/constants'
+import { API_ENDPOINTS } from '../../../config/sharedConstants'
+import {
+  FRONTEND_DEFAULTS,
+  FRONTEND_TIMINGS_MS,
+  HTTP_HEADERS,
+  STORAGE_KEYS
+} from '../../../config/frontendConstants'
 import { languageNames, languageFlags } from '../i18n/languageProperties'
 import 'flag-icons/css/flag-icons.min.css'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
@@ -320,7 +328,7 @@ const currentLocale = computed({
   get: () => locale.value,
   set: (value: string) => {
     locale.value = value
-    localStorage.setItem('locale', value)
+    localStorage.setItem(STORAGE_KEYS.LOCALE, value)
     document.documentElement.lang = value
   }
 })
@@ -409,7 +417,7 @@ const loadAutoDetectWarning = async (): Promise<void> => {
     autoDetectWarningTimer = window.setTimeout(() => {
       showAutoDetectWarningInline.value = false
       autoDetectWarningTimer = null
-    }, 4500)
+    }, FRONTEND_TIMINGS_MS.AUTO_DETECT_WARNING_HIDE)
   } catch (error) {
     console.error('Failed to load auto-detect warning state:', error)
   }
@@ -418,7 +426,7 @@ const loadAutoDetectWarning = async (): Promise<void> => {
 const saveOsuStablePath = async (path: string): Promise<void> => {
   await fetch(API_ENDPOINTS.SETTINGS_OSU_STABLE, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HTTP_HEADERS.JSON,
     body: JSON.stringify({ path })
   })
 }
@@ -426,7 +434,7 @@ const saveOsuStablePath = async (path: string): Promise<void> => {
 const saveOsuLazerPath = async (path: string): Promise<void> => {
   await fetch(API_ENDPOINTS.SETTINGS_OSU_LAZER, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HTTP_HEADERS.JSON,
     body: JSON.stringify({ path })
   })
 }
@@ -501,18 +509,18 @@ const triggerDatabaseSync = async (): Promise<void> => {
   syncMessage.value = t('settings.database.syncing')
   await fetch(API_ENDPOINTS.DATABASE_SYNC, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HTTP_HEADERS.JSON,
     body: JSON.stringify({ source: 'all', force: true })
   })
 }
 
 const isGeneralDefault = computed(() => {
-  return !osuStablePath.value && !osuLazerPath.value && locale.value === 'en'
+  return !osuStablePath.value && !osuLazerPath.value && locale.value === FRONTEND_DEFAULTS.LOCALE
 })
 
 const isDownloadDefault = computed(() => {
   return (
-    threadCount.value === 5 &&
+    threadCount.value === FRONTEND_DEFAULTS.THREAD_COUNT &&
     removeFromStable.value === false &&
     removeFromLazer.value === false &&
     noVideo.value === false &&
@@ -527,7 +535,7 @@ const resetGeneralSettings = async (): Promise<void> => {
     await Promise.all([saveOsuStablePath(''), saveOsuLazerPath('')])
     osuStablePath.value = ''
     osuLazerPath.value = ''
-    currentLocale.value = 'en'
+    currentLocale.value = FRONTEND_DEFAULTS.LOCALE
     await loadDatabaseStatus()
   } catch (error) {
     console.error('Failed to reset general settings:', error)
@@ -538,7 +546,7 @@ const resetGeneralSettings = async (): Promise<void> => {
 
 const resetDownloadSettings = (): void => {
   if (isResetting.value) return
-  threadCount.value = 5
+  threadCount.value = FRONTEND_DEFAULTS.THREAD_COUNT
   removeFromStable.value = false
   removeFromLazer.value = false
   noVideo.value = false
@@ -605,14 +613,14 @@ const performResetAllSettings = async (): Promise<void> => {
   try {
     await fetch(API_ENDPOINTS.SETTINGS_RESET, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: HTTP_HEADERS.JSON
     })
 
-    localStorage.removeItem('downloadSettings')
-    localStorage.removeItem('backup.toggle.state.v1')
-    localStorage.removeItem('backup.collection.preview.snapshot.v1')
-    localStorage.setItem('locale', 'en')
-    document.documentElement.lang = 'en'
+    localStorage.removeItem(STORAGE_KEYS.DOWNLOAD_SETTINGS)
+    localStorage.removeItem(STORAGE_KEYS.BACKUP_TOGGLE_STATE)
+    localStorage.removeItem(STORAGE_KEYS.BACKUP_COLLECTION_PREVIEW_SNAPSHOT)
+    localStorage.setItem(STORAGE_KEYS.LOCALE, FRONTEND_DEFAULTS.LOCALE)
+    document.documentElement.lang = FRONTEND_DEFAULTS.LOCALE
 
     await loadSettings()
     await loadDatabaseStatus()
@@ -635,7 +643,7 @@ watch(waitForDownloadsOnPause, async (newValue) => {
   try {
     await fetch(API_ENDPOINTS.SETTINGS_WAIT_FOR_DOWNLOADS, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: HTTP_HEADERS.JSON,
       body: JSON.stringify({ waitForDownloadsOnPause: newValue })
     })
   } catch (error) {

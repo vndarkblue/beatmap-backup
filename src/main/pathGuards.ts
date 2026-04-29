@@ -1,4 +1,5 @@
 import path from 'path'
+import { promises as fs } from 'fs'
 
 const DISALLOWED_SUB_PATH_CHARS = /[*?<>|"]/
 
@@ -57,4 +58,29 @@ export function safeJoinWithinRoot(
   }
 
   return { valid: true, joinedPath: targetPath }
+}
+
+export async function resolveExistingPathWithinRoot(
+  rootDir: string,
+  subPath: string
+): Promise<{ valid: boolean; resolvedPath?: string }> {
+  const safePath = safeJoinWithinRoot(rootDir, subPath)
+  if (!safePath.valid || !safePath.joinedPath) {
+    return { valid: false }
+  }
+
+  try {
+    const resolvedRoot = await fs.realpath(path.resolve(rootDir))
+    const resolvedTarget = await fs.realpath(safePath.joinedPath)
+    const relativeToRoot = path.relative(resolvedRoot, resolvedTarget)
+    const escapesRoot = relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)
+
+    if (escapesRoot) {
+      return { valid: false }
+    }
+
+    return { valid: true, resolvedPath: resolvedTarget }
+  } catch {
+    return { valid: false }
+  }
 }

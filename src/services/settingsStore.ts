@@ -3,6 +3,7 @@ import Store from 'electron-store'
 interface Settings {
   osuStablePath: string
   osuLazerPath: string
+  autoDetectWarningDismissed: boolean
   downloadThreadCount: number
   selectedMirrors: string[]
   waitForDownloadsOnPause: boolean
@@ -15,6 +16,7 @@ interface Settings {
 const defaultSettings: Settings = {
   osuStablePath: '',
   osuLazerPath: '',
+  autoDetectWarningDismissed: false,
   downloadThreadCount: 5,
   selectedMirrors: [],
   waitForDownloadsOnPause: true,
@@ -34,6 +36,7 @@ export const getSettings = (): Settings => {
   return {
     osuStablePath: settingsStore.get('osuStablePath', ''),
     osuLazerPath: settingsStore.get('osuLazerPath', ''),
+    autoDetectWarningDismissed: settingsStore.get('autoDetectWarningDismissed', false),
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
     selectedMirrors: settingsStore.get('selectedMirrors', []),
     waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true),
@@ -58,6 +61,14 @@ export const getOsuStablePath = (): string => {
 
 export const getOsuLazerPath = (): string => {
   return settingsStore.get('osuLazerPath', '')
+}
+
+export const getAutoDetectWarningDismissed = (): boolean => {
+  return settingsStore.get('autoDetectWarningDismissed', false)
+}
+
+export const setAutoDetectWarningDismissed = (dismissed: boolean): void => {
+  settingsStore.set('autoDetectWarningDismissed', dismissed)
 }
 
 export const getDownloadThreadCount = (): number => {

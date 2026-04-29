@@ -25,9 +25,6 @@
           :placeholder="osuStablePlaceholder"
           @browse="selectOsuStablePath"
         />
-        <div v-if="osuStableHint" class="text-caption mt-n2 mb-2">
-          {{ osuStableHint }}
-        </div>
 
         <PathField
           v-model="osuLazerPath"
@@ -37,9 +34,14 @@
           :placeholder="osuLazerPlaceholder"
           @browse="selectOsuLazerPath"
         />
-        <div v-if="osuLazerHint" class="text-caption mt-n2 mb-2">
-          {{ osuLazerHint }}
-        </div>
+        <v-alert
+          v-if="showAutoDetectWarningInline"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mt-n2 mb-2"
+          :text="$t('notifications.paths.autoDetectFailed')"
+        />
       </AppForm>
       <v-divider></v-divider>
       <!-- Language Selection -->
@@ -341,16 +343,8 @@ const osuStablePlaceholder = computed(() =>
 const osuLazerPlaceholder = computed(() =>
   isWindows.value ? 'C:\\Users\\<you>\\AppData\\Local\\osu' : ''
 )
-const osuStableHint = computed(() =>
-  isWindows.value && !osuStablePath.value
-    ? t('settings.defaultPathHint', { path: osuStablePlaceholder.value })
-    : ''
-)
-const osuLazerHint = computed(() =>
-  isWindows.value && !osuLazerPath.value
-    ? t('settings.defaultPathHint', { path: osuLazerPlaceholder.value })
-    : ''
-)
+const showAutoDetectWarningInline = ref(false)
+let autoDetectWarningTimer: number | null = null
 
 type DatabaseStatus = {
   totals: {
@@ -379,7 +373,7 @@ let resetHoldRaf: number | null = null
 let resetHoldStartedAt = 0
 let isResetHoldActive = false
 let databaseEventSource: EventSource | null = null
-const RESET_HOLD_MS = 1400
+const RESET_HOLD_MS = 727
 
 const loadSettings = async (): Promise<void> => {
   try {
@@ -400,6 +394,24 @@ const loadDatabaseStatus = async (): Promise<void> => {
     databaseStatus.value = await res.json()
   } catch (error) {
     console.error('Failed to load database status:', error)
+  }
+}
+
+const loadAutoDetectWarning = async (): Promise<void> => {
+  try {
+    const res = await fetch(API_ENDPOINTS.SETTINGS_AUTO_DETECT_STATUS)
+    const data = (await res.json()) as { showWarning?: boolean }
+    if (!data.showWarning) return
+    showAutoDetectWarningInline.value = true
+    if (autoDetectWarningTimer) {
+      window.clearTimeout(autoDetectWarningTimer)
+    }
+    autoDetectWarningTimer = window.setTimeout(() => {
+      showAutoDetectWarningInline.value = false
+      autoDetectWarningTimer = null
+    }, 4500)
+  } catch (error) {
+    console.error('Failed to load auto-detect warning state:', error)
   }
 }
 
@@ -435,7 +447,9 @@ const selectOsuStablePath = async (): Promise<void> => {
 const selectOsuLazerPath = async (): Promise<void> => {
   const dir = await window.electronAPI.selectDirectory()
   if (!dir) return
-  const hasRealm = await window.electronAPI.checkFile(dir, 'client.realm')
+  const hasRealm =
+    (await window.electronAPI.checkFile(dir, 'client.realm')) ||
+    (await window.electronAPI.checkFile(dir, 'files/client.realm'))
   if (hasRealm) {
     osuLazerPath.value = dir
     await saveOsuLazerPath(dir)
@@ -632,11 +646,16 @@ watch(waitForDownloadsOnPause, async (newValue) => {
 onMounted(() => {
   loadSettings()
   loadDatabaseStatus()
+  loadAutoDetectWarning()
   ensureDatabaseEvents()
   document.documentElement.lang = locale.value
 })
 
 onBeforeUnmount(() => {
+  if (autoDetectWarningTimer) {
+    window.clearTimeout(autoDetectWarningTimer)
+    autoDetectWarningTimer = null
+  }
   clearResetHoldRaf()
   if (databaseEventSource) {
     databaseEventSource.close()

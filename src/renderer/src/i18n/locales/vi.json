@@ -281,6 +281,9 @@
     "light": "Chế độ sáng"
   },
   "notifications": {
+    "paths": {
+      "autoDetectFailed": "Không thể tự tìm một hoặc nhiều thư mục osu. Vui lòng thiết lập trong mục Thiết lập."
+    },
     "download": {
       "completed": {
         "title": "Hoàn tất tải xuống"

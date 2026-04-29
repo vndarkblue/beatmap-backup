@@ -282,6 +282,9 @@
     "light": "Light Mode"
   },
   "notifications": {
+    "paths": {
+      "autoDetectFailed": "Could not auto-detect one or more osu directories. Please set them in Settings."
+    },
     "download": {
       "completed": {
         "title": "Download completed"

@@ -21,10 +21,16 @@ import SyncManager from './database/syncManager'
 import type { SyncProgressEvent } from './database/types'
 import { DatabaseService } from './database/databaseService'
 import { startupMark } from './startupTrace'
+import { runStartupAutoDetect, type StartupAutoDetectResult } from './startupAutoDetect'
 
 const app = express()
 const port = 3000
 let httpServer: Server
+let startupAutoDetectResult: StartupAutoDetectResult = {
+  didUpdateStablePath: false,
+  didUpdateLazerPath: false,
+  showWarning: false
+}
 
 // Middleware
 app.use(
@@ -40,6 +46,10 @@ app.use(bodyParser.urlencoded({ extended: true }))
 // Settings endpoints
 app.get('/api/settings', ((_req: Request, res: Response) => {
   res.json(getSettings())
+}) as RequestHandler)
+
+app.get('/api/settings/auto-detect-status', ((_req: Request, res: Response) => {
+  res.json(startupAutoDetectResult)
 }) as RequestHandler)
 
 app.post('/api/settings/osu-stable', ((req: Request, res: Response) => {
@@ -92,10 +102,13 @@ app.get('/api/settings/validate/osu-lazer', (async (
     return
   }
 
-  const target = path.join(settings.osuLazerPath, 'client.realm')
+  const primaryTarget = path.join(settings.osuLazerPath, 'client.realm')
+  const fallbackTarget = path.join(settings.osuLazerPath, 'files', 'client.realm')
 
   try {
-    const exists = fs.existsSync(target) && fs.lstatSync(target).isFile()
+    const exists =
+      (fs.existsSync(primaryTarget) && fs.lstatSync(primaryTarget).isFile()) ||
+      (fs.existsSync(fallbackTarget) && fs.lstatSync(fallbackTarget).isFile())
     res.json({ valid: exists, error: exists ? null : 'client.realm file not found' })
   } catch {
     res.json({ valid: false, error: 'Path validation failed' })
@@ -483,6 +496,7 @@ app.get('/api/database/sync/events', ((req: Request, res: Response) => {
 export function startServer(): void {
   try {
     startupMark('api:startServer:begin')
+    startupAutoDetectResult = runStartupAutoDetect()
     const mirrorService = BeatmapMirrorService.getInstance()
     mirrorService.startBackgroundHealthChecks()
     const downloadService = DownloadService.getInstance()

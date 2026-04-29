@@ -8,12 +8,25 @@ const BATCH_SIZE = 25
 const MANUAL_SYNC_COOLDOWN_MS = 5 * 1000
 const INITIAL_SYNC_DELAY_MS = 60 * 1000
 
+export interface CollectionSyncRunSummary {
+  processed: number
+  resolved: number
+  notFound: number
+  failed: number
+}
+
 class CollectionSyncService {
   private static instance: CollectionSyncService
   private timer: NodeJS.Timeout | null = null
   private initialTimer: NodeJS.Timeout | null = null
   private isRunning = false
   private lastManualSyncAt = 0
+  private lastRunSummary: CollectionSyncRunSummary = {
+    processed: 0,
+    resolved: 0,
+    notFound: 0,
+    failed: 0
+  }
 
   static getInstance(): CollectionSyncService {
     if (!CollectionSyncService.instance) {
@@ -54,6 +67,10 @@ class CollectionSyncService {
     }
   }
 
+  getLastRunSummary(): CollectionSyncRunSummary {
+    return { ...this.lastRunSummary }
+  }
+
   async requestManualSync(): Promise<{
     executed: boolean
     reason?: 'running' | 'cooldown'
@@ -90,11 +107,19 @@ class CollectionSyncService {
         limit: BATCH_SIZE,
         retryBeforeMs: retryBefore
       })
+      const runSummary: CollectionSyncRunSummary = {
+        processed: 0,
+        resolved: 0,
+        notFound: 0,
+        failed: 0
+      }
 
       for (const row of rows) {
+        runSummary.processed += 1
         try {
           const resolved = await resolveMd5FromOsuDirect(row.md5hash)
           if (resolved?.beatmapsetId) {
+            runSummary.resolved += 1
             db.upsertCollectionMapCache({
               md5hash: row.md5hash,
               beatmapid: resolved.beatmapId ?? row.beatmapid,
@@ -105,6 +130,7 @@ class CollectionSyncService {
               lastCheckedAt: Date.now()
             })
           } else {
+            runSummary.notFound += 1
             db.upsertCollectionMapCache({
               md5hash: row.md5hash,
               beatmapid: row.beatmapid,
@@ -116,6 +142,7 @@ class CollectionSyncService {
             })
           }
         } catch {
+          runSummary.failed += 1
           db.upsertCollectionMapCache({
             md5hash: row.md5hash,
             beatmapid: row.beatmapid,
@@ -127,6 +154,8 @@ class CollectionSyncService {
           })
         }
       }
+      this.lastRunSummary = runSummary
+      console.info('collection sync summary', runSummary)
     } finally {
       this.isRunning = false
       db.setMeta('collection_sync_running', '0')

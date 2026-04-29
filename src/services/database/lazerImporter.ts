@@ -2,6 +2,22 @@ import { realmService } from '../realmService'
 import { DatabaseService } from './databaseService'
 import type { NormalizedBeatmapRecord, NormalizedBeatmapsetRecord } from './types'
 
+interface LazerImportSummary {
+  processed: number
+  accepted: number
+  skippedInvalidBeatmapsetId: number
+}
+
+let lastLazerImportSummary: LazerImportSummary = {
+  processed: 0,
+  accepted: 0,
+  skippedInvalidBeatmapsetId: 0
+}
+
+export function getLastLazerImportSummary(): LazerImportSummary {
+  return { ...lastLazerImportSummary }
+}
+
 function modeFromInt(mode: number): 'osu' | 'taiko' | 'fruits' | 'mania' {
   switch (mode) {
     case 1:
@@ -28,10 +44,19 @@ export async function importFromLazerRealm(
 
   const beatmapsetsById = new Map<number, NormalizedBeatmapsetRecord>()
   const beatmaps: NormalizedBeatmapRecord[] = []
+  const summary: LazerImportSummary = {
+    processed: 0,
+    accepted: 0,
+    skippedInvalidBeatmapsetId: 0
+  }
 
   for (let i = 0; i < rows.length; i++) {
+    summary.processed += 1
     const row = rows[i]
-    if (!row.beatmapsetId || row.beatmapsetId <= 0) continue
+    if (!row.beatmapsetId || row.beatmapsetId <= 0) {
+      summary.skippedInvalidBeatmapsetId += 1
+      continue
+    }
 
     if (!beatmapsetsById.has(row.beatmapsetId)) {
       beatmapsetsById.set(row.beatmapsetId, {
@@ -80,11 +105,13 @@ export async function importFromLazerRealm(
       passcount: null,
       sourceOrigin: 'lazer'
     })
+    summary.accepted += 1
 
     if (onProgress && i % 5000 === 0) {
       onProgress(i, rows.length)
     }
   }
+  lastLazerImportSummary = summary
 
   const db = DatabaseService.getInstance()
   const syncedAt = Date.now()

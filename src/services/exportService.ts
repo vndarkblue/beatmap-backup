@@ -31,6 +31,18 @@ export interface ExportEstimateResult {
   estimatedBytes: number
 }
 
+interface StableFolderScanSummary {
+  processedFolders: number
+  matchedIds: number
+  skippedInvalidNames: number
+}
+
+let lastStableFolderScanSummary: StableFolderScanSummary = {
+  processedFolders: 0,
+  matchedIds: 0,
+  skippedInvalidNames: 0
+}
+
 const buildBackupContent = (ids: number[], options: ExportOptions): string => {
   const header = `# Beatmap Backup File
 # Format: One beatmapset ID per line
@@ -42,7 +54,38 @@ const buildBackupContent = (ids: number[], options: ExportOptions): string => {
   return header + ids.join('\n')
 }
 
+const scanStableBeatmapsetIds = (songsPath: string): number[] => {
+  const summary: StableFolderScanSummary = {
+    processedFolders: 0,
+    matchedIds: 0,
+    skippedInvalidNames: 0
+  }
+  const ids: number[] = []
+  const folders = fs.readdirSync(songsPath)
+  for (const folder of folders) {
+    summary.processedFolders += 1
+    const match = folder.match(/^(\d+)\s/)
+    if (!match) {
+      summary.skippedInvalidNames += 1
+      continue
+    }
+    const id = parseInt(match[1])
+    if (isNaN(id)) {
+      summary.skippedInvalidNames += 1
+      continue
+    }
+    summary.matchedIds += 1
+    ids.push(id)
+  }
+  lastStableFolderScanSummary = summary
+  return ids
+}
+
 export const exportService = {
+  getLastStableFolderScanSummary(): StableFolderScanSummary {
+    return { ...lastStableFolderScanSummary }
+  },
+
   async estimateExportData(options: ExportOptions): Promise<ExportEstimateResult> {
     const beatmapsetIds: number[] = []
 
@@ -63,14 +106,7 @@ export const exportService = {
       if (!fs.existsSync(songsPath)) {
         throw new Error('Songs directory not found')
       }
-      const folders = fs.readdirSync(songsPath)
-      for (const folder of folders) {
-        const match = folder.match(/^(\d+)\s/)
-        if (match) {
-          const id = parseInt(match[1])
-          if (!isNaN(id)) beatmapsetIds.push(id)
-        }
-      }
+      beatmapsetIds.push(...scanStableBeatmapsetIds(songsPath))
     }
 
     if (!options.backupByCollection && options.lazer) {
@@ -120,17 +156,13 @@ export const exportService = {
           throw new Error('Songs directory not found')
         }
 
-        const folders = fs.readdirSync(songsPath)
-        console.log('Found', folders.length, 'folders in Songs directory')
-        for (const folder of folders) {
-          const match = folder.match(/^(\d+)\s/)
-          if (match) {
-            const id = parseInt(match[1])
-            if (!isNaN(id)) {
-              beatmapsetIds.push(id)
-            }
-          }
-        }
+        const stableIds = scanStableBeatmapsetIds(songsPath)
+        console.log(
+          'Found',
+          exportService.getLastStableFolderScanSummary().processedFolders,
+          'folders in Songs directory'
+        )
+        beatmapsetIds.push(...stableIds)
         console.log('Found', beatmapsetIds.length, 'stable beatmapset IDs')
       }
 

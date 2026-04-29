@@ -8,6 +8,18 @@ interface DynamicRealmSchema {
   properties?: Record<string, unknown>
 }
 
+interface BeatmapsetIdScanSummary {
+  processed: number
+  accepted: number
+  skippedInvalidOnlineId: number
+}
+
+interface BeatmapDatabaseScanSummary {
+  processed: number
+  accepted: number
+  skippedMissingMd5: number
+}
+
 function isErrorWithMessage(error: unknown): error is { message: string } {
   return (
     typeof error === 'object' &&
@@ -55,7 +67,11 @@ function readProperty(object: unknown, keys: string[]): unknown {
 function readNestedProperty(object: unknown, pathKeys: string[]): unknown {
   let current: unknown = object
   for (const key of pathKeys) {
-    if (typeof current === 'object' && current !== null && key in (current as Record<string, unknown>)) {
+    if (
+      typeof current === 'object' &&
+      current !== null &&
+      key in (current as Record<string, unknown>)
+    ) {
       current = (current as Record<string, unknown>)[key]
       continue
     }
@@ -136,6 +152,25 @@ function normalizeRankStatus(value: unknown): string {
 }
 
 export const realmService = {
+  _lastBeatmapsetIdScanSummary: {
+    processed: 0,
+    accepted: 0,
+    skippedInvalidOnlineId: 0
+  } as BeatmapsetIdScanSummary,
+  _lastBeatmapDatabaseScanSummary: {
+    processed: 0,
+    accepted: 0,
+    skippedMissingMd5: 0
+  } as BeatmapDatabaseScanSummary,
+
+  getLastBeatmapsetIdScanSummary(): BeatmapsetIdScanSummary {
+    return { ...this._lastBeatmapsetIdScanSummary }
+  },
+
+  getLastBeatmapDatabaseScanSummary(): BeatmapDatabaseScanSummary {
+    return { ...this._lastBeatmapDatabaseScanSummary }
+  },
+
   getRealmPath(): string {
     return getResolvedRealmPath()
   },
@@ -189,13 +224,23 @@ export const realmService = {
 
       const beatmapsets = realm.objects(targetTypeName)
       const beatmapsetIds = new Set<number>()
+      const scanSummary: BeatmapsetIdScanSummary = {
+        processed: 0,
+        accepted: 0,
+        skippedInvalidOnlineId: 0
+      }
 
       for (const beatmapset of beatmapsets) {
+        scanSummary.processed += 1
         const onlineId = readProperty(beatmapset, ['OnlineID', 'onlineID'])
         if (typeof onlineId === 'number' && Number.isInteger(onlineId) && onlineId > 0) {
+          scanSummary.accepted += 1
           beatmapsetIds.add(onlineId)
+        } else {
+          scanSummary.skippedInvalidOnlineId += 1
         }
       }
+      this._lastBeatmapsetIdScanSummary = scanSummary
 
       const sortedIds = Array.from(beatmapsetIds).sort((a, b) => a - b)
       return sortedIds
@@ -297,11 +342,20 @@ export const realmService = {
         video: boolean
         storyboard: boolean
       }> = []
+      const scanSummary: BeatmapDatabaseScanSummary = {
+        processed: 0,
+        accepted: 0,
+        skippedMissingMd5: 0
+      }
 
       const beatmaps = realm.objects(beatmapType)
       for (const beatmap of beatmaps) {
+        scanSummary.processed += 1
         const md5Raw = readProperty(beatmap, ['MD5Hash', 'Hash', 'md5', 'Checksum'])
-        if (typeof md5Raw !== 'string' || md5Raw.length === 0) continue
+        if (typeof md5Raw !== 'string' || md5Raw.length === 0) {
+          scanSummary.skippedMissingMd5 += 1
+          continue
+        }
 
         const onlineId = readProperty(beatmap, ['OnlineID', 'ID', 'id'])
         const beatmapsetObject = readProperty(beatmap, ['BeatmapSet', 'beatmapSet'])
@@ -332,7 +386,10 @@ export const realmService = {
           hp: Number(readProperty(difficultyObject, ['DrainRate', 'HP']) ?? 0),
           od: Number(readProperty(difficultyObject, ['OverallDifficulty', 'OD']) ?? 0),
           bpm: Number(readProperty(beatmap, ['BPM', 'Bpm']) ?? 0),
-          totalLength: Math.max(0, Math.floor(Number(readProperty(beatmap, ['Length', 'TotalLength']) ?? 0) / 1000)),
+          totalLength: Math.max(
+            0,
+            Math.floor(Number(readProperty(beatmap, ['Length', 'TotalLength']) ?? 0) / 1000)
+          ),
           hitLength: Number(readProperty(beatmap, ['HitLength']) ?? 0),
           version: String(readProperty(beatmap, ['Version', 'DifficultyName']) ?? ''),
           stars: Number(readProperty(beatmap, ['StarRating', 'Difficulty']) ?? 0),
@@ -342,7 +399,9 @@ export const realmService = {
             readProperty(metadataObject, ['ArtistUnicode', 'artistUnicode']) ?? ''
           ),
           title: String(readProperty(metadataObject, ['Title', 'title']) ?? ''),
-          titleUnicode: String(readProperty(metadataObject, ['TitleUnicode', 'titleUnicode']) ?? ''),
+          titleUnicode: String(
+            readProperty(metadataObject, ['TitleUnicode', 'titleUnicode']) ?? ''
+          ),
           creator: String(readProperty(authorObject, ['Username', 'username']) ?? ''),
           source: String(readProperty(metadataObject, ['Source', 'source']) ?? ''),
           tags: String(readProperty(metadataObject, ['Tags', 'tags']) ?? ''),
@@ -357,7 +416,9 @@ export const realmService = {
           video: Boolean(readProperty(beatmapsetObject, ['Video', 'video']) ?? false),
           storyboard: Boolean(readProperty(beatmapsetObject, ['Storyboard', 'storyboard']) ?? false)
         })
+        scanSummary.accepted += 1
       }
+      this._lastBeatmapDatabaseScanSummary = scanSummary
 
       return rows
     } finally {

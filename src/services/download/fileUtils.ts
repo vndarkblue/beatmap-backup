@@ -71,10 +71,12 @@ export function validateBackupFile(content: string): void {
     throw new Error('Invalid backup file: No beatmapset IDs found')
   }
 
-  for (const id of ids) {
-    if (!/^\d+$/.test(id.trim())) {
-      throw new Error(`Invalid beatmapset ID: ${id}`)
-    }
+  const invalidIds = ids.map((id) => id.trim()).filter((id) => !/^\d+$/.test(id))
+
+  if (invalidIds.length > 0) {
+    throw new Error(
+      `Invalid beatmapset IDs (${invalidIds.length}/${ids.length}): ${invalidIds.join(', ')}`
+    )
   }
 }
 

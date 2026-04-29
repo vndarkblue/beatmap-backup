@@ -64,7 +64,9 @@ export function parseStableCollectionDb(filePath: string): StableCollectionRecor
     const name = readOsuString(cursor)
     const beatmapCount = readInt32(cursor)
     if (beatmapCount < 0) {
-      throw new Error(`Invalid collection.db format: negative beatmap count in collection ${name}`)
+      throw new Error(
+        `Invalid collection.db format: negative beatmap count (processed ${i}/${collectionCount} collections, failed at index ${i + 1}) in collection ${name}`
+      )
     }
     const beatmapMd5s: string[] = []
     for (let j = 0; j < beatmapCount; j++) {

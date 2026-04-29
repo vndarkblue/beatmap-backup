@@ -36,6 +36,24 @@ type StableDbData = {
   beatmaps?: StableBeatmap[]
 }
 
+interface StableImportSummary {
+  processed: number
+  accepted: number
+  skippedMissingMd5: number
+  skippedInvalidBeatmapsetId: number
+}
+
+let lastStableImportSummary: StableImportSummary = {
+  processed: 0,
+  accepted: 0,
+  skippedMissingMd5: 0,
+  skippedInvalidBeatmapsetId: 0
+}
+
+export function getLastStableImportSummary(): StableImportSummary {
+  return { ...lastStableImportSummary }
+}
+
 function modeFromInt(mode: number): 'osu' | 'taiko' | 'fruits' | 'mania' {
   switch (mode) {
     case 1:
@@ -77,7 +95,9 @@ export function getStableDbPath(): string | null {
   return fs.existsSync(dbPath) ? dbPath : null
 }
 
-export async function importFromStableDb(onProgress?: (processed: number, total: number) => void): Promise<{
+export async function importFromStableDb(
+  onProgress?: (processed: number, total: number) => void
+): Promise<{
   beatmapsets: number
   beatmaps: number
 }> {
@@ -96,10 +116,24 @@ export async function importFromStableDb(onProgress?: (processed: number, total:
 
   const setMap = new Map<number, NormalizedBeatmapsetRecord>()
   const normalizedBeatmaps: NormalizedBeatmapRecord[] = []
+  const summary: StableImportSummary = {
+    processed: 0,
+    accepted: 0,
+    skippedMissingMd5: 0,
+    skippedInvalidBeatmapsetId: 0
+  }
 
   for (let i = 0; i < beatmaps.length; i++) {
+    summary.processed += 1
     const bm = beatmaps[i]
-    if (!bm.md5 || !bm.beatmapset_id || bm.beatmapset_id <= 0) continue
+    if (!bm.md5) {
+      summary.skippedMissingMd5 += 1
+      continue
+    }
+    if (!bm.beatmapset_id || bm.beatmapset_id <= 0) {
+      summary.skippedInvalidBeatmapsetId += 1
+      continue
+    }
 
     const beatmapsetId = bm.beatmapset_id
     const modeInt = bm.mode ?? 0
@@ -153,11 +187,13 @@ export async function importFromStableDb(onProgress?: (processed: number, total:
       passcount: bm.pass_count ?? null,
       sourceOrigin: 'stable'
     })
+    summary.accepted += 1
 
     if (onProgress && i % 5000 === 0) {
       onProgress(i, beatmaps.length)
     }
   }
+  lastStableImportSummary = summary
 
   const db = DatabaseService.getInstance()
   const syncedAt = Date.now()

@@ -1,0 +1,61 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import CollectionSyncService from '../../../src/services/collection/collectionSyncService'
+
+const mockDb = {
+  getCollectionSyncStats: vi.fn(() => ({
+    pending: 0,
+    resolved: 0,
+    notFound: 0,
+    failed: 0,
+    missingLocal: 0
+  })),
+  getMeta: vi.fn(() => '0'),
+  setMeta: vi.fn(),
+  getCollectionMapCachePendingForSync: vi.fn(),
+  upsertCollectionMapCache: vi.fn()
+}
+
+const mockResolveMd5 = vi.fn()
+
+vi.mock('../../../src/services/database/databaseService', () => ({
+  DatabaseService: {
+    getInstance: () => mockDb
+  }
+}))
+
+vi.mock('../../../src/services/collection/osuDirectService', () => ({
+  resolveMd5FromOsuDirect: (...args: unknown[]) => mockResolveMd5(...args)
+}))
+
+describe('CollectionSyncService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('tracks and exposes a consistent sync run summary', async () => {
+    mockDb.getCollectionMapCachePendingForSync.mockReturnValue([
+      { md5hash: 'a', beatmapid: 1, beatmapsetid: 10, missing: 0, sourceHint: 'stable' },
+      { md5hash: 'b', beatmapid: 2, beatmapsetid: 20, missing: 0, sourceHint: 'stable' },
+      { md5hash: 'c', beatmapid: 3, beatmapsetid: 30, missing: 0, sourceHint: 'stable' }
+    ])
+
+    mockResolveMd5
+      .mockResolvedValueOnce({ beatmapId: 1, beatmapsetId: 101 })
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error('network'))
+
+    const service = CollectionSyncService.getInstance()
+    await service.syncMissingMd5s()
+
+    expect(service.getLastRunSummary()).toEqual({
+      processed: 3,
+      resolved: 1,
+      notFound: 1,
+      failed: 1
+    })
+  })
+})

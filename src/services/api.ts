@@ -6,8 +6,7 @@ import {
   getSettings,
   setOsuStablePath,
   setOsuLazerPath,
-  getDarkMode,
-  setDarkMode,
+  resetSettings,
   getWaitForDownloadsOnPause,
   setWaitForDownloadsOnPause,
   getDownloadPath,
@@ -103,18 +102,9 @@ app.get('/api/settings/validate/osu-lazer', (async (
   }
 }) as RequestHandler)
 
-app.get('/api/settings/dark-mode', ((_req: Request, res: Response) => {
-  res.json({ isDarkMode: getDarkMode() })
-}) as RequestHandler)
-
-app.post('/api/settings/dark-mode', ((req: Request, res: Response) => {
-  const { isDark } = req.body
-  if (typeof isDark === 'boolean') {
-    setDarkMode(isDark)
-    res.json({ success: true })
-  } else {
-    res.status(400).json({ error: 'Invalid dark mode value' })
-  }
+app.post('/api/settings/reset', ((_req: Request, res: Response) => {
+  resetSettings()
+  res.json({ success: true })
 }) as RequestHandler)
 
 app.get('/api/settings/wait-for-downloads', ((_req: Request, res: Response) => {

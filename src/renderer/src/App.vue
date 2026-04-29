@@ -87,6 +87,7 @@ let removeBeforeEachGuard: (() => void) | null = null
 let removeAfterEachHook: (() => void) | null = null
 
 const currentLocale = computed(() => locale.value)
+const THEME_PREF_KEY = 'theme.preference.v1'
 
 const items = computed(() =>
   routes.map((route) => ({
@@ -99,14 +100,10 @@ const handleNavigation = (to: string): Promise<void | NavigationFailure | undefi
   return router.push(to)
 }
 
-const fetchDarkMode = async (): Promise<void> => {
-  try {
-    const res = await fetch(API_ENDPOINTS.SETTINGS_DARK_MODE)
-    const data = await res.json()
-    theme.global.name.value = data.isDarkMode ? 'dark' : 'light'
-  } catch (error) {
-    console.error('Failed to fetch dark mode:', error)
-  }
+const syncThemeFromLocalPreference = (): void => {
+  const nextTheme = localStorage.getItem(THEME_PREF_KEY) === 'dark' ? 'dark' : 'light'
+  theme.global.name.value = nextTheme
+  document.documentElement.classList.toggle('theme-dark', nextTheme === 'dark')
 }
 
 const validateOsuPaths = async (): Promise<void> => {
@@ -200,22 +197,20 @@ const setupRouteScrollMemory = (): void => {
   }, 0)
 }
 
-const saveDarkMode = async (isDark: boolean): Promise<void> => {
-  await fetch(API_ENDPOINTS.SETTINGS_DARK_MODE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ isDark })
-  })
+const saveDarkMode = (isDark: boolean): void => {
+  const nextTheme = isDark ? 'dark' : 'light'
+  localStorage.setItem(THEME_PREF_KEY, nextTheme)
+  document.documentElement.classList.toggle('theme-dark', isDark)
 }
 
-const toggleTheme = async (): Promise<void> => {
+const toggleTheme = (): void => {
   const isDark = !theme.global.current.value.dark
   theme.global.name.value = isDark ? 'dark' : 'light'
-  await saveDarkMode(isDark)
+  saveDarkMode(isDark)
 }
 
 onMounted(() => {
-  fetchDarkMode()
+  syncThemeFromLocalPreference()
   validateOsuPaths()
   prefetchSecondaryViews()
   prewarmBackupCollectionPreview()

@@ -5,9 +5,9 @@ export const API_BASE_URL = 'http://localhost:3000/api'
 // API Endpoints
 export const API_ENDPOINTS = {
   SETTINGS: `${API_BASE_URL}/settings`,
+  SETTINGS_RESET: `${API_BASE_URL}/settings/reset`,
   SETTINGS_OSU_STABLE: `${API_BASE_URL}/settings/osu-stable`,
   SETTINGS_OSU_LAZER: `${API_BASE_URL}/settings/osu-lazer`,
-  SETTINGS_DARK_MODE: `${API_BASE_URL}/settings/dark-mode`,
   SETTINGS_WAIT_FOR_DOWNLOADS: `${API_BASE_URL}/settings/wait-for-downloads`,
   SETTINGS_DOWNLOAD_PATH: `${API_BASE_URL}/settings/download-path`,
   SETTINGS_VALIDATE_DOWNLOAD_PATH: `${API_BASE_URL}/settings/validate/download-path`,

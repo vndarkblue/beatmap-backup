@@ -3,7 +3,6 @@ import Store from 'electron-store'
 interface Settings {
   osuStablePath: string
   osuLazerPath: string
-  isDarkMode: boolean
   downloadThreadCount: number
   selectedMirrors: string[]
   waitForDownloadsOnPause: boolean
@@ -16,7 +15,6 @@ interface Settings {
 const defaultSettings: Settings = {
   osuStablePath: '',
   osuLazerPath: '',
-  isDarkMode: false,
   downloadThreadCount: 5,
   selectedMirrors: [],
   waitForDownloadsOnPause: true,
@@ -36,7 +34,6 @@ export const getSettings = (): Settings => {
   return {
     osuStablePath: settingsStore.get('osuStablePath', ''),
     osuLazerPath: settingsStore.get('osuLazerPath', ''),
-    isDarkMode: settingsStore.get('isDarkMode', false),
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
     selectedMirrors: settingsStore.get('selectedMirrors', []),
     waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true),
@@ -61,14 +58,6 @@ export const getOsuStablePath = (): string => {
 
 export const getOsuLazerPath = (): string => {
   return settingsStore.get('osuLazerPath', '')
-}
-
-export const getDarkMode = (): boolean => {
-  return settingsStore.get('isDarkMode', false)
-}
-
-export const setDarkMode = (isDark: boolean): void => {
-  settingsStore.set('isDarkMode', isDark)
 }
 
 export const getDownloadThreadCount = (): number => {
@@ -113,4 +102,8 @@ export const getQueueCheckpointIntervalMs = (): number => {
 
 export const getMaxCheckpointFileSizeMB = (): number => {
   return settingsStore.get('maxCheckpointFileSizeMB', 20)
+}
+
+export const resetSettings = (): void => {
+  settingsStore.clear()
 }

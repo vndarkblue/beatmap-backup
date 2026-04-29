@@ -1,7 +1,21 @@
 <template>
   <AppViewShell :title="$t('settings.title')" :lang="currentLocale">
     <!-- General Settings Section -->
-    <AppIsland :title="$t('settings.general')" card-class="mb-4">
+    <AppIsland card-class="mb-4">
+      <template #title>
+        <div class="d-flex align-center justify-space-between w-100">
+          <span>{{ $t('settings.general') }}</span>
+          <v-btn
+            icon="mdi-restore"
+            variant="text"
+            size="small"
+            :lang="currentLocale"
+            :disabled="isGeneralDefault || isResetting"
+            :title="$t('settings.resetGeneral')"
+            @click="resetGeneralSettings"
+          />
+        </div>
+      </template>
       <AppForm>
         <PathField
           v-model="osuStablePath"
@@ -55,7 +69,21 @@
     </AppIsland>
 
     <!-- Download Settings Section -->
-    <AppIsland :title="$t('settings.download')" card-class="mb-4">
+    <AppIsland card-class="mb-4">
+      <template #title>
+        <div class="d-flex align-center justify-space-between w-100">
+          <span>{{ $t('settings.download') }}</span>
+          <v-btn
+            icon="mdi-restore"
+            variant="text"
+            size="small"
+            :lang="currentLocale"
+            :disabled="isDownloadDefault || isResetting"
+            :title="$t('settings.resetDownload')"
+            @click="resetDownloadSettings"
+          />
+        </div>
+      </template>
       <!-- Thread Count -->
       <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
         <div class="d-flex align-center mb-2 mb-sm-0 mr-sm-4 pb-6 ga-2" :lang="currentLocale">
@@ -201,6 +229,51 @@
         {{ $t('settings.database.syncNow') }}
       </v-btn>
     </AppIsland>
+
+    <AppIsland card-class="mt-4">
+      <template #title>
+        <div class="d-flex align-center justify-space-between w-100">
+          <span>{{ $t('settings.resetAll') }}</span>
+        </div>
+      </template>
+      <div class="text-body-2 mb-2" :lang="currentLocale">{{ $t('settings.resetWarning') }}</div>
+      <div v-if="resetFeedbackMessage" class="text-caption mb-2" :class="resetFeedbackClass">
+        {{ resetFeedbackMessage }}
+      </div>
+      <div v-if="showResetAllConfirm" class="mb-3">
+        <div class="text-caption text-warning mb-2" :lang="currentLocale">
+          {{ $t('settings.resetConfirmWarning') }}
+        </div>
+        <div class="text-caption mb-2" :lang="currentLocale">{{ $t('settings.resetHoldHint') }}</div>
+      </div>
+      <div class="d-flex justify-end ga-2">
+        <v-btn
+          v-if="showResetAllConfirm"
+          variant="text"
+          :disabled="isResetting"
+          :lang="currentLocale"
+          @click="cancelResetAllConfirm"
+        >
+          {{ $t('settings.resetCancel') }}
+        </v-btn>
+        <v-btn
+          color="error"
+          :variant="showResetAllConfirm ? 'flat' : 'outlined'"
+          class="hold-confirm-btn"
+          :style="confirmHoldStyle"
+          :loading="isResetting"
+          :disabled="isResetting"
+          :lang="currentLocale"
+          @click="requestResetAllConfirm"
+          @pointerdown.prevent="startResetAllHold"
+          @pointerup="cancelResetAllHold"
+          @pointerleave="cancelResetAllHold"
+          @pointercancel="cancelResetAllHold"
+        >
+          {{ showResetAllConfirm ? $t('settings.resetConfirmAction') : $t('settings.resetAll') }}
+        </v-btn>
+      </div>
+    </AppIsland>
   </AppViewShell>
 </template>
 
@@ -297,7 +370,16 @@ type DatabaseStatus = {
 const databaseStatus = ref<DatabaseStatus | null>(null)
 const isSyncing = ref(false)
 const syncMessage = ref('')
+const isResetting = ref(false)
+const showResetAllConfirm = ref(false)
+const resetHoldProgress = ref(0)
+const resetFeedbackMessage = ref('')
+const resetFeedbackClass = ref('')
+let resetHoldRaf: number | null = null
+let resetHoldStartedAt = 0
+let isResetHoldActive = false
 let databaseEventSource: EventSource | null = null
+const RESET_HOLD_MS = 1400
 
 const loadSettings = async (): Promise<void> => {
   try {
@@ -410,6 +492,130 @@ const triggerDatabaseSync = async (): Promise<void> => {
   })
 }
 
+const isGeneralDefault = computed(() => {
+  return !osuStablePath.value && !osuLazerPath.value && locale.value === 'en'
+})
+
+const isDownloadDefault = computed(() => {
+  return (
+    threadCount.value === 5 &&
+    removeFromStable.value === false &&
+    removeFromLazer.value === false &&
+    noVideo.value === false &&
+    waitForDownloadsOnPause.value === true
+  )
+})
+
+const resetGeneralSettings = async (): Promise<void> => {
+  if (isResetting.value) return
+  isResetting.value = true
+  try {
+    await Promise.all([saveOsuStablePath(''), saveOsuLazerPath('')])
+    osuStablePath.value = ''
+    osuLazerPath.value = ''
+    currentLocale.value = 'en'
+    await loadDatabaseStatus()
+  } catch (error) {
+    console.error('Failed to reset general settings:', error)
+  } finally {
+    isResetting.value = false
+  }
+}
+
+const resetDownloadSettings = (): void => {
+  if (isResetting.value) return
+  threadCount.value = 5
+  removeFromStable.value = false
+  removeFromLazer.value = false
+  noVideo.value = false
+  waitForDownloadsOnPause.value = true
+}
+
+const confirmHoldStyle = computed(() =>
+  showResetAllConfirm.value
+    ? ({ '--hold-progress': `${resetHoldProgress.value}%` } as Record<string, string>)
+    : undefined
+)
+
+const clearResetHoldRaf = (): void => {
+  if (resetHoldRaf !== null) {
+    window.cancelAnimationFrame(resetHoldRaf)
+    resetHoldRaf = null
+  }
+}
+
+const cancelResetAllHold = (): void => {
+  isResetHoldActive = false
+  clearResetHoldRaf()
+  if (!isResetting.value) {
+    resetHoldProgress.value = 0
+  }
+}
+
+const requestResetAllConfirm = (): void => {
+  if (showResetAllConfirm.value) return
+  showResetAllConfirm.value = true
+  resetHoldProgress.value = 0
+  resetFeedbackMessage.value = ''
+}
+
+const cancelResetAllConfirm = (): void => {
+  showResetAllConfirm.value = false
+  cancelResetAllHold()
+}
+
+const startResetAllHold = (): void => {
+  if (!showResetAllConfirm.value || isResetting.value || isResetHoldActive) return
+  isResetHoldActive = true
+  resetHoldStartedAt = performance.now()
+  const tick = (now: number): void => {
+    if (!isResetHoldActive || isResetting.value) return
+    const elapsed = now - resetHoldStartedAt
+    const progress = Math.min(100, (elapsed / RESET_HOLD_MS) * 100)
+    resetHoldProgress.value = progress
+    if (progress >= 100) {
+      resetHoldProgress.value = 100
+      isResetHoldActive = false
+      clearResetHoldRaf()
+      void performResetAllSettings()
+      return
+    }
+    resetHoldRaf = window.requestAnimationFrame(tick)
+  }
+  resetHoldRaf = window.requestAnimationFrame(tick)
+}
+
+const performResetAllSettings = async (): Promise<void> => {
+  if (isResetting.value) return
+  isResetting.value = true
+  try {
+    await fetch(API_ENDPOINTS.SETTINGS_RESET, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+
+    localStorage.removeItem('downloadSettings')
+    localStorage.removeItem('backup.toggle.state.v1')
+    localStorage.removeItem('backup.collection.preview.snapshot.v1')
+    localStorage.setItem('locale', 'en')
+    document.documentElement.lang = 'en'
+
+    await loadSettings()
+    await loadDatabaseStatus()
+    resetFeedbackClass.value = 'text-success'
+    resetFeedbackMessage.value = t('settings.resetSuccess')
+    showResetAllConfirm.value = false
+    window.location.reload()
+  } catch (error) {
+    console.error('Failed to reset settings:', error)
+    resetFeedbackClass.value = 'text-error'
+    resetFeedbackMessage.value = t('settings.resetFailed')
+  } finally {
+    cancelResetAllHold()
+    isResetting.value = false
+  }
+}
+
 // Sync waitForDownloadsOnPause to backend whenever it changes
 watch(waitForDownloadsOnPause, async (newValue) => {
   try {
@@ -431,6 +637,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearResetHoldRaf()
   if (databaseEventSource) {
     databaseEventSource.close()
     databaseEventSource = null
@@ -445,5 +652,18 @@ onBeforeUnmount(() => {
 }
 .v-divider {
   margin-bottom: 16px;
+}
+
+.hold-confirm-btn {
+  --hold-progress: 0%;
+}
+
+.hold-confirm-btn :deep(.v-btn__overlay) {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, currentColor 22%, transparent) var(--hold-progress),
+    transparent var(--hold-progress)
+  ) !important;
+  opacity: 1 !important;
 }
 </style>

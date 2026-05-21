@@ -1,7 +1,7 @@
 <template>
   <AppViewShell :title="$t('settings.title')" :lang="currentLocale">
     <!-- General Settings Section -->
-    <AppIsland card-class="mb-4">
+    <AppIsland card-class="mb-4" icon="mdi-cog-outline">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
           <span>{{ $t('settings.general') }}</span>
@@ -71,7 +71,7 @@
     </AppIsland>
 
     <!-- Download Settings Section -->
-    <AppIsland card-class="mb-4">
+    <AppIsland card-class="mb-4" icon="mdi-download-outline">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
           <span>{{ $t('settings.download') }}</span>
@@ -167,7 +167,7 @@
       </div>
     </AppIsland>
 
-    <AppIsland :title="$t('settings.database.title')">
+    <AppIsland :title="$t('settings.database.title')" icon="mdi-database-outline">
       <div class="text-subtitle-1 mb-3" :lang="currentLocale">
         {{
           $t('settings.database.totalBeatmapsets', {
@@ -232,7 +232,7 @@
       </v-btn>
     </AppIsland>
 
-    <AppIsland card-class="mt-4">
+    <AppIsland card-class="mt-4" icon="mdi-backup-restore">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
           <span>{{ $t('settings.resetAll') }}</span>

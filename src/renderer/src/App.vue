@@ -30,28 +30,15 @@
       </v-list>
 
       <template #append>
-        <div class="pa-2 d-flex justify-center">
-          <v-btn
-            v-if="rail"
-            variant="text"
-            :icon="theme.global.name.value === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'"
-            class="darkmode-btn"
-            @click="toggleTheme"
-          />
-          <v-btn
-            v-else
-            block
-            variant="text"
-            :prepend-icon="
-              theme.global.name.value === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'
-            "
-            class="darkmode-btn darkmode-btn-wide"
+        <v-list density="compact" nav>
+          <v-list-item
+            class="sidebar-theme-item"
+            :prepend-icon="themeIcon"
+            :title="rail ? '' : themeLabel"
             :lang="currentLocale"
             @click="toggleTheme"
-          >
-            {{ theme.global.name.value === 'light' ? t('theme.dark') : t('theme.light') }}
-          </v-btn>
-        </div>
+          />
+        </v-list>
       </template>
     </v-navigation-drawer>
 
@@ -88,6 +75,12 @@ let removeBeforeEachGuard: (() => void) | null = null
 let removeAfterEachHook: (() => void) | null = null
 
 const currentLocale = computed(() => locale.value)
+const themeIcon = computed(() =>
+  theme.global.name.value === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'
+)
+const themeLabel = computed(() =>
+  theme.global.name.value === 'light' ? t('theme.dark') : t('theme.light')
+)
 const items = computed(() =>
   routes.map((route) => ({
     ...route,
@@ -246,11 +239,6 @@ onBeforeUnmount(() => {
   --v-layout-left: 220px !important;
 }
 
-.darkmode-btn {
-  min-width: 40px;
-  border-radius: 12px;
-}
-
 .main-bg {
   background: var(--v-theme-background) !important;
 }
@@ -265,11 +253,6 @@ onBeforeUnmount(() => {
   height: 60px;
   display: flex;
   align-items: center;
-}
-
-.darkmode-btn-wide {
-  margin-left: 4px;
-  margin-right: 4px;
 }
 
 .sidebar-logo-item .v-list-item-title {
@@ -309,6 +292,15 @@ onBeforeUnmount(() => {
 
 .v-list-item[lang='vi'] {
   font-family: var(--font-default-vi) !important;
+}
+
+.v-navigation-drawer .sidebar-theme-item .v-list-item__prepend .v-icon {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  opacity: 1 !important;
+}
+
+.v-navigation-drawer .sidebar-theme-item:hover .v-list-item__prepend .v-icon {
+  color: inherit;
 }
 
 .v-navigation-drawer .v-list .v-list-item .v-list-item-title {

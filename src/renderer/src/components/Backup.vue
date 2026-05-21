@@ -1,6 +1,6 @@
 <template>
   <AppViewShell :title="$t('backup.title')" :lang="currentLocale">
-    <AppIsland>
+    <AppIsland :title="$t('backup.backupBeatmapTitle')" icon="mdi-content-save-outline">
       <AppForm>
         <v-switch
           v-model="stableBackup"

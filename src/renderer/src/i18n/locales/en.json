@@ -38,7 +38,8 @@
     }
   },
   "backup": {
-    "title": "Backup beatmaps",
+    "title": "Backup",
+    "backupBeatmapTitle": "Backup beatmaps",
     "button": "Backup",
     "stableBackup": "Backup from osu!stable",
     "lazerBackup": "Backup from osu!lazer",
@@ -48,7 +49,7 @@
     "estimate": "Estimated backup output: {count} beatmapset IDs (~{size})",
     "estimateUnavailable": "Could not estimate backup size with current settings.",
     "collection": {
-      "enabled": "Backup by collections",
+      "enabled": "Choose collection(s) to backup",
       "mergeByName": "Merge duplicate collection names from both stable and lazer",
       "syncNow": "Resolve missing beatmaps",
       "secondsShort": "s",
@@ -57,11 +58,11 @@
       "empty": "No collections found for selected sources.",
       "successStats": "Backed up {count} beatmaps (pending sync: {pending}, missing local: {missing}, api not found: {notFound})",
       "status": {
-        "resolved": "resolved",
+        "resolved": "available",
         "pending": "pending",
         "notFound": "not found",
         "failed": "failed",
-        "missingLocal": "missing local"
+        "missingLocal": "local"
       },
       "sources": {
         "stable": "stable",

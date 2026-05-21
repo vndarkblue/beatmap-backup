@@ -39,6 +39,7 @@
   },
   "backup": {
     "title": "Sao lưu danh sách beatmap",
+    "backupBeatmapTitle": "Sao lưu beatmap",
     "button": "Sao lưu",
     "stableBackup": "Sao lưu từ osu!stable",
     "lazerBackup": "Sao lưu từ osu!lazer",
@@ -48,8 +49,8 @@
     "estimate": "Ước tính file backup: {count} beatmapset ID (~{size})",
     "estimateUnavailable": "Không thể ước tính kích thước backup với cấu hình hiện tại.",
     "collection": {
-      "enabled": "Sao lưu theo Bộ sưu tập",
-      "mergeByName": "Gộp Bộ sưu tập trùng tên",
+      "enabled": "Chọn bộ sưu tập để sao lưu",
+      "mergeByName": "Gộp các Bộ sưu tập trùng tên",
       "syncNow": "Đồng bộ beatmap còn thiếu",
       "secondsShort": "giây",
       "syncStatus": "Có sẵn: {resolved} · Chờ đồng bộ: {pending} · API không thấy: {notFound} · Thiếu local: {missingLocal}",

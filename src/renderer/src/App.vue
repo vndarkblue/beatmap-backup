@@ -76,7 +76,7 @@ let removeAfterEachHook: (() => void) | null = null
 
 const currentLocale = computed(() => locale.value)
 const themeIcon = computed(() =>
-  theme.global.name.value === 'light' ? 'mdi-weather-sunny' : 'mdi-weather-night'
+  theme.global.name.value === 'light' ? 'mdi-weather-night' : 'mdi-weather-sunny'
 )
 const themeLabel = computed(() =>
   theme.global.name.value === 'light' ? t('theme.dark') : t('theme.light')

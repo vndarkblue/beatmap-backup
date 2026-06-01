@@ -26,6 +26,7 @@ build/
 
 # Editor directories and files
 .vscode/*
+.antigravitycli
 !.vscode/extensions.json
 .idea
 .DS_Store

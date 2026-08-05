@@ -342,6 +342,41 @@ app.get(BACKEND_API_ROUTES.DOWNLOAD_EVENTS, (async (req: Request, res: Response)
         : serializeTask(data)
     res.write(`data: ${JSON.stringify(safeData)}\n\n`)
   }
+  const pendingAddedTasks: DownloadTask[] = []
+  let addedTasksFlushTimer: NodeJS.Timeout | undefined
+
+  const flushAddedTasks = (): void => {
+    if (pendingAddedTasks.length === 0) return
+    const tasksToSend = pendingAddedTasks.splice(0)
+    sendEvent('tasksAdded', tasksToSend)
+  }
+
+  const scheduleAddedTasksFlush = (task: DownloadTask): void => {
+    pendingAddedTasks.push(task)
+    if (pendingAddedTasks.length >= chunkSize) {
+      if (addedTasksFlushTimer) {
+        clearTimeout(addedTasksFlushTimer)
+        addedTasksFlushTimer = undefined
+      }
+      flushAddedTasks()
+      return
+    }
+    if (!addedTasksFlushTimer) {
+      addedTasksFlushTimer = setTimeout(() => {
+        addedTasksFlushTimer = undefined
+        flushAddedTasks()
+      }, 50)
+    }
+  }
+
+  const sendAfterPendingAdds = (event: string, task: DownloadTask): void => {
+    if (addedTasksFlushTimer) {
+      clearTimeout(addedTasksFlushTimer)
+      addedTasksFlushTimer = undefined
+    }
+    flushAddedTasks()
+    sendEvent(event, task)
+  }
 
   // Send initial state
   const tasks = downloadService.getTasks()
@@ -366,10 +401,11 @@ app.get(BACKEND_API_ROUTES.DOWNLOAD_EVENTS, (async (req: Request, res: Response)
   }
 
   const eventHandlers = {
-    [DownloadEvent.TASK_ADDED]: (task: DownloadTask) => sendEvent('taskAdded', task),
-    [DownloadEvent.TASK_UPDATED]: (task: DownloadTask) => sendEvent('taskUpdated', task),
-    [DownloadEvent.TASK_COMPLETED]: (task: DownloadTask) => sendEvent('taskCompleted', task),
-    [DownloadEvent.TASK_ERROR]: (task: DownloadTask) => sendEvent('taskError', task),
+    [DownloadEvent.TASK_ADDED]: (task: DownloadTask) => scheduleAddedTasksFlush(task),
+    [DownloadEvent.TASK_UPDATED]: (task: DownloadTask) => sendAfterPendingAdds('taskUpdated', task),
+    [DownloadEvent.TASK_COMPLETED]: (task: DownloadTask) =>
+      sendAfterPendingAdds('taskCompleted', task),
+    [DownloadEvent.TASK_ERROR]: (task: DownloadTask) => sendAfterPendingAdds('taskError', task),
     [DownloadEvent.QUEUE_PAUSED]: () => sendEvent('queuePaused', null),
     [DownloadEvent.QUEUE_RESUMED]: () => sendEvent('queueResumed', null),
     [DownloadEvent.QUEUE_CLEARED]: () => sendEvent('queueCleared', null),
@@ -387,6 +423,10 @@ app.get(BACKEND_API_ROUTES.DOWNLOAD_EVENTS, (async (req: Request, res: Response)
 
   // Handle client disconnect
   req.on('close', () => {
+    if (addedTasksFlushTimer) {
+      clearTimeout(addedTasksFlushTimer)
+      addedTasksFlushTimer = undefined
+    }
     // Remove event listeners
     Object.entries(eventHandlers).forEach(([event, handler]) => {
       downloadService.removeListener(event, handler)

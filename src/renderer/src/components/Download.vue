@@ -108,7 +108,8 @@
           ></v-progress-linear>
         </div>
 
-        <!-- Files Table -->
+        <!-- Downloading Files Table -->
+        <div class="text-subtitle-1 mb-2">{{ $t('downloadManager.activeDownloads') }}</div>
         <v-table>
           <thead>
             <tr>
@@ -120,7 +121,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="file in downloadFiles" :key="file.id">
+            <tr v-for="file in visibleDownloadingFiles" :key="file.id">
               <td>
                 <v-tooltip :text="getStatusText(file.status)" location="top">
                   <template #activator="{ props }">
@@ -132,7 +133,7 @@
                   </template>
                 </v-tooltip>
               </td>
-              <td>{{ file.fileName || file.beatmapsetId + '.osz' }}</td>
+              <td>{{ getDownloadFileName(file) }}</td>
               <td>{{ formatSpeed(file.speed) }}</td>
               <td>
                 <v-progress-linear
@@ -144,8 +145,72 @@
               </td>
               <td>{{ formatTime(file.remainingTime) }}</td>
             </tr>
+            <tr v-if="visibleDownloadingFiles.length === 0">
+              <td colspan="5" class="text-center text-medium-emphasis py-4">
+                {{ $t('downloadManager.noActiveDownloads') }}
+              </td>
+            </tr>
           </tbody>
         </v-table>
+
+        <!-- Completed Files Drawer -->
+        <div class="completed-downloads-drawer mt-4">
+          <button
+            class="completed-downloads-toggle"
+            type="button"
+            :aria-expanded="showCompletedDownloads"
+            @click="showCompletedDownloads = !showCompletedDownloads"
+          >
+            <span class="d-flex align-center ga-2">
+              <v-icon icon="mdi-check-circle" color="success" size="20" />
+              <span>{{ $t('downloadManager.completedDownloads') }}</span>
+              <span class="text-medium-emphasis">({{ completedDownloadFiles.length }})</span>
+            </span>
+            <v-icon :icon="showCompletedDownloads ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
+          </button>
+          <v-expand-transition>
+            <div v-show="showCompletedDownloads" class="completed-downloads-content">
+              <v-table>
+                <thead>
+                  <tr>
+                    <th>{{ $t('downloadManager.table.status') }}</th>
+                    <th>{{ $t('downloadManager.table.filename') }}</th>
+                    <th>{{ $t('downloadManager.table.progress') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="file in visibleCompletedDownloadFiles" :key="file.id">
+                    <td>
+                      <v-tooltip :text="getStatusText(file.status)" location="top">
+                        <template #activator="{ props }">
+                          <v-icon
+                            v-bind="props"
+                            :color="getStatusColor(file.status)"
+                            :icon="getStatusIcon(file.status)"
+                          ></v-icon>
+                        </template>
+                      </v-tooltip>
+                    </td>
+                    <td>{{ getDownloadFileName(file) }}</td>
+                    <td>
+                      <v-progress-linear
+                        :model-value="file.progress"
+                        color="success"
+                        height="4"
+                        rounded
+                      ></v-progress-linear>
+                    </td>
+                  </tr>
+                  <tr v-if="visibleCompletedDownloadFiles.length === 0">
+                    <td colspan="3" class="text-center text-medium-emphasis py-4">
+                      {{ $t('downloadManager.noCompletedDownloads') }}
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </div>
+          </v-expand-transition>
+        </div>
       </div>
     </AppIsland>
 
@@ -316,13 +381,19 @@ const downloadFiles = ref<DownloadTask[]>([])
 const showCompletedToast = ref(false)
 const completedSummary = ref<QueueSummary | null>(null)
 const completedDownloadPath = ref('')
+const showCompletedDownloads = ref(false)
 const showRecoveryDialog = ref(false)
 const showDiscardConfirm = ref(false)
 const recoveryActionLoading = ref(false)
 const recoveryState = ref<RecoveryState | null>(null)
+const MAX_RENDERED_DOWNLOAD_ROWS = 600
 
 // SSE connection
 let eventSource: EventSource | null = null
+let downloadStateFlushHandle: number | null = null
+const downloadTaskIndex = new Map<string, number>()
+const pendingAddedTasks: DownloadTask[] = []
+const pendingTaskUpdates = new Map<string, DownloadTask>()
 
 // Load settings
 const loadSettings = async (): Promise<void> => {
@@ -374,6 +445,22 @@ onUnmounted(() => {
 const isDownloadEnabled = computed(() => {
   return selectedFile.value !== null && selectedSources.value.length > 0
 })
+
+const downloadingFiles = computed(() =>
+  downloadFiles.value.filter((task) => task.status === 'downloading')
+)
+
+const completedDownloadFiles = computed(() =>
+  downloadFiles.value.filter((task) => task.status === 'completed')
+)
+
+const visibleDownloadingFiles = computed(() =>
+  downloadingFiles.value.slice(0, MAX_RENDERED_DOWNLOAD_ROWS)
+)
+
+const visibleCompletedDownloadFiles = computed(() =>
+  completedDownloadFiles.value.slice(0, MAX_RENDERED_DOWNLOAD_ROWS)
+)
 
 // Handle file selection
 const handleFileSelect = async (): Promise<void> => {
@@ -658,14 +745,78 @@ const formatTime = (seconds: number): string => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
+const getDownloadFileName = (file: DownloadTask): string => {
+  return file.fileName || `${file.beatmapsetId}.osz`
+}
+
 // Update download state
-const updateDownloadState = (tasks: DownloadTask[]): void => {
-  downloadFiles.value = tasks
+const rebuildDownloadTaskIndex = (tasks: DownloadTask[]): void => {
+  downloadTaskIndex.clear()
+  tasks.forEach((task, index) => {
+    downloadTaskIndex.set(task.id, index)
+  })
+}
+
+const updateDownloadStats = (tasks: DownloadTask[]): void => {
   totalFiles.value = tasks.length
   completedFiles.value = tasks.filter((task) => task.status === 'completed').length
   queueProgress.value = totalFiles.value > 0 ? (completedFiles.value / totalFiles.value) * 100 : 0
-  // Show download manager if there are active tasks
   showDownloadManager.value = totalFiles.value > 0
+}
+
+const setDownloadTasks = (tasks: DownloadTask[]): void => {
+  downloadFiles.value = tasks
+  rebuildDownloadTaskIndex(tasks)
+  updateDownloadStats(tasks)
+}
+
+const flushPendingDownloadState = (): void => {
+  downloadStateFlushHandle = null
+
+  if (pendingAddedTasks.length === 0 && pendingTaskUpdates.size === 0) {
+    return
+  }
+
+  const nextTasks = downloadFiles.value.slice()
+
+  for (const task of pendingAddedTasks.splice(0)) {
+    const index = downloadTaskIndex.get(task.id)
+    if (index === undefined) {
+      downloadTaskIndex.set(task.id, nextTasks.length)
+      nextTasks.push(task)
+    } else {
+      nextTasks[index] = task
+    }
+  }
+
+  for (const task of pendingTaskUpdates.values()) {
+    const index = downloadTaskIndex.get(task.id)
+    if (index === undefined) {
+      downloadTaskIndex.set(task.id, nextTasks.length)
+      nextTasks.push(task)
+    } else {
+      nextTasks[index] = task
+    }
+  }
+  pendingTaskUpdates.clear()
+
+  downloadFiles.value = nextTasks
+  updateDownloadStats(nextTasks)
+}
+
+const scheduleDownloadStateFlush = (): void => {
+  if (downloadStateFlushHandle !== null) return
+  downloadStateFlushHandle = window.requestAnimationFrame(flushPendingDownloadState)
+}
+
+const queueAddedTasks = (tasks: DownloadTask[]): void => {
+  pendingAddedTasks.push(...tasks)
+  scheduleDownloadStateFlush()
+}
+
+const queueTaskUpdate = (task: DownloadTask): void => {
+  pendingTaskUpdates.set(task.id, task)
+  scheduleDownloadStateFlush()
 }
 
 // Action handlers
@@ -730,49 +881,54 @@ const connectSSE = (): void => {
       const data = JSON.parse(e.data)
       // Check if data is an array of tasks
       if (Array.isArray(data)) {
-        updateDownloadState(data)
+        setDownloadTasks(data)
       } else {
         console.warn('Invalid initialState data format:', data)
-        updateDownloadState([])
+        setDownloadTasks([])
       }
     } catch (error) {
       console.error('Failed to parse initialState:', error)
-      updateDownloadState([])
+      setDownloadTasks([])
     }
   })
   eventSource.addEventListener('initialStateChunk', (e) => {
     try {
       const data = JSON.parse(e.data)
       if (Array.isArray(data)) {
-        downloadFiles.value = [...downloadFiles.value, ...data]
-        updateDownloadState(downloadFiles.value)
+        queueAddedTasks(data)
       }
     } catch (error) {
       console.error('Failed to parse initialStateChunk:', error)
     }
   })
   eventSource.addEventListener('initialStateComplete', () => {
-    updateDownloadState(downloadFiles.value)
+    scheduleDownloadStateFlush()
   })
 
   eventSource.addEventListener('taskAdded', (e) => {
     try {
       const task = JSON.parse(e.data)
-      downloadFiles.value = [...downloadFiles.value, task]
-      updateDownloadState(downloadFiles.value)
+      queueAddedTasks([task])
     } catch (error) {
       console.error('Failed to parse taskAdded:', error)
+    }
+  })
+
+  eventSource.addEventListener('tasksAdded', (e) => {
+    try {
+      const tasks = JSON.parse(e.data)
+      if (Array.isArray(tasks)) {
+        queueAddedTasks(tasks)
+      }
+    } catch (error) {
+      console.error('Failed to parse tasksAdded:', error)
     }
   })
 
   eventSource.addEventListener('taskUpdated', (e) => {
     try {
       const updatedTask = JSON.parse(e.data)
-      const index = downloadFiles.value.findIndex((t) => t.id === updatedTask.id)
-      if (index !== -1) {
-        downloadFiles.value[index] = updatedTask
-        updateDownloadState(downloadFiles.value)
-      }
+      queueTaskUpdate(updatedTask)
     } catch (error) {
       console.error('Failed to parse taskUpdated:', error)
     }
@@ -781,11 +937,7 @@ const connectSSE = (): void => {
   eventSource.addEventListener('taskCompleted', (e) => {
     try {
       const completedTask = JSON.parse(e.data)
-      const index = downloadFiles.value.findIndex((t) => t.id === completedTask.id)
-      if (index !== -1) {
-        downloadFiles.value[index] = completedTask
-        updateDownloadState(downloadFiles.value)
-      }
+      queueTaskUpdate(completedTask)
     } catch (error) {
       console.error('Failed to parse taskCompleted:', error)
     }
@@ -794,11 +946,7 @@ const connectSSE = (): void => {
   eventSource.addEventListener('taskError', (e) => {
     try {
       const errorTask = JSON.parse(e.data)
-      const index = downloadFiles.value.findIndex((t) => t.id === errorTask.id)
-      if (index !== -1) {
-        downloadFiles.value[index] = errorTask
-        updateDownloadState(downloadFiles.value)
-      }
+      queueTaskUpdate(errorTask)
     } catch (error) {
       console.error('Failed to parse taskError:', error)
     }
@@ -820,6 +968,9 @@ const connectSSE = (): void => {
     totalFiles.value = 0
     queueProgress.value = 0
     downloadFiles.value = []
+    rebuildDownloadTaskIndex([])
+    pendingAddedTasks.length = 0
+    pendingTaskUpdates.clear()
 
     const summary = completedSummary.value
     if (summary) {
@@ -900,5 +1051,31 @@ const disconnectSSE = (): void => {
   gap: 8px;
   color: rgb(var(--v-theme-error));
   font-size: 0.95rem;
+}
+
+.completed-downloads-drawer {
+  border-top: 1px solid rgba(127, 127, 127, 0.2);
+}
+
+.completed-downloads-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.text-subtitle-1 {
+  font-family: var(--font-default) !important;
+}
+
+.completed-downloads-content {
+  padding-bottom: 4px;
 }
 </style>

@@ -43,6 +43,16 @@
     "button": "Sao lưu",
     "stableBackup": "Sao lưu từ osu!stable",
     "lazerBackup": "Sao lưu từ osu!lazer",
+    "sources": {
+      "title": "Nguồn"
+    },
+    "content": {
+      "title": "Nội dung sao lưu",
+      "onlineIds": "Beatmapset ID online",
+      "localBeatmaps": "Beatmap local (file .osz)",
+      "localBeatmapsPending": "Xuất beatmap local sẽ tạo các file .osz bên trong file backup .zip. Phần backend export chưa được nối.",
+      "localEstimatePending": "Ước tính dung lượng beatmap local sẽ có sau khi backend export zip được nối."
+    },
     "success": "Đã sao lưu thành công {count} beatmap",
     "error": "Sao lưu thất bại",
     "cancelled": "Đã huỷ thao tác",

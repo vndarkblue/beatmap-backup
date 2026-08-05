@@ -2,38 +2,84 @@
   <AppViewShell :title="$t('backup.title')" :lang="currentLocale">
     <AppIsland :title="$t('backup.backupBeatmapTitle')" icon="mdi-content-save-outline">
       <AppForm>
-        <v-switch
-          v-model="stableBackup"
-          :label="$t('backup.stableBackup')"
-          :lang="currentLocale"
-          class="view-field"
-          color="primary"
-          hide-details
-        ></v-switch>
-        <v-switch
-          v-model="lazerBackup"
-          :label="$t('backup.lazerBackup')"
-          :lang="currentLocale"
-          class="view-field"
-          color="primary"
-          hide-details
-        ></v-switch>
-        <v-switch
-          v-model="backupByCollection"
-          :label="$t('backup.collection.enabled')"
-          :lang="currentLocale"
-          class="view-field"
-          color="primary"
-          hide-details
-          :disabled="!isSourceSelected"
-        ></v-switch>
+        <div class="backup-controls">
+          <div class="d-flex flex-column flex-sm-row backup-options-row">
+            <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0">
+              <div class="text-subtitle-1 mb-3 mt-1" :lang="currentLocale">
+                {{ $t('backup.sources.title') }}
+              </div>
+              <v-switch
+                v-model="stableBackup"
+                :label="$t('backup.stableBackup')"
+                :lang="currentLocale"
+                class="view-field pl-2"
+                color="primary"
+                hide-details
+              ></v-switch>
+              <v-switch
+                v-model="lazerBackup"
+                :label="$t('backup.lazerBackup')"
+                :lang="currentLocale"
+                class="view-field pl-2"
+                color="primary"
+                hide-details
+              ></v-switch>
+            </div>
 
-        <template v-if="backupByCollection">
+            <v-divider vertical class="mx-4 d-none d-sm-flex"></v-divider>
+
+            <div class="flex-grow-1">
+              <div class="text-subtitle-1 mb-3 mt-1" :lang="currentLocale">
+                {{ $t('backup.content.title') }}
+              </div>
+              <v-switch
+                v-model="backupOnlineIds"
+                :label="$t('backup.content.onlineIds')"
+                :lang="currentLocale"
+                class="view-field pl-2"
+                color="primary"
+                hide-details
+              ></v-switch>
+              <v-switch
+                v-model="backupLocalBeatmaps"
+                :label="$t('backup.content.localBeatmaps')"
+                :lang="currentLocale"
+                class="view-field pl-2"
+                color="primary"
+                hide-details
+              ></v-switch>
+            </div>
+          </div>
+
+          <v-alert
+            v-if="backupLocalBeatmaps"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="local-backup-alert"
+          >
+            {{ $t('backup.content.localBeatmapsPending') }}
+          </v-alert>
+
+          <div class="backup-scope">
+            <v-switch
+              v-model="backupByCollection"
+              :label="$t('backup.collection.enabled')"
+              :lang="currentLocale"
+              class="view-field pl-2"
+              color="primary"
+              hide-details
+              :disabled="!canUseCollectionBackup"
+            ></v-switch>
+          </div>
+        </div>
+
+        <div v-if="backupByCollection" class="collection-options">
           <v-switch
             v-model="mergeCollectionNames"
             :label="$t('backup.collection.mergeByName')"
             :lang="currentLocale"
-            class="view-field"
+            class="view-field pl-2"
             color="primary"
             hide-details
           ></v-switch>
@@ -137,7 +183,7 @@
           <div v-else class="text-caption mb-2" :lang="currentLocale">
             {{ $t('backup.collection.empty') }}
           </div>
-        </template>
+        </div>
 
         <v-btn
           color="primary"
@@ -204,6 +250,8 @@ const currentLocale = computed(() => locale.value)
 
 const stableBackup = ref(false)
 const lazerBackup = ref(false)
+const backupOnlineIds = ref(true)
+const backupLocalBeatmaps = ref(false)
 const backupByCollection = ref(false)
 const mergeCollectionNames = ref(true)
 const isExporting = ref(false)
@@ -242,6 +290,8 @@ type PreviewCacheEntry = {
 type BackupToggleState = {
   stableBackup: boolean
   lazerBackup: boolean
+  backupOnlineIds: boolean
+  backupLocalBeatmaps: boolean
   backupByCollection: boolean
   mergeCollectionNames: boolean
 }
@@ -259,8 +309,13 @@ let previewRequestSeq = 0
 let latestPreviewAppliedSeq = 0
 
 const isSourceSelected = computed(() => stableBackup.value || lazerBackup.value)
+const isBackupContentSelected = computed(() => backupOnlineIds.value || backupLocalBeatmaps.value)
+const isLocalBackupBlocked = computed(() => backupLocalBeatmaps.value)
+const canUseCollectionBackup = computed(() => isSourceSelected.value && backupOnlineIds.value)
 const canExport = computed(() => {
   if (!isSourceSelected.value) return false
+  if (!isBackupContentSelected.value) return false
+  if (isLocalBackupBlocked.value) return false
   if (!backupByCollection.value) return true
   return selectedCollectionKeys.value.length > 0
 })
@@ -300,7 +355,7 @@ const mergeMode = computed<'merge' | 'split'>(() =>
 
 const ensureToggleRules = (): void => {
   // If no source is enabled, backup-by-collection must be off before toggle gets disabled.
-  if (!stableBackup.value && !lazerBackup.value) {
+  if (!canUseCollectionBackup.value) {
     backupByCollection.value = false
   }
 }
@@ -309,6 +364,8 @@ const saveToggleState = (): void => {
   const state: BackupToggleState = {
     stableBackup: stableBackup.value,
     lazerBackup: lazerBackup.value,
+    backupOnlineIds: backupOnlineIds.value,
+    backupLocalBeatmaps: backupLocalBeatmaps.value,
     backupByCollection: backupByCollection.value,
     mergeCollectionNames: mergeCollectionNames.value
   }
@@ -322,6 +379,9 @@ const loadToggleState = (): void => {
     const parsed = JSON.parse(raw) as Partial<BackupToggleState>
     stableBackup.value = Boolean(parsed.stableBackup)
     lazerBackup.value = Boolean(parsed.lazerBackup)
+    backupOnlineIds.value =
+      typeof parsed.backupOnlineIds === 'boolean' ? parsed.backupOnlineIds : true
+    backupLocalBeatmaps.value = Boolean(parsed.backupLocalBeatmaps)
     backupByCollection.value = Boolean(parsed.backupByCollection)
     mergeCollectionNames.value =
       typeof parsed.mergeCollectionNames === 'boolean' ? parsed.mergeCollectionNames : true
@@ -449,9 +509,16 @@ const formatBytes = (bytes: number): string => {
 }
 
 const refreshEstimate = async (): Promise<void> => {
-  if (!isSourceSelected.value) {
+  if (!isSourceSelected.value || !isBackupContentSelected.value) {
     estimateMessage.value = ''
     estimateError.value = false
+    return
+  }
+
+  if (backupLocalBeatmaps.value) {
+    estimateMessage.value = t('backup.content.localEstimatePending')
+    estimateError.value = false
+    isEstimating.value = false
     return
   }
 
@@ -542,6 +609,13 @@ watch([stableBackup, lazerBackup, backupByCollection, mergeCollectionNames], () 
   void refreshEstimate()
 })
 
+watch([backupOnlineIds, backupLocalBeatmaps], () => {
+  ensureToggleRules()
+  saveToggleState()
+  scheduleCollectionPreviewLoad()
+  void refreshEstimate()
+})
+
 watch(selectedCollectionKeys, () => {
   if (backupByCollection.value) {
     void refreshEstimate()
@@ -622,6 +696,33 @@ const handleExport = async (): Promise<void> => {
 .map-count {
   font-weight: 400;
   color: rgb(var(--v-theme-on-surface));
+}
+
+.backup-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.backup-options-row {
+  margin-bottom: 4px;
+}
+
+.backup-scope {
+  margin-bottom: 0;
+}
+
+.local-backup-alert {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.collection-options {
+  margin-top: -14px;
+}
+
+.collection-options > .v-switch {
+  margin-bottom: 12px;
 }
 
 thead th {

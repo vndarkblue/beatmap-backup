@@ -43,6 +43,16 @@
     "button": "Backup",
     "stableBackup": "Backup from osu!stable",
     "lazerBackup": "Backup from osu!lazer",
+    "sources": {
+      "title": "Sources"
+    },
+    "content": {
+      "title": "Backup content",
+      "onlineIds": "Online beatmapset IDs",
+      "localBeatmaps": "Local beatmaps (.osz files)",
+      "localBeatmapsPending": "Local beatmap export will create .osz files inside a .zip backup. The backend export step is not connected yet.",
+      "localEstimatePending": "Local beatmap size estimate will be available after the zip export backend is connected."
+    },
     "success": "Successfully backed up {count} beatmaps",
     "error": "Backup failed",
     "cancelled": "Backup cancelled",

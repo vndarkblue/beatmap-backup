@@ -129,6 +129,8 @@ const prefetchSecondaryViews = (): void => {
 type BackupToggleState = {
   stableBackup: boolean
   lazerBackup: boolean
+  backupOnlineIds: boolean
+  backupLocalBeatmaps: boolean
   backupByCollection: boolean
   mergeCollectionNames: boolean
 }
@@ -142,8 +144,9 @@ const prewarmBackupCollectionPreview = (): void => {
       const state = JSON.parse(raw) as Partial<BackupToggleState>
       const stable = Boolean(state.stableBackup)
       const lazer = Boolean(state.lazerBackup)
+      const backupOnlineIds = state.backupOnlineIds !== false
       const backupByCollection = Boolean(state.backupByCollection)
-      if (!backupByCollection || (!stable && !lazer)) return
+      if (!backupOnlineIds || !backupByCollection || (!stable && !lazer)) return
       const mergeMode: 'merge' | 'split' = state.mergeCollectionNames === false ? 'split' : 'merge'
       void window.electronAPI.previewCollections({ stable, lazer, mergeMode })
     } catch {

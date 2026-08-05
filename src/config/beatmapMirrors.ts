@@ -37,13 +37,13 @@ export const DefaultBeatmapMirrors: BeatmapMirror[] = [
   },
   {
     name: 'Nekoha',
-    baseUrl: 'https://mirror.nekoha.moe/api4/download/',
+    baseUrl: 'https://mirror.nekoha.moe/api/download/',
     webUrl: 'https://mirror.nekoha.moe/',
-    healthUrl: 'https://mirror.nekoha.moe/api4/',
+    healthUrl: 'https://mirror.nekoha.moe/',
     supportsNoVideo: false,
     getDownloadUrl: (beatmapsetId: string, noVideo: boolean) => {
       void noVideo
-      return `https://mirror.nekoha.moe/api4/${beatmapsetId}`
+      return `https://mirror.nekoha.moe/api/${beatmapsetId}`
     }
   },
   {

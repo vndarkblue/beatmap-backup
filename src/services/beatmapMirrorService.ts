@@ -36,13 +36,19 @@ class BeatmapMirrorService {
     try {
       const response = await fetch(mirror.healthUrl, { signal: controller.signal })
       const isOnline = response.ok
-      return {
+      const status: MirrorStatus = {
         name: mirror.name,
         isOnline,
         lastChecked: Date.now(),
         responseTimeMs: Date.now() - start,
         error: isOnline ? undefined : `HTTP ${response.status}`
       }
+      console.log(
+        `[MirrorHealth] check ${mirror.name}: ${isOnline ? 'online' : 'offline'}` +
+          ` http=${response.status} rt=${status.responseTimeMs}ms url=${mirror.healthUrl}` +
+          (status.error ? ` error=${status.error}` : '')
+      )
+      return status
     } catch (error) {
       const message =
         error instanceof Error && error.name === 'AbortError'
@@ -50,13 +56,17 @@ class BeatmapMirrorService {
           : error instanceof Error
             ? error.message
             : 'Unknown error'
-      return {
+      const status: MirrorStatus = {
         name: mirror.name,
         isOnline: false,
         lastChecked: Date.now(),
         responseTimeMs: null,
         error: message
       }
+      console.log(
+        `[MirrorHealth] check ${mirror.name}: offline rt=null url=${mirror.healthUrl} error=${message}`
+      )
+      return status
     } finally {
       clearTimeout(timeout)
     }
@@ -69,34 +79,60 @@ class BeatmapMirrorService {
   public async getMirrorsStatus(): Promise<MirrorStatus[]> {
     const results: MirrorStatus[] = []
     const mirrors = DefaultBeatmapMirrors
+    let cacheHits = 0
+    let freshChecks = 0
 
     for (const mirror of mirrors) {
       const cachedStatus = this.statusCache.get(mirror.name)
 
       if (cachedStatus && this.isCacheValid(cachedStatus)) {
+        cacheHits++
+        console.log(
+          `[MirrorHealth] cache-hit ${mirror.name}: ${cachedStatus.isOnline ? 'online' : 'offline'}` +
+            ` age=${Date.now() - cachedStatus.lastChecked}ms` +
+            (cachedStatus.error ? ` error=${cachedStatus.error}` : '')
+        )
         results.push(cachedStatus)
       } else {
+        freshChecks++
         const status = await this.checkMirrorStatus(mirror)
         this.statusCache.set(mirror.name, status)
         results.push(status)
       }
     }
 
+    console.log(
+      `[MirrorHealth] getMirrorsStatus done cacheHits=${cacheHits} freshChecks=${freshChecks}` +
+        ` online=${results.filter((s) => s.isOnline).map((s) => s.name).join(',') || '(none)'}` +
+        ` offline=${results.filter((s) => !s.isOnline).map((s) => `${s.name}(${s.error ?? '?'})`).join(',') || '(none)'}`
+    )
+
     return results
   }
 
   public async refreshStatusCache(): Promise<void> {
+    console.log('[MirrorHealth] background refresh start')
     const checks = await Promise.all(
       DefaultBeatmapMirrors.map((mirror) => this.checkMirrorStatus(mirror))
     )
     for (const status of checks) {
       this.statusCache.set(status.name, status)
     }
+    console.log(
+      `[MirrorHealth] background refresh done` +
+        ` online=${checks.filter((s) => s.isOnline).map((s) => s.name).join(',') || '(none)'}` +
+        ` offline=${checks.filter((s) => !s.isOnline).map((s) => `${s.name}(${s.error ?? '?'})`).join(',') || '(none)'}`
+    )
   }
 
   public async getHealthyMirrorNames(): Promise<Set<string>> {
     const statuses = await this.getMirrorsStatus()
-    return new Set(statuses.filter((s) => s.isOnline).map((s) => s.name))
+    const healthy = new Set(statuses.filter((s) => s.isOnline).map((s) => s.name))
+    console.log(
+      `[MirrorHealth] getHealthyMirrorNames → [${[...healthy].join(', ') || 'none'}]` +
+        ` (${healthy.size}/${statuses.length})`
+    )
+    return healthy
   }
 
   public startBackgroundHealthChecks(): void {

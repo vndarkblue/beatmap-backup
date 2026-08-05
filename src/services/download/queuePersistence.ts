@@ -4,11 +4,19 @@ import { app } from 'electron'
 import { DefaultBeatmapMirrors } from '../../config/beatmapMirrors'
 import type { DownloadOptions, DownloadTask } from './types'
 
-const SNAPSHOT_VERSION = 1
+const SNAPSHOT_VERSION = 2
 const SNAPSHOT_FILE_NAME = 'download-queue-state.json'
 
 type PersistedTask = Omit<DownloadTask, 'mirror' | 'request'> & {
   mirrorName: string
+}
+
+type PersistedMirrorSchedulerState = {
+  name: string
+  cooldownUntil: number
+  rateLimitCount: number
+  consecutiveFailures: number
+  consecutiveSuccesses: number
 }
 
 export interface QueueSnapshot {
@@ -17,10 +25,13 @@ export interface QueueSnapshot {
   createdAt: number
   updatedAt: number
   options: DownloadOptions
-  rotation: {
+  rotation?: {
     currentMirrorIndex: number
     currentRotationLimit: number
     mirrorCompletionCounts: Record<string, number>
+  }
+  scheduler?: {
+    mirrors: PersistedMirrorSchedulerState[]
   }
   tasks: PersistedTask[]
 }
@@ -53,8 +64,12 @@ export class QueuePersistence {
     try {
       const raw = await fs.promises.readFile(this.filePath, 'utf-8')
       const parsed = JSON.parse(raw) as QueueSnapshot
-      if (parsed.version !== SNAPSHOT_VERSION) {
+      if (parsed.version !== SNAPSHOT_VERSION && parsed.version !== 1) {
         return null
+      }
+      if (parsed.version === 1) {
+        parsed.version = SNAPSHOT_VERSION
+        parsed.scheduler = { mirrors: [] }
       }
       return parsed
     } catch (error) {
@@ -98,6 +113,8 @@ export class QueuePersistence {
     const mirrorMap = new Map(DefaultBeatmapMirrors.map((m) => [m.name, m]))
     return tasks.map((task) => ({
       ...task,
+      assignedMirror: undefined,
+      triedMirrors: task.triedMirrors ?? [],
       mirror: mirrorMap.get(task.mirrorName) ?? DefaultBeatmapMirrors[0],
       request: undefined
     }))

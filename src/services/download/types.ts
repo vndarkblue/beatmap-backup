@@ -12,6 +12,10 @@ export interface DownloadTask {
   speed: number
   remainingTime: number
   error?: string
+  assignedMirror?: string
+  lastUsedMirror?: string
+  triedMirrors?: string[]
+  nextRetryAt?: number
   /** Directory chosen by user (or default OS Downloads) */
   downloadPath?: string
   /** Final file name and full path, set once headers are known / completed */

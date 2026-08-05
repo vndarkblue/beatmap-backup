@@ -11,6 +11,18 @@ export interface MirrorHealth {
   avgResponseTime: number
 }
 
+export class DownloadHttpError extends Error {
+  public readonly statusCode?: number
+  public readonly retryAfterMs?: number
+
+  constructor(message: string, statusCode?: number, retryAfterMs?: number) {
+    super(message)
+    this.name = 'DownloadHttpError'
+    this.statusCode = statusCode
+    this.retryAfterMs = retryAfterMs
+  }
+}
+
 function sanitizeFileName(name: string): string {
   const invalidChars = /[<>:\\"/|?*]/g
   let safe = name.replace(invalidChars, ' ').replace(/\s+/g, ' ').trim()
@@ -20,6 +32,22 @@ function sanitizeFileName(name: string): string {
     safe = `${safe}.osz`
   }
   return safe
+}
+
+function parseRetryAfterMs(value: string | string[] | undefined): number | undefined {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (!raw) {
+    return undefined
+  }
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000)
+  }
+  const dateMs = Date.parse(raw)
+  if (Number.isFinite(dateMs)) {
+    return Math.max(0, dateMs - Date.now())
+  }
+  return undefined
 }
 
 export async function downloadFile(
@@ -69,6 +97,12 @@ export async function downloadFile(
     }
 
     const makeRequest = (targetUrl: URL, redirectCount = 0): void => {
+      if (redirectCount === 0) {
+        console.log(
+          `[DownloadDebug] http.request set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+            ` url=${targetUrl.href}`
+        )
+      }
       const protocol = targetUrl.protocol === 'http:' ? http : https
       const req = protocol.request(
         targetUrl,
@@ -87,22 +121,43 @@ export async function downloadFile(
             response.headers.location
           ) {
             if (redirectCount >= 5) {
-              reject(new Error('Too many redirects'))
+              console.log(
+                `[DownloadDebug] http.redirectOverflow set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+                  ` from=${targetUrl.href}`
+              )
+              failWithCleanup(new Error('Too many redirects'))
               return
             }
             try {
               const nextUrl = new URL(response.headers.location, targetUrl)
+              console.log(
+                `[DownloadDebug] http.redirect set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+                  ` ${response.statusCode} → ${nextUrl.href}`
+              )
               req.destroy()
               makeRequest(nextUrl, redirectCount + 1)
               return
             } catch {
-              reject(new Error('Invalid redirect URL'))
+              failWithCleanup(new Error('Invalid redirect URL'))
               return
             }
           }
 
           if (response.statusCode !== 200) {
-            failWithCleanup(new Error(`Failed to download: ${response.statusCode}`))
+            const isRateLimit = response.statusCode === 429
+            console.log(
+              `[DownloadDebug] http.non200 set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+                ` status=${response.statusCode} rateLimit=${isRateLimit}` +
+                ` url=${targetUrl.href}` +
+                ` retry-after=${response.headers['retry-after'] ?? 'n/a'}`
+            )
+            failWithCleanup(
+              new DownloadHttpError(
+                `Failed to download: ${response.statusCode}`,
+                response.statusCode,
+                parseRetryAfterMs(response.headers['retry-after'])
+              )
+            )
             return
           }
 
@@ -184,10 +239,18 @@ export async function downloadFile(
       )
 
       req.on('error', (error) => {
+        console.log(
+          `[DownloadDebug] http.reqError set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+            ` error=${error.message}`
+        )
         failWithCleanup(error)
       })
 
       req.setTimeout(30000, () => {
+        console.log(
+          `[DownloadDebug] http.timeout set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+            ` url=${targetUrl.href}`
+        )
         req.destroy(new Error('Request timeout'))
       })
 

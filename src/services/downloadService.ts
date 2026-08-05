@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events'
 import { BeatmapMirror, DefaultBeatmapMirrors } from '../config/beatmapMirrors'
-import type PQueueType from 'p-queue'
 import { DownloadTask, DownloadOptions, DownloadEvent } from './download/types'
 import {
   getDefaultDownloadPath,
@@ -8,8 +7,9 @@ import {
   validateBackupFile,
   getExistingBeatmapsetIds
 } from './download/fileUtils'
-import { downloadFile, MirrorHealth } from './download/httpDownloader'
+import { downloadFile, DownloadHttpError, MirrorHealth } from './download/httpDownloader'
 import fs from 'fs'
+import path from 'path'
 import BeatmapMirrorService from './beatmapMirrorService'
 import {
   QueuePersistence,
@@ -21,38 +21,44 @@ import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs } from './sett
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }
 
-// `p-queue` needs CommonJS loading in this Electron main-process build.
-// Keep the runtime-compatible require, but preserve the constructor type.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PQueue = require('p-queue').default as typeof PQueueType
+type MirrorRuntimeState = {
+  mirror: BeatmapMirror
+  activeDownloads: number
+  maxConcurrency: number
+  cooldownUntil: number
+  rateLimitCount: number
+  consecutiveFailures: number
+  consecutiveSuccesses: number
+}
+
+type FailureKind = 'rate-limit' | 'not-found' | 'transient' | 'permanent' | 'cancelled'
+
+const BASE_RETRY_DELAY_MS = 1000
+const MAX_RETRY_DELAY_MS = 30000
+const BASE_RATE_LIMIT_COOLDOWN_MS = 5000
+const MAX_RATE_LIMIT_COOLDOWN_MS = 60000
 
 class DownloadService extends EventEmitter {
   private static instance: DownloadService
-  private queue: PQueueType
   private tasks: Map<string, DownloadTask>
   private isPaused: boolean
-  private cooldownPeriod: number
-  private cooldownTimeout?: NodeJS.Timeout
   private mirrorHealth: Map<string, MirrorHealth>
+  private mirrorStates: Map<string, MirrorRuntimeState> = new Map()
+  private activeDownloads = 0
+  private schedulerTimer?: NodeJS.Timeout
   private queueStartTime: number | null
-  /** Stored so resumeQueue can re-add waiting tasks without needing closure args */
   private currentMirrors: BeatmapMirror[] = []
   private currentOptions: DownloadOptions | null = null
-  private currentMirrorIndex = 0
-  private currentRotationLimit = 20
-  private mirrorCompletionCounts: Map<string, number> = new Map()
-  private retryingTaskIds: Set<string> = new Set()
   private queueId: string | null = null
   private persistence: QueuePersistence
   private persistTimer?: NodeJS.Timeout
   private latestSnapshot: QueueSnapshot | null = null
+  private mirrorUsageLogQueueId: string | null = null
 
   private constructor() {
     super()
-    this.queue = new PQueue({ concurrency: 1 })
     this.tasks = new Map()
     this.isPaused = false
-    this.cooldownPeriod = 5000
     this.mirrorHealth = new Map()
     this.queueStartTime = null
     this.persistence = new QueuePersistence()
@@ -69,25 +75,54 @@ class DownloadService extends EventEmitter {
     task.updatedAt = Date.now()
   }
 
+  private debugQueueState(label: string, extra?: Record<string, unknown>): void {
+    const counts = { waiting: 0, downloading: 0, completed: 0, error: 0 }
+    for (const t of this.tasks.values()) {
+      counts[t.status]++
+    }
+    const mirrors = Array.from(this.mirrorStates.values()).map((state) => ({
+      name: state.mirror.name,
+      active: state.activeDownloads,
+      max: state.maxConcurrency,
+      cooldownMs: Math.max(0, state.cooldownUntil - Date.now()),
+      rateLimits: state.rateLimitCount
+    }))
+    const payload = {
+      ...extra,
+      queueId: this.queueId,
+      isPaused: this.isPaused,
+      global: {
+        active: this.activeDownloads,
+        cap: this.getGlobalConcurrencyLimit(),
+        nextWakeupMs: this.getNextWakeupMs()
+      },
+      statusCounts: counts,
+      mirrors
+    }
+    console.log(`[DownloadDebug] ${label}`, payload)
+  }
+
   private buildSnapshot(): QueueSnapshot | null {
-    // Persist only deterministic queue state; request handles are intentionally excluded.
     if (!this.queueId || !this.currentOptions) {
       return null
     }
-    const snapshot: QueueSnapshot = {
+    return {
       version: QUEUE_SNAPSHOT_VERSION,
       queueId: this.queueId,
       createdAt: this.queueStartTime ?? Date.now(),
       updatedAt: Date.now(),
       options: this.currentOptions,
-      rotation: {
-        currentMirrorIndex: this.currentMirrorIndex,
-        currentRotationLimit: this.currentRotationLimit,
-        mirrorCompletionCounts: Object.fromEntries(this.mirrorCompletionCounts.entries())
+      scheduler: {
+        mirrors: Array.from(this.mirrorStates.values()).map((state) => ({
+          name: state.mirror.name,
+          cooldownUntil: state.cooldownUntil,
+          rateLimitCount: state.rateLimitCount,
+          consecutiveFailures: state.consecutiveFailures,
+          consecutiveSuccesses: state.consecutiveSuccesses
+        }))
       },
       tasks: this.persistence.serializeTasks(this.getTasks())
     }
-    return snapshot
   }
 
   private schedulePersistCheckpoint(): void {
@@ -137,8 +172,6 @@ class DownloadService extends EventEmitter {
     downloadingCount: number
     snapshotUpdatedAt: number | null
   } {
-    // Recovery prompt is only for restoring a previous session after app restart.
-    // If a queue is already active in current process, do not offer resume dialog.
     const hasActiveInMemoryQueue =
       this.queueId !== null ||
       Array.from(this.tasks.values()).some((t) => t.status === 'waiting' || t.status === 'downloading')
@@ -209,14 +242,11 @@ class DownloadService extends EventEmitter {
   }
 
   private async restorePersistedQueue(snapshot: QueueSnapshot): Promise<void> {
-    // Rebuild queue from snapshot without replaying completed/error tasks.
     this.clearQueue(false)
+    this.mirrorUsageLogQueueId = null
     this.queueId = snapshot.queueId
     this.queueStartTime = snapshot.createdAt
     this.currentOptions = snapshot.options
-    this.currentRotationLimit = snapshot.rotation.currentRotationLimit
-    this.currentMirrorIndex = snapshot.rotation.currentMirrorIndex
-    this.mirrorCompletionCounts = new Map(Object.entries(snapshot.rotation.mirrorCompletionCounts))
 
     const mirrorService = BeatmapMirrorService.getInstance()
     const healthyMirrorNames = await mirrorService.getHealthyMirrorNames()
@@ -226,31 +256,39 @@ class DownloadService extends EventEmitter {
         (!snapshot.options.noVideo || mirror.supportsNoVideo !== false) &&
         healthyMirrorNames.has(mirror.name)
     )
+    console.log(
+      `[DownloadDebug] restorePersistedQueue healthy=[${[...healthyMirrorNames].join(', ')}]` +
+        ` available=[${this.currentMirrors.map((m) => m.name).join(', ')}]` +
+        ` snapshotTasks=${snapshot.tasks.length}`
+    )
     if (this.currentMirrors.length === 0) {
       throw new Error('No healthy mirrors available to resume queue')
     }
 
+    this.initializeMirrorStates(this.currentMirrors, snapshot.options, snapshot)
+
     const tasks = this.persistence.deserializeTasks(snapshot.tasks)
-    this.queue.concurrency = snapshot.options.threadCount
     for (const task of tasks) {
       task.queueId = snapshot.queueId
       if (task.status === 'downloading') {
         task.status = 'waiting'
       }
+      task.assignedMirror = undefined
+      task.request = undefined
       this.touchTask(task)
       this.tasks.set(task.id, task)
       this.emit(DownloadEvent.TASK_ADDED, task)
-      if (task.status === 'waiting') {
-        this.queue.add(() => this.downloadTask(task, this.currentMirrors, snapshot.options))
-      }
     }
+    this.debugQueueState('restorePersistedQueue.loaded')
     this.emit(DownloadEvent.QUEUE_RESUMED)
     this.schedulePersistCheckpoint()
+    this.scheduleDownloads()
   }
 
   public async startDownload(filePath: string, options: DownloadOptions): Promise<void> {
     try {
       this.clearQueue(false)
+      this.mirrorUsageLogQueueId = null
       this.queueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       this.queueStartTime = Date.now()
 
@@ -275,11 +313,8 @@ class DownloadService extends EventEmitter {
         return
       }
 
-      this.queue.concurrency = options.threadCount
-
       const mirrorService = BeatmapMirrorService.getInstance()
       const healthyMirrorNames = await mirrorService.getHealthyMirrorNames()
-
       const selectedMirrors = DefaultBeatmapMirrors.filter((mirror) =>
         options.sources.includes(mirror.name)
       )
@@ -288,6 +323,15 @@ class DownloadService extends EventEmitter {
         : selectedMirrors
       const availableMirrors = noVideoSupportedMirrors.filter((mirror) =>
         healthyMirrorNames.has(mirror.name)
+      )
+
+      console.log(
+        `[DownloadDebug] startDownload sources=${JSON.stringify(options.sources)}` +
+          ` noVideo=${options.noVideo} threadCount=${options.threadCount}` +
+          ` ids=${beatmapsetIds.length} filtered=${filteredIds.length}` +
+          ` selected=[${selectedMirrors.map((m) => m.name).join(', ')}]` +
+          ` healthy=[${[...healthyMirrorNames].join(', ')}]` +
+          ` available=[${availableMirrors.map((m) => m.name).join(', ')}]`
       )
 
       if (availableMirrors.length === 0) {
@@ -302,23 +346,15 @@ class DownloadService extends EventEmitter {
 
       this.currentMirrors = availableMirrors
       this.currentOptions = options
-      this.currentMirrorIndex = 0
-      this.currentRotationLimit = this.calculateRotationLimit(availableMirrors.length)
-      this.mirrorCompletionCounts.clear()
-      for (const mirror of availableMirrors) {
-        this.mirrorCompletionCounts.set(mirror.name, 0)
-      }
-      console.log(
-        `[MirrorRotation] healthy=${availableMirrors.length}, limitPerMirror=${this.currentRotationLimit}`
-      )
+      this.initializeMirrorStates(availableMirrors, options)
 
+      const now = Date.now()
       for (const beatmapsetId of filteredIds) {
-        const initialMirror = this.getCurrentQueueMirror(availableMirrors)
         const task: DownloadTask = {
-          id: `${beatmapsetId}-${Date.now()}`,
+          id: `${beatmapsetId}-${now}-${Math.random().toString(36).slice(2, 8)}`,
           queueId: this.queueId,
           beatmapsetId,
-          mirror: initialMirror,
+          mirror: availableMirrors[0],
           noVideo: options.noVideo,
           status: 'waiting',
           progress: 0,
@@ -327,30 +363,420 @@ class DownloadService extends EventEmitter {
           downloadPath: dlPath,
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          attemptCount: 0
+          attemptCount: 0,
+          triedMirrors: []
         }
 
         this.tasks.set(task.id, task)
         this.emit(DownloadEvent.TASK_ADDED, task)
-        this.schedulePersistCheckpoint()
-        this.queue.add(() => this.downloadTask(task, availableMirrors, options))
       }
+      this.debugQueueState('startDownload.loaded', { taskCount: filteredIds.length })
       await this.persistCheckpoint('queue-start')
-
-      this.queue.onIdle().then(() => {
-        this.checkQueueCompletion()
-      })
+      this.scheduleDownloads()
     } catch (error) {
       console.error('Failed to start download:', error)
       throw error
     }
   }
 
+  private initializeMirrorStates(
+    mirrors: BeatmapMirror[],
+    options: DownloadOptions,
+    snapshot?: QueueSnapshot
+  ): void {
+    this.mirrorStates.clear()
+    const perMirrorConcurrency = Math.max(1, Math.ceil(this.getGlobalConcurrencyLimit(options) / mirrors.length))
+    const persistedStates = new Map(snapshot?.scheduler?.mirrors.map((state) => [state.name, state]))
+
+    for (const mirror of mirrors) {
+      const persisted = persistedStates.get(mirror.name)
+      this.mirrorStates.set(mirror.name, {
+        mirror,
+        activeDownloads: 0,
+        maxConcurrency: perMirrorConcurrency,
+        cooldownUntil: persisted?.cooldownUntil ?? 0,
+        rateLimitCount: persisted?.rateLimitCount ?? 0,
+        consecutiveFailures: persisted?.consecutiveFailures ?? 0,
+        consecutiveSuccesses: persisted?.consecutiveSuccesses ?? 0
+      })
+    }
+  }
+
+  private getGlobalConcurrencyLimit(options = this.currentOptions): number {
+    return Math.max(1, options?.threadCount ?? 1)
+  }
+
+  private scheduleDownloads(): void {
+    this.clearSchedulerTimer()
+    if (this.isPaused || !this.currentOptions || this.currentMirrors.length === 0) {
+      return
+    }
+
+    let dispatched = 0
+    while (this.activeDownloads < this.getGlobalConcurrencyLimit()) {
+      const next = this.pickNextRunnableTask()
+      if (!next) {
+        break
+      }
+      dispatched++
+      this.startTask(next.task, next.mirror)
+    }
+
+    if (dispatched > 0) {
+      this.debugQueueState('scheduler.dispatched', { dispatched })
+    }
+
+    this.scheduleNextWakeup()
+    this.checkQueueCompletion()
+  }
+
+  private pickNextRunnableTask(): { task: DownloadTask; mirror: MirrorRuntimeState } | null {
+    const now = Date.now()
+    for (const task of this.tasks.values()) {
+      if (task.status !== 'waiting') {
+        continue
+      }
+      if (task.nextRetryAt && task.nextRetryAt > now) {
+        continue
+      }
+      const mirror = this.pickAvailableMirror(task, now)
+      if (mirror) {
+        return { task, mirror }
+      }
+    }
+    return null
+  }
+
+  private pickAvailableMirror(task: DownloadTask, now: number): MirrorRuntimeState | null {
+    const tried = new Set(task.triedMirrors ?? [])
+    const available = Array.from(this.mirrorStates.values()).filter(
+      (state) => state.cooldownUntil <= now && state.activeDownloads < state.maxConcurrency
+    )
+    if (available.length === 0) {
+      return null
+    }
+
+    const untried = available.filter((state) => !tried.has(state.mirror.name))
+    if (tried.size < this.currentMirrors.length && untried.length === 0) {
+      return null
+    }
+    const candidates = untried.length > 0 ? untried : available
+    candidates.sort((a, b) => {
+      if (a.activeDownloads !== b.activeDownloads) {
+        return a.activeDownloads - b.activeDownloads
+      }
+      return a.consecutiveFailures - b.consecutiveFailures
+    })
+    return candidates[0]
+  }
+
+  private startTask(task: DownloadTask, mirrorState: MirrorRuntimeState): void {
+    task.mirror = mirrorState.mirror
+    task.assignedMirror = mirrorState.mirror.name
+    task.lastUsedMirror = mirrorState.mirror.name
+    task.status = 'downloading'
+    task.progress = task.progress >= 100 ? 0 : task.progress
+    task.speed = 0
+    task.remainingTime = 0
+    task.error = undefined
+    task.nextRetryAt = undefined
+    task.attemptCount = (task.attemptCount ?? 0) + 1
+    this.touchTask(task)
+    mirrorState.activeDownloads++
+    this.activeDownloads++
+    this.emit(DownloadEvent.TASK_UPDATED, task)
+    this.schedulePersistCheckpoint()
+
+    console.log(
+      `[DownloadDebug] download.start set=${task.beatmapsetId} attempt=${task.attemptCount}` +
+        ` mirror=${mirrorState.mirror.name} active=${this.activeDownloads}/${this.getGlobalConcurrencyLimit()}`
+    )
+
+    void this.runTask(task, mirrorState)
+  }
+
+  private async runTask(task: DownloadTask, mirrorState: MirrorRuntimeState): Promise<void> {
+    const options = this.currentOptions
+    const taskDownloadPath = task.downloadPath || options?.downloadPath || getDefaultDownloadPath()
+    const startMirrorName = mirrorState.mirror.name
+    const startTime = Date.now()
+
+    try {
+      const result = await downloadFile(task, taskDownloadPath, (updatedTask) => {
+        this.emit(DownloadEvent.TASK_UPDATED, updatedTask)
+      })
+
+      if (this.tasks.get(task.id) !== task) {
+        return
+      }
+
+      const health = this.mirrorHealth.get(startMirrorName) || {
+        success: 0,
+        failure: 0,
+        avgResponseTime: 0
+      }
+      health.success++
+      health.avgResponseTime =
+        (health.avgResponseTime * (health.success - 1) + (Date.now() - result.startTime)) /
+        health.success
+      this.mirrorHealth.set(startMirrorName, health)
+
+      mirrorState.rateLimitCount = 0
+      mirrorState.consecutiveFailures = 0
+      mirrorState.consecutiveSuccesses++
+      task.status = 'completed'
+      task.progress = 100
+      task.speed = 0
+      task.remainingTime = 0
+      task.error = undefined
+      task.assignedMirror = undefined
+      task.nextRetryAt = undefined
+      this.touchTask(task)
+
+      console.log(
+        `[DownloadDebug] download.ok set=${task.beatmapsetId} mirror=${startMirrorName}` +
+          ` ms=${Date.now() - startTime} mirrorHealth={ok:${health.success},fail:${health.failure}}`
+      )
+
+      this.emit(DownloadEvent.TASK_COMPLETED, task)
+      this.schedulePersistCheckpoint()
+    } catch (error) {
+      if (this.tasks.get(task.id) === task) {
+        this.handleDownloadFailure(task, mirrorState, error)
+      }
+    } finally {
+      mirrorState.activeDownloads = Math.max(0, mirrorState.activeDownloads - 1)
+      this.activeDownloads = Math.max(0, this.activeDownloads - 1)
+      if (this.tasks.get(task.id) === task && task.status === 'downloading') {
+        task.status = 'waiting'
+        task.assignedMirror = undefined
+        this.touchTask(task)
+        this.emit(DownloadEvent.TASK_UPDATED, task)
+      }
+      this.scheduleDownloads()
+    }
+  }
+
+  private handleDownloadFailure(
+    task: DownloadTask,
+    mirrorState: MirrorRuntimeState,
+    error: unknown
+  ): void {
+    const mirrorName = mirrorState.mirror.name
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const failureKind = this.classifyFailure(error)
+
+    const health = this.mirrorHealth.get(mirrorName) || {
+      success: 0,
+      failure: 0,
+      avgResponseTime: 0
+    }
+    health.failure++
+    this.mirrorHealth.set(mirrorName, health)
+    mirrorState.consecutiveFailures++
+    mirrorState.consecutiveSuccesses = 0
+
+    console.log(
+      `[DownloadDebug] download.fail set=${task.beatmapsetId} mirror=${mirrorName}` +
+        ` attempt=${task.attemptCount} kind=${failureKind} error=${errorMessage}` +
+        ` mirrorHealth={ok:${health.success},fail:${health.failure}}`
+    )
+
+    task.assignedMirror = undefined
+    task.lastErrorAt = Date.now()
+    task.triedMirrors = Array.from(new Set([...(task.triedMirrors ?? []), mirrorName]))
+
+    if (failureKind === 'cancelled') {
+      task.status = 'waiting'
+      task.error = 'Download cancelled'
+      task.nextRetryAt = undefined
+      this.touchTask(task)
+      this.emit(DownloadEvent.TASK_UPDATED, task)
+      this.schedulePersistCheckpoint()
+      return
+    }
+
+    if (failureKind === 'rate-limit') {
+      this.applyMirrorCooldown(mirrorState, error)
+    }
+
+    if (failureKind === 'permanent') {
+      this.failTask(task, errorMessage)
+      return
+    }
+
+    if (failureKind === 'not-found' && this.hasTriedEveryMirror(task)) {
+      this.failTask(task, `Not found on selected mirrors: ${errorMessage}`)
+      return
+    }
+
+    if (!this.canRetryTask(task)) {
+      this.failTask(task, errorMessage)
+      return
+    }
+
+    const delay = this.getRetryDelay(task, failureKind)
+    task.status = 'waiting'
+    task.error = errorMessage
+    task.nextRetryAt = Date.now() + delay
+    if (failureKind !== 'not-found' && this.hasTriedEveryMirror(task)) {
+      task.triedMirrors = []
+    }
+    this.touchTask(task)
+    this.emit(DownloadEvent.TASK_UPDATED, task)
+    this.schedulePersistCheckpoint()
+  }
+
+  private classifyFailure(error: unknown): FailureKind {
+    if (error instanceof Error && error.message === 'Download aborted') {
+      return 'cancelled'
+    }
+    if (error instanceof DownloadHttpError) {
+      if (error.statusCode === 429) {
+        return 'rate-limit'
+      }
+      if (error.statusCode === 404) {
+        return 'not-found'
+      }
+      if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+        return 'permanent'
+      }
+      return 'transient'
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    if (/429|rate.?limit|too many requests/i.test(message)) {
+      return 'rate-limit'
+    }
+    if (/404|not found/i.test(message)) {
+      return 'not-found'
+    }
+    if (/EACCES|EPERM|ENOSPC|permission|no space/i.test(message)) {
+      return 'permanent'
+    }
+    return 'transient'
+  }
+
+  private applyMirrorCooldown(mirrorState: MirrorRuntimeState, error: unknown): void {
+    mirrorState.rateLimitCount++
+    const retryAfterMs = error instanceof DownloadHttpError ? error.retryAfterMs : undefined
+    const backoffMs = Math.min(
+      MAX_RATE_LIMIT_COOLDOWN_MS,
+      BASE_RATE_LIMIT_COOLDOWN_MS * 2 ** Math.max(0, mirrorState.rateLimitCount - 1)
+    )
+    const cooldownMs = retryAfterMs ?? backoffMs
+    mirrorState.cooldownUntil = Date.now() + cooldownMs
+    console.log(
+      `[DownloadDebug] mirror.cooldown mirror=${mirrorState.mirror.name}` +
+        ` cooldownMs=${cooldownMs} rateLimitCount=${mirrorState.rateLimitCount}`
+    )
+  }
+
+  private getRetryDelay(task: DownloadTask, failureKind: FailureKind): number {
+    if (failureKind === 'not-found') {
+      return 0
+    }
+    const attempts = Math.max(1, task.attemptCount ?? 1)
+    return Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * 2 ** Math.max(0, attempts - 1))
+  }
+
+  private canRetryTask(task: DownloadTask): boolean {
+    const maxAttempts = Math.max(5, this.currentMirrors.length * 2)
+    return (task.attemptCount ?? 0) < maxAttempts
+  }
+
+  private hasTriedEveryMirror(task: DownloadTask): boolean {
+    const tried = new Set(task.triedMirrors ?? [])
+    return this.currentMirrors.every((mirror) => tried.has(mirror.name))
+  }
+
+  private failTask(task: DownloadTask, errorMessage: string): void {
+    task.status = 'error'
+    task.error = errorMessage
+    task.nextRetryAt = undefined
+    task.assignedMirror = undefined
+    this.touchTask(task)
+    this.emit(DownloadEvent.TASK_ERROR, task)
+    this.schedulePersistCheckpoint()
+  }
+
+  private scheduleNextWakeup(): void {
+    if (this.isPaused) {
+      return
+    }
+    const nextWakeupMs = this.getNextWakeupMs()
+    if (nextWakeupMs === null) {
+      return
+    }
+    this.schedulerTimer = setTimeout(() => {
+      this.schedulerTimer = undefined
+      this.scheduleDownloads()
+    }, nextWakeupMs)
+  }
+
+  private getNextWakeupMs(): number | null {
+    const now = Date.now()
+    let next: number | null = null
+    for (const task of this.tasks.values()) {
+      if (task.status === 'waiting' && task.nextRetryAt && task.nextRetryAt > now) {
+        next = next === null ? task.nextRetryAt : Math.min(next, task.nextRetryAt)
+      }
+    }
+    for (const state of this.mirrorStates.values()) {
+      if (state.cooldownUntil > now) {
+        next = next === null ? state.cooldownUntil : Math.min(next, state.cooldownUntil)
+      }
+    }
+    return next === null ? null : Math.max(1, next - now)
+  }
+
+  private clearSchedulerTimer(): void {
+    if (this.schedulerTimer) {
+      clearTimeout(this.schedulerTimer)
+      this.schedulerTimer = undefined
+    }
+  }
+
+  private getMirrorUsageLogPath(downloadPath: string, reason: 'completed' | 'cancelled'): string {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    return path.join(downloadPath, `download-mirror-usage-${reason}-${timestamp}.txt`)
+  }
+
+  private async exportMirrorUsageLog(reason: 'completed' | 'cancelled'): Promise<void> {
+    if (!this.queueId || this.mirrorUsageLogQueueId === this.queueId || this.tasks.size === 0) {
+      return
+    }
+
+    const rows = Array.from(this.tasks.values())
+      .filter((task) => task.lastUsedMirror)
+      .map((task) => `${task.beatmapsetId} - ${task.lastUsedMirror}`)
+
+    if (rows.length === 0) {
+      return
+    }
+
+    this.mirrorUsageLogQueueId = this.queueId
+    const firstTask = this.tasks.values().next().value as DownloadTask | undefined
+    const downloadPath = firstTask?.downloadPath || this.currentOptions?.downloadPath || getDefaultDownloadPath()
+    const logPath = this.getMirrorUsageLogPath(downloadPath, reason)
+
+    try {
+      await fs.promises.mkdir(downloadPath, { recursive: true })
+      await fs.promises.writeFile(logPath, `${rows.join('\n')}\n`, 'utf-8')
+      console.log(`[DownloadDebug] mirrorUsageLog.${reason} path=${logPath} rows=${rows.length}`)
+    } catch (error) {
+      this.mirrorUsageLogQueueId = null
+      console.error(`[DownloadDebug] Failed to write mirror usage log(${reason}):`, error)
+    }
+  }
+
   private checkQueueCompletion(): void {
+    if (this.tasks.size === 0) {
+      return
+    }
     const hasActive = Array.from(this.tasks.values()).some(
       (t) => t.status !== 'completed' && t.status !== 'error'
     )
-    if (hasActive || this.queue.size > 0 || this.queue.pending > 0) {
+    if (hasActive || this.activeDownloads > 0) {
       return
     }
 
@@ -360,6 +786,15 @@ class DownloadService extends EventEmitter {
     const anyTask = this.tasks.values().next().value as DownloadTask | undefined
     const dlPath = anyTask?.downloadPath ?? null
     const durationMs = this.queueStartTime ? Date.now() - this.queueStartTime : 0
+
+    this.debugQueueState('checkQueueCompletion.done', {
+      total,
+      success,
+      failed,
+      durationMs
+    })
+
+    void this.exportMirrorUsageLog('completed')
 
     this.emit(DownloadEvent.QUEUE_COMPLETED, {
       total,
@@ -373,174 +808,17 @@ class DownloadService extends EventEmitter {
     setTimeout(() => this.clearQueue(), 2000)
   }
 
-  private calculateRotationLimit(healthyCount: number): number {
-    const raw = Math.round(120 / Math.max(healthyCount, 1))
-    return Math.min(40, Math.max(10, raw))
-  }
-
-  private getCurrentQueueMirror(availableMirrors: BeatmapMirror[]): BeatmapMirror {
-    if (availableMirrors.length === 0) {
-      throw new Error('No mirrors available')
-    }
-    const safeIndex = this.currentMirrorIndex % availableMirrors.length
-    return availableMirrors[safeIndex]
-  }
-
-  private recordMirrorCompletionAndRotate(
-    availableMirrors: BeatmapMirror[],
-    completedMirrorName: string
-  ): void {
-    const currentCount = this.mirrorCompletionCounts.get(completedMirrorName) ?? 0
-    const nextCount = currentCount + 1
-    this.mirrorCompletionCounts.set(completedMirrorName, nextCount)
-
-    const currentMirror = this.getCurrentQueueMirror(availableMirrors)
-    if (currentMirror.name === completedMirrorName && nextCount >= this.currentRotationLimit) {
-      this.mirrorCompletionCounts.set(completedMirrorName, 0)
-      this.currentMirrorIndex = (this.currentMirrorIndex + 1) % availableMirrors.length
-      console.log(
-        `[MirrorRotation] rotate to ${this.getCurrentQueueMirror(availableMirrors).name} after ${nextCount} completions on ${completedMirrorName}`
-      )
-    }
-  }
-
-  private async downloadTask(
-    task: DownloadTask,
-    availableMirrors: typeof DefaultBeatmapMirrors,
-    options: DownloadOptions
-  ): Promise<void> {
-    if (this.isPaused) {
-      task.status = 'waiting'
-      this.touchTask(task)
-      this.emit(DownloadEvent.TASK_UPDATED, task)
-      this.schedulePersistCheckpoint()
-      return
-    }
-
-    const hasMirrorRetryOverride = this.retryingTaskIds.has(task.id)
-    if (!hasMirrorRetryOverride) {
-      // Pick mirror from current queue rotation for first attempt.
-      task.mirror = this.getCurrentQueueMirror(availableMirrors)
-    } else {
-      this.retryingTaskIds.delete(task.id)
-    }
-    task.attemptCount = (task.attemptCount ?? 0) + 1
-    task.status = 'downloading'
-    this.touchTask(task)
-    this.emit(DownloadEvent.TASK_UPDATED, task)
-    this.schedulePersistCheckpoint()
-
-    const taskDownloadPath = task.downloadPath || options.downloadPath || getDefaultDownloadPath()
-
-    try {
-      const { startTime } = await downloadFile(task, taskDownloadPath, (updatedTask) => {
-        this.emit(DownloadEvent.TASK_UPDATED, updatedTask)
-      })
-
-      // Update mirror health on success
-      const mirrorName = task.mirror.name
-      const health = this.mirrorHealth.get(mirrorName) || {
-        success: 0,
-        failure: 0,
-        avgResponseTime: 0
-      }
-      health.success++
-      health.avgResponseTime =
-        (health.avgResponseTime * (health.success - 1) + (Date.now() - startTime)) / health.success
-      this.mirrorHealth.set(mirrorName, health)
-      task.error = undefined
-      this.touchTask(task)
-      this.recordMirrorCompletionAndRotate(availableMirrors, mirrorName)
-
-      this.emit(DownloadEvent.TASK_COMPLETED, task)
-      this.schedulePersistCheckpoint()
-      this.checkQueueCompletion()
-    } catch (error) {
-      console.error(`Download failed for ${task.beatmapsetId}:`, error)
-
-      // Update mirror health on failure
-      const mirrorName = task.mirror.name
-      const health = this.mirrorHealth.get(mirrorName) || {
-        success: 0,
-        failure: 0,
-        avgResponseTime: 0
-      }
-      health.failure++
-      this.mirrorHealth.set(mirrorName, health)
-
-      if (error instanceof Error && error.message === 'Download aborted') {
-        task.status = 'waiting'
-        task.error = 'Download cancelled'
-        task.lastErrorAt = Date.now()
-        this.touchTask(task)
-        this.emit(DownloadEvent.TASK_UPDATED, task)
-        this.schedulePersistCheckpoint()
-        // Race condition guard: if resumeQueue() ran before this abort settled,
-        // re-add the task now since resumeQueue already iterated past it.
-        if (!this.isPaused && this.currentMirrors.length && this.currentOptions) {
-          this.queue.add(() => this.downloadTask(task, this.currentMirrors, this.currentOptions!))
-        }
-        return
-      }
-
-      const currentIndex = availableMirrors.indexOf(task.mirror)
-      const nextIndex = (currentIndex + 1) % availableMirrors.length
-
-      if (nextIndex === 0) {
-        task.status = 'error'
-        task.error = error instanceof Error ? error.message : 'Download failed'
-        task.lastErrorAt = Date.now()
-        this.touchTask(task)
-        this.emit(DownloadEvent.TASK_ERROR, task)
-        this.schedulePersistCheckpoint()
-
-        if (!this.cooldownTimeout) {
-          this.cooldownTimeout = setTimeout(() => {
-            this.cooldownTimeout = undefined
-            for (const [, t] of this.tasks) {
-              if (t.status === 'error') {
-                t.status = 'waiting'
-                t.mirror = this.getCurrentQueueMirror(availableMirrors)
-                this.retryingTaskIds.add(t.id)
-                this.touchTask(t)
-                this.emit(DownloadEvent.TASK_UPDATED, t)
-                this.schedulePersistCheckpoint()
-                this.queue.add(() => this.downloadTask(t, availableMirrors, options))
-              }
-            }
-          }, this.cooldownPeriod)
-        }
-
-        if (this.queue.size === 0 && this.queue.pending === 0) {
-          this.checkQueueCompletion()
-        }
-      } else {
-        task.mirror = availableMirrors[nextIndex]
-        this.retryingTaskIds.add(task.id)
-        task.status = 'waiting'
-        task.lastErrorAt = Date.now()
-        this.touchTask(task)
-        this.emit(DownloadEvent.TASK_UPDATED, task)
-        this.schedulePersistCheckpoint()
-        this.queue.add(() => this.downloadTask(task, availableMirrors, options))
-      }
-    }
-  }
-
   public async pauseQueue(): Promise<void> {
     const { getWaitForDownloadsOnPause } = await import('./settingsStore')
     const shouldWaitForCompletion = getWaitForDownloadsOnPause()
 
+    this.debugQueueState('pauseQueue.before', { shouldWaitForCompletion })
     this.isPaused = true
-    // Clear queued-but-not-started tasks from PQueue so they don't drain
-    // through downloadTask (hitting the isPaused check and exiting) while paused.
-    // They remain in this.tasks with status 'waiting' and will be re-added on resume.
-    this.queue.clear()
+    this.clearSchedulerTimer()
 
     if (!shouldWaitForCompletion) {
       for (const task of this.tasks.values()) {
         if (task.status === 'downloading') {
-          // Passing the error triggers the 'Download aborted' catch branch in downloadTask
           task.request?.destroy(new Error('Download aborted'))
         }
       }
@@ -548,38 +826,33 @@ class DownloadService extends EventEmitter {
 
     this.emit(DownloadEvent.QUEUE_PAUSED)
     this.schedulePersistCheckpoint()
+    this.debugQueueState('pauseQueue.after')
   }
 
   public resumeQueue(): void {
     this.isPaused = false
-
-    if (this.currentMirrors.length && this.currentOptions) {
-      for (const task of this.tasks.values()) {
-        if (task.status === 'waiting') {
-          this.queue.add(() => this.downloadTask(task, this.currentMirrors, this.currentOptions!))
-        }
-      }
-    }
-
+    this.debugQueueState('resumeQueue')
     this.emit(DownloadEvent.QUEUE_RESUMED)
     this.schedulePersistCheckpoint()
+    this.scheduleDownloads()
   }
 
   public clearQueue(emitEvent = true): void {
+    this.clearSchedulerTimer()
+    if (emitEvent) {
+      void this.exportMirrorUsageLog('cancelled')
+    }
     for (const task of this.tasks.values()) {
       if (task.status === 'downloading') {
         task.request?.destroy(new Error('Download aborted'))
       }
     }
-    this.queue.clear()
     this.tasks.clear()
     this.currentMirrors = []
     this.currentOptions = null
     this.queueId = null
-    this.currentMirrorIndex = 0
-    this.currentRotationLimit = 20
-    this.mirrorCompletionCounts.clear()
-    this.retryingTaskIds.clear()
+    this.mirrorStates.clear()
+    this.activeDownloads = 0
     if (this.persistTimer) {
       clearTimeout(this.persistTimer)
       this.persistTimer = undefined
@@ -594,11 +867,11 @@ class DownloadService extends EventEmitter {
   }
 
   public getQueueSize(): number {
-    return this.queue.size
+    return Array.from(this.tasks.values()).filter((task) => task.status === 'waiting').length
   }
 
   public getPendingSize(): number {
-    return this.queue.pending
+    return this.activeDownloads
   }
 
   public getMirrorHealth(): Map<string, MirrorHealth> {

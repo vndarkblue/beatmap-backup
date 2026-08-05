@@ -45,7 +45,11 @@ release/
 repomix-output.xml
 .eslintcache
 .specstory
+
+# agents & indexing files
 .cursorindexingignore
+.cursor
+.codegraph
 
 # Project notes
 notes.md

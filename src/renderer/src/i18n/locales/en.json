@@ -49,14 +49,18 @@
     "content": {
       "title": "Backup content",
       "onlineIds": "Online beatmapset IDs",
-      "localBeatmaps": "Local beatmaps (.osz files)",
-      "localBeatmapsPending": "Local beatmap export will create .osz files inside a .zip backup. The backend export step is not connected yet.",
-      "localEstimatePending": "Local beatmap size estimate will be available after the zip export backend is connected."
+      "localBeatmaps": "Local beatmaps (has no online ID)",
+      "localBeatmapsPending": "Local beatmapsets will be exported as .osz files to a folder. Collections are not supported."
     },
     "success": "Successfully backed up {count} beatmaps",
+    "localSuccess": "Exported {count} local beatmaps to .osz files",
+    "lazerLocalSuccess": "Exported {count} local osu!lazer beatmaps to .osz files",
+    "combinedLocalSuccess": "Exported {stable} stable + {lazer} lazer local beatmaps to .osz files",
+    "combinedSuccess": "{online}. Exported {local} local beatmaps to .osz files",
     "error": "Backup failed",
     "cancelled": "Backup cancelled",
     "estimate": "Estimated backup output: {count} beatmapset IDs (~{size})",
+    "localEstimate": "{count} local beatmapsets",
     "estimateUnavailable": "Could not estimate backup size with current settings.",
     "collection": {
       "enabled": "Choose collection(s) to backup",

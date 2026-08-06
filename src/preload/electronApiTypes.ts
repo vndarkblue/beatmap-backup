@@ -7,6 +7,8 @@ import type {
 export interface ExportDataOptions {
   stable: boolean
   lazer: boolean
+  backupOnlineIds?: boolean
+  backupLocalBeatmaps?: boolean
   backupByCollection?: boolean
   collectionMergeMode?: 'merge' | 'split'
   selectedCollections?: string[]
@@ -17,6 +19,23 @@ export interface ExportDataResult {
   count: number
   outputPath: string
   stats?: CollectionExportStats
+  local?: {
+    count: number
+    outputPath: string
+    skipped: {
+      withBeatmapsetId: number
+      withoutOsuFile: number
+      withoutMatchingCollectionMd5: number
+    }
+  }
+  localLazer?: {
+    count: number
+    outputPath: string
+    skipped: {
+      noExportableFiles: number
+      totalMissingFiles: number
+    }
+  }
   error?: string
 }
 

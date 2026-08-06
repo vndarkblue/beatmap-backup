@@ -49,14 +49,18 @@
     "content": {
       "title": "Nội dung sao lưu",
       "onlineIds": "Beatmapset ID online",
-      "localBeatmaps": "Beatmap local (file .osz)",
-      "localBeatmapsPending": "Xuất beatmap local sẽ tạo các file .osz bên trong file backup .zip. Phần backend export chưa được nối.",
-      "localEstimatePending": "Ước tính dung lượng beatmap local sẽ có sau khi backend export zip được nối."
+      "localBeatmaps": "Beatmap cục bộ (.osz)",
+      "localBeatmapsPending": "Beatmap cục bộ sẽ được xuất thành file .osz vào một thư mục. Không hỗ trợ Collections."
     },
     "success": "Đã sao lưu thành công {count} beatmap",
+    "localSuccess": "Đã xuất {count} beatmap local thành file .osz",
+    "lazerLocalSuccess": "Đã xuất {count} beatmap từ osu!lazer thành file .osz",
+    "combinedLocalSuccess": "Đã xuất {stable} beatmap từ osu!stable và {lazer} beatmap từ osu!lazer thành file .osz",
+    "combinedSuccess": "{online}. Đã xuất {local} beatmap local thành file .osz",
     "error": "Sao lưu thất bại",
     "cancelled": "Đã huỷ thao tác",
     "estimate": "Ước tính file backup: {count} beatmapset ID (~{size})",
+    "localEstimate": "{count} beatmapset cục bộ",
     "estimateUnavailable": "Không thể ước tính kích thước backup với cấu hình hiện tại.",
     "collection": {
       "enabled": "Chọn bộ sưu tập để sao lưu",

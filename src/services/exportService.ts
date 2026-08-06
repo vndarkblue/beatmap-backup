@@ -1,13 +1,21 @@
-import { getOsuStablePath } from './settingsStore'
+import { getOsuStablePath, getOsuLazerPath } from './settingsStore'
 import { realmService } from './realmService'
 import path from 'path'
 import fs from 'fs'
 import { collectionService } from './collection/collectionService'
+import { localBeatmapExport } from './localBeatmapExport'
+import {
+  buildBackupFileName,
+  buildLocalOszDirectoryName,
+  getBackupBaseNameFromFilePath
+} from './backupNaming'
 import type { CollectionMergeMode } from './collection/types'
 
 export interface ExportOptions {
   stable: boolean
   lazer: boolean
+  backupOnlineIds?: boolean
+  backupLocalBeatmaps?: boolean
   backupByCollection?: boolean
   collectionMergeMode?: CollectionMergeMode
   selectedCollections?: string[]
@@ -23,12 +31,30 @@ export interface ExportResult {
     missingLocal: number
     apiNotFound: number
   }
+  local?: {
+    count: number
+    outputPath: string
+    skipped: {
+      withBeatmapsetId: number
+      withoutOsuFile: number
+      withoutMatchingCollectionMd5: number
+    }
+  }
+  localLazer?: {
+    count: number
+    outputPath: string
+    skipped: {
+      noExportableFiles: number
+      totalMissingFiles: number
+    }
+  }
   error?: string
 }
 
 export interface ExportEstimateResult {
   count: number
   estimatedBytes: number
+  localCount?: number
 }
 
 interface StableFolderScanSummary {
@@ -53,6 +79,8 @@ const buildBackupContent = (ids: number[], options: ExportOptions): string => {
 `
   return header + ids.join('\n')
 }
+
+const wantsOnlineBackup = (options: ExportOptions): boolean => options.backupOnlineIds !== false
 
 const scanStableBeatmapsetIds = (songsPath: string): number[] => {
   const summary: StableFolderScanSummary = {
@@ -89,37 +117,54 @@ export const exportService = {
   async estimateExportData(options: ExportOptions): Promise<ExportEstimateResult> {
     const beatmapsetIds: number[] = []
 
-    if (options.backupByCollection) {
-      const resolved = await collectionService.resolveCollectionBeatmapsetIds({
-        stable: options.stable,
-        lazer: options.lazer,
-        mergeMode: options.collectionMergeMode ?? 'merge',
-        selectedKeys: options.selectedCollections ?? []
-      })
-      beatmapsetIds.push(...resolved.ids)
-    } else if (options.stable) {
-      const osuStablePath = getOsuStablePath()
-      if (!osuStablePath) {
-        throw new Error('Osu stable path not set')
+    if (wantsOnlineBackup(options)) {
+      if (options.backupByCollection) {
+        const resolved = await collectionService.resolveCollectionBeatmapsetIds({
+          stable: options.stable,
+          lazer: options.lazer,
+          mergeMode: options.collectionMergeMode ?? 'merge',
+          selectedKeys: options.selectedCollections ?? []
+        })
+        beatmapsetIds.push(...resolved.ids)
+      } else if (options.stable) {
+        const osuStablePath = getOsuStablePath()
+        if (!osuStablePath) {
+          throw new Error('Osu stable path not set')
+        }
+        const songsPath = path.join(osuStablePath, 'Songs')
+        if (!fs.existsSync(songsPath)) {
+          throw new Error('Songs directory not found')
+        }
+        beatmapsetIds.push(...scanStableBeatmapsetIds(songsPath))
       }
-      const songsPath = path.join(osuStablePath, 'Songs')
-      if (!fs.existsSync(songsPath)) {
-        throw new Error('Songs directory not found')
-      }
-      beatmapsetIds.push(...scanStableBeatmapsetIds(songsPath))
-    }
 
-    if (!options.backupByCollection && options.lazer) {
-      const lazerIds = await realmService.getBeatmapsetIds()
-      beatmapsetIds.push(...lazerIds)
+      if (!options.backupByCollection && options.lazer) {
+        const lazerIds = await realmService.getBeatmapsetIds()
+        beatmapsetIds.push(...lazerIds)
+      }
     }
 
     const uniqueIds = Array.from(new Set(beatmapsetIds)).sort((a, b) => a - b)
     const estimatedBytes = Buffer.byteLength(buildBackupContent(uniqueIds, options), 'utf-8')
 
+    let localCount: number | undefined
+    if (options.backupLocalBeatmaps) {
+      let stableLocal = 0
+      let lazerLocal = 0
+      if (options.stable) {
+        stableLocal = localBeatmapExport.scanStableLocalBeatmaps().count
+      }
+      if (options.lazer) {
+        const beatmapsets = await realmService.getLazerLocalBeatmapsets()
+        lazerLocal = beatmapsets.length
+      }
+      localCount = stableLocal + lazerLocal
+    }
+
     return {
       count: uniqueIds.length,
-      estimatedBytes
+      estimatedBytes,
+      ...(localCount !== undefined && { localCount })
     }
   },
 
@@ -129,10 +174,12 @@ export const exportService = {
       const { dialog } = await import('electron')
       const beatmapsetIds: number[] = []
       let collectionStats: ExportResult['stats'] | undefined
+      let stableCollectionBeatmapMd5s: string[] | undefined
+      const shouldWriteOnlineBackup = wantsOnlineBackup(options)
 
       let defaultPath = ''
 
-      if (options.backupByCollection) {
+      if (shouldWriteOnlineBackup && options.backupByCollection) {
         const resolved = await collectionService.resolveCollectionBeatmapsetIds({
           stable: options.stable,
           lazer: options.lazer,
@@ -142,7 +189,8 @@ export const exportService = {
         beatmapsetIds.push(...resolved.ids)
         defaultPath = resolved.defaultFileName
         collectionStats = resolved.stats
-      } else if (options.stable) {
+        stableCollectionBeatmapMd5s = resolved.stableBeatmapMd5s
+      } else if (shouldWriteOnlineBackup && options.stable) {
         console.log('Processing stable beatmaps...')
         const osuStablePath = getOsuStablePath()
         console.log('Osu stable path:', osuStablePath)
@@ -166,7 +214,7 @@ export const exportService = {
         console.log('Found', beatmapsetIds.length, 'stable beatmapset IDs')
       }
 
-      if (!options.backupByCollection && options.lazer) {
+      if (shouldWriteOnlineBackup && !options.backupByCollection && options.lazer) {
         console.log('Processing lazer beatmaps...')
         const lazerIds = await realmService.getBeatmapsetIds()
         console.log('Found', lazerIds.length, 'lazer beatmapset IDs')
@@ -179,16 +227,26 @@ export const exportService = {
 
       // Get save path from user
       console.log('Opening save dialog...')
-      const today = new Date()
-      const formattedDate = today.toISOString().slice(0, 10).replace(/-/g, '')
-      const { filePath } = await dialog.showSaveDialog({
-        title: 'Save Beatmapset IDs',
-        defaultPath: defaultPath || `backup-${formattedDate}.bbak`,
-        filters: [
-          { name: 'Beatmap Backup Files', extensions: ['bbak'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      })
+      let filePath: string | undefined
+
+      if (shouldWriteOnlineBackup) {
+        const saveResult = await dialog.showSaveDialog({
+          title: 'Save Beatmapset IDs',
+          defaultPath: defaultPath || buildBackupFileName(),
+          filters: [
+            { name: 'Beatmap Backup Files', extensions: ['bbak'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        })
+        filePath = saveResult.filePath
+      } else {
+        // Local-only export: ask for output directory instead of a .bbak file
+        const openResult = await dialog.showOpenDialog({
+          title: 'Select Output Folder',
+          properties: ['openDirectory', 'createDirectory']
+        })
+        filePath = openResult.filePaths[0]
+      }
 
       if (!filePath) {
         console.log('Save dialog cancelled')
@@ -200,16 +258,75 @@ export const exportService = {
         }
       }
 
-      console.log('Saving to file:', filePath)
-      // Write to file with header and comments
-      fs.writeFileSync(filePath, buildBackupContent(uniqueIds, options))
-      console.log('File saved successfully')
+      if (shouldWriteOnlineBackup) {
+        console.log('Saving to file:', filePath)
+        // Write to file with header and comments
+        fs.writeFileSync(filePath, buildBackupContent(uniqueIds, options))
+        console.log('File saved successfully')
+      }
 
       const result: ExportResult = {
         success: true,
         count: uniqueIds.length,
         outputPath: filePath
       }
+
+      // Stable and lazer local exports share the same output directory so all .osz
+      // files land together, following the same backup-YYYYMMDD naming convention.
+      const localOutputDirectory =
+        options.backupLocalBeatmaps && (options.stable || options.lazer)
+          ? shouldWriteOnlineBackup
+            ? path.join(path.dirname(filePath), getBackupBaseNameFromFilePath(filePath))
+            : path.join(filePath, buildLocalOszDirectoryName())
+          : ''
+
+      if (options.backupLocalBeatmaps && options.stable) {
+        if (options.backupByCollection && !stableCollectionBeatmapMd5s) {
+          stableCollectionBeatmapMd5s =
+            await collectionService.resolveSelectedStableCollectionBeatmapMd5s({
+              stable: options.stable,
+              lazer: options.lazer,
+              mergeMode: options.collectionMergeMode ?? 'merge',
+              selectedKeys: options.selectedCollections ?? []
+            })
+        }
+        const localResult = localBeatmapExport.exportStableLocalBeatmaps({
+          stable: options.stable,
+          outputDirectory: localOutputDirectory,
+          beatmapMd5s: options.backupByCollection ? (stableCollectionBeatmapMd5s ?? []) : undefined
+        })
+        result.local = {
+          count: localResult.count,
+          outputPath: localResult.outputPath,
+          skipped: localResult.skipped
+        }
+      }
+
+      if (options.backupLocalBeatmaps && options.lazer) {
+        const lazerPath = getOsuLazerPath()
+        if (!lazerPath) throw new Error('Osu lazer path not set')
+
+        const beatmapsets = await realmService.getLazerLocalBeatmapsets()
+        const lazerResult = localBeatmapExport.exportLazerLocalBeatmaps(
+          beatmapsets,
+          lazerPath,
+          localOutputDirectory
+        )
+        result.localLazer = {
+          count: lazerResult.count,
+          outputPath: lazerResult.outputPath,
+          skipped: lazerResult.skipped
+        }
+      }
+
+      if (
+        options.backupLocalBeatmaps &&
+        (options.stable || options.lazer) &&
+        !shouldWriteOnlineBackup
+      ) {
+        result.outputPath = localOutputDirectory
+      }
+
       if (options.backupByCollection) result.stats = collectionStats
       return result
     } catch (error: unknown) {

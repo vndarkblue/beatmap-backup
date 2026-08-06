@@ -12,6 +12,7 @@ import type {
   CollectionSource
 } from './types'
 import { DatabaseService } from '../database/databaseService'
+import { buildBackupFileName, sanitizeBackupFileName } from '../backupNaming'
 
 export interface CollectionPreviewOptions {
   stable: boolean
@@ -22,32 +23,6 @@ export interface CollectionPreviewOptions {
 export interface ResolveCollectionsOptions extends CollectionPreviewOptions {
   selectedKeys: string[]
 }
-
-const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g
-const WINDOWS_RESERVED_NAMES = new Set([
-  'CON',
-  'PRN',
-  'AUX',
-  'NUL',
-  'COM1',
-  'COM2',
-  'COM3',
-  'COM4',
-  'COM5',
-  'COM6',
-  'COM7',
-  'COM8',
-  'COM9',
-  'LPT1',
-  'LPT2',
-  'LPT3',
-  'LPT4',
-  'LPT5',
-  'LPT6',
-  'LPT7',
-  'LPT8',
-  'LPT9'
-])
 
 function normalizeMd5s(values: string[]): string[] {
   const dedup = new Set<string>()
@@ -84,8 +59,7 @@ function mergeCollections(entries: CollectionEntry[]): CollectionEntry[] {
       })
       continue
     }
-    const mergedSource: CollectionSource =
-      found.source === entry.source ? found.source : 'both'
+    const mergedSource: CollectionSource = found.source === entry.source ? found.source : 'both'
     found.source = mergedSource
     found.beatmapMd5s = normalizeMd5s([...found.beatmapMd5s, ...entry.beatmapMd5s])
   }
@@ -99,29 +73,22 @@ function splitCollections(entries: CollectionEntry[]): CollectionEntry[] {
   }))
 }
 
-export function sanitizeFileName(raw: string): string {
-  const withoutControls = Array.from(raw)
-    .filter((char) => {
-      const code = char.charCodeAt(0)
-      return code >= 32 && code !== 127
-    })
-    .join('')
-  const cleaned = withoutControls
-    .replace(INVALID_FILENAME_CHARS, '_')
-    .replace(/[. ]+$/g, '')
-    .trim()
-    .slice(0, 120)
-
-  const fallback = cleaned.length > 0 ? cleaned : 'collection-backup'
-  if (WINDOWS_RESERVED_NAMES.has(fallback.toUpperCase())) {
-    return `${fallback}_backup`
-  }
-  return fallback
+function selectCollections(entries: CollectionEntry[], selectedKeys: string[]): CollectionEntry[] {
+  return entries.filter((entry) =>
+    selectedKeys.includes(makeCollectionKey(entry.name, entry.source))
+  )
 }
 
-function formattedDate(): string {
-  return new Date().toISOString().slice(0, 10).replace(/-/g, '')
+function getStableCandidateMd5s(entries: CollectionEntry[]): string[] {
+  return normalizeMd5s(
+    entries
+      .filter((entry) => entry.source === 'stable' || entry.source === 'both')
+      .flatMap((entry) => entry.beatmapMd5s)
+  )
 }
+
+export const sanitizeFileName = (raw: string): string =>
+  sanitizeBackupFileName(raw, 'collection-backup')
 
 export const collectionService = {
   async readCollections(options: CollectionPreviewOptions): Promise<CollectionEntry[]> {
@@ -244,19 +211,29 @@ export const collectionService = {
     }
   },
 
-  async resolveCollectionBeatmapsetIds(
+  async resolveSelectedStableCollectionBeatmapMd5s(
     options: ResolveCollectionsOptions
-  ): Promise<{ ids: number[]; stats: CollectionExportStats; defaultFileName: string }> {
+  ): Promise<string[]> {
+    const collections = await this.readCollections(options)
+    return getStableCandidateMd5s(selectCollections(collections, options.selectedKeys))
+  },
+
+  async resolveCollectionBeatmapsetIds(options: ResolveCollectionsOptions): Promise<{
+    ids: number[]
+    stats: CollectionExportStats
+    defaultFileName: string
+    stableBeatmapMd5s: string[]
+  }> {
     const db = DatabaseService.getInstance()
     const collections = await this.readCollections(options)
-    const selected = collections.filter((entry) =>
-      options.selectedKeys.includes(makeCollectionKey(entry.name, entry.source))
-    )
+    const selected = selectCollections(collections, options.selectedKeys)
+    const stableBeatmapMd5s = getStableCandidateMd5s(selected)
     if (selected.length === 0) {
       return {
         ids: [],
         stats: { resolved: 0, pendingSync: 0, missingLocal: 0, apiNotFound: 0 },
-        defaultFileName: `collection-backup-${formattedDate()}.bbak`
+        defaultFileName: buildBackupFileName('collection-backup'),
+        stableBeatmapMd5s
       }
     }
 
@@ -308,11 +285,12 @@ export const collectionService = {
     }
 
     const nameSeed = selected.length === 1 ? selected[0].name : 'backup'
-    const defaultFileName = `${sanitizeFileName(nameSeed)}-${formattedDate()}.bbak`
+    const defaultFileName = buildBackupFileName(sanitizeFileName(nameSeed))
     return {
       ids: Array.from(ids).sort((a, b) => a - b),
       stats: { resolved: ids.size, pendingSync, missingLocal, apiNotFound },
-      defaultFileName
+      defaultFileName,
+      stableBeatmapMd5s
     }
   }
 }

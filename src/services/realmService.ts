@@ -151,6 +151,13 @@ function normalizeRankStatus(value: unknown): string {
   }
 }
 
+export interface LazerLocalBeatmapset {
+  id: string
+  title: string
+  artist: string
+  files: Array<{ filename: string; hash: string }>
+}
+
 export const realmService = {
   _lastBeatmapsetIdScanSummary: {
     processed: 0,
@@ -423,6 +430,101 @@ export const realmService = {
       return rows
     } finally {
       if (!realm.isClosed) {
+        realm.close()
+      }
+    }
+  },
+
+  async getLazerLocalBeatmapsets(): Promise<LazerLocalBeatmapset[]> {
+    const realmPath = getResolvedRealmPath()
+    let realm: Realm | null = null
+
+    try {
+      const realmConfig: Realm.Configuration = {
+        path: realmPath,
+        readOnly: true
+      }
+      realm = await Realm.open(realmConfig)
+
+      const realmSchema = realm.schema as DynamicRealmSchema[]
+      const targetTypeName = pickObjectTypeName(realmSchema, 'BeatmapSet')
+      if (!targetTypeName) {
+        throw new Error(
+          'Could not find BeatmapSet type in osu!lazer Realm database. The file structure may have changed.'
+        )
+      }
+
+      const beatmapsets = realm.objects(targetTypeName)
+      const results: LazerLocalBeatmapset[] = []
+
+      for (const beatmapset of beatmapsets) {
+        const onlineId = readProperty(beatmapset, ['OnlineID', 'onlineID'])
+        if (typeof onlineId !== 'number' || onlineId !== -1) continue
+
+        const idRaw = readProperty(beatmapset, ['ID', 'id'])
+        let id = 'unknown'
+        if (typeof idRaw === 'string' && idRaw) {
+          id = idRaw
+        } else if (idRaw != null && typeof idRaw === 'object') {
+          // Realm stores UUID as a BSON UUID object; toString() yields the UUID string,
+          // possibly wrapped as "UUID(xxxxxxxx-xxxx-...)"
+          const str = String(idRaw)
+          if (str && str !== '[object Object]') {
+            id = str.replace(/^UUID\(|\)$/g, '') || 'unknown'
+          }
+        }
+
+        let title = 'Unknown'
+        let artist = 'Unknown'
+        const beatmapsRaw = readProperty(beatmapset, ['Beatmaps', 'beatmaps'])
+        const beatmapsArr = toUnknownArray(beatmapsRaw)
+        if (beatmapsArr.length > 0) {
+          const firstBeatmap = beatmapsArr[0]
+          const metadataRaw = readProperty(firstBeatmap, ['Metadata', 'metadata'])
+          if (metadataRaw != null) {
+            const titleRaw = readProperty(metadataRaw, ['Title', 'title'])
+            const artistRaw = readProperty(metadataRaw, ['Artist', 'artist'])
+            if (typeof titleRaw === 'string' && titleRaw.trim()) title = titleRaw.trim()
+            if (typeof artistRaw === 'string' && artistRaw.trim()) artist = artistRaw.trim()
+          }
+        }
+
+        const filesRaw = readProperty(beatmapset, ['Files', 'files'])
+        const filesArr = toUnknownArray(filesRaw)
+        const files: LazerLocalBeatmapset['files'] = []
+
+        for (const fileEntry of filesArr) {
+          const filename = readProperty(fileEntry, ['Filename', 'filename'])
+          const fileObj = readProperty(fileEntry, ['File', 'file'])
+          if (fileObj == null) continue
+          const hash = readProperty(fileObj, ['Hash', 'hash'])
+          if (typeof filename === 'string' && filename && typeof hash === 'string' && hash) {
+            files.push({ filename, hash })
+          }
+        }
+
+        if (files.length > 0) {
+          results.push({ id, title, artist, files })
+        }
+      }
+
+      return results
+    } catch (error: unknown) {
+      let friendlyMessage = 'Failed to read local beatmapsets from osu!lazer Realm database.'
+      if (isErrorWithMessage(error)) {
+        const message = error.message
+        if (message.includes('schema version') || message.includes('Schema version')) {
+          friendlyMessage +=
+            ' There might be a schema version mismatch. The app may need an update.'
+        } else if (message.includes('No such file or directory')) {
+          friendlyMessage += ' The Realm file was not found.'
+        } else {
+          friendlyMessage += ` ${message}`
+        }
+      }
+      throw new Error(friendlyMessage)
+    } finally {
+      if (realm && !realm.isClosed) {
         realm.close()
       }
     }

@@ -57,6 +57,7 @@
             variant="tonal"
             density="compact"
             class="local-backup-alert"
+            :lang="currentLocale"
           >
             {{ $t('backup.content.localBeatmapsPending') }}
           </v-alert>
@@ -309,13 +310,17 @@ let previewRequestSeq = 0
 let latestPreviewAppliedSeq = 0
 
 const isSourceSelected = computed(() => stableBackup.value || lazerBackup.value)
-const isBackupContentSelected = computed(() => backupOnlineIds.value || backupLocalBeatmaps.value)
-const isLocalBackupBlocked = computed(() => backupLocalBeatmaps.value)
+
+const canExportLocalBeatmaps = computed(
+  () => backupLocalBeatmaps.value && (stableBackup.value || lazerBackup.value)
+)
+const isBackupContentSelected = computed(
+  () => backupOnlineIds.value || canExportLocalBeatmaps.value
+)
 const canUseCollectionBackup = computed(() => isSourceSelected.value && backupOnlineIds.value)
 const canExport = computed(() => {
   if (!isSourceSelected.value) return false
   if (!isBackupContentSelected.value) return false
-  if (isLocalBackupBlocked.value) return false
   if (!backupByCollection.value) return true
   return selectedCollectionKeys.value.length > 0
 })
@@ -515,13 +520,6 @@ const refreshEstimate = async (): Promise<void> => {
     return
   }
 
-  if (backupLocalBeatmaps.value) {
-    estimateMessage.value = t('backup.content.localEstimatePending')
-    estimateError.value = false
-    isEstimating.value = false
-    return
-  }
-
   isEstimating.value = true
   estimateError.value = false
   try {
@@ -532,6 +530,8 @@ const refreshEstimate = async (): Promise<void> => {
         options: {
           stable: stableBackup.value,
           lazer: lazerBackup.value,
+          backupOnlineIds: backupOnlineIds.value,
+          backupLocalBeatmaps: backupLocalBeatmaps.value,
           backupByCollection: backupByCollection.value,
           collectionMergeMode: mergeMode.value,
           selectedCollections: [...selectedCollectionKeys.value]
@@ -542,10 +542,16 @@ const refreshEstimate = async (): Promise<void> => {
     if (!response.ok || !payload?.success) {
       throw new Error(payload?.error || 'Failed to estimate backup')
     }
-    estimateMessage.value = t('backup.estimate', {
-      count: payload.count,
-      size: formatBytes(payload.estimatedBytes)
-    })
+    const estimateParts: string[] = []
+    if (backupOnlineIds.value) {
+      estimateParts.push(
+        t('backup.estimate', { count: payload.count, size: formatBytes(payload.estimatedBytes) })
+      )
+    }
+    if (backupLocalBeatmaps.value && payload.localCount != null) {
+      estimateParts.push(t('backup.localEstimate', { count: payload.localCount }))
+    }
+    estimateMessage.value = estimateParts.join(' · ')
   } catch (error) {
     estimateError.value = true
     estimateMessage.value = error instanceof Error ? error.message : t('backup.estimateUnavailable')
@@ -655,6 +661,8 @@ const handleExport = async (): Promise<void> => {
     const response = await window.electronAPI.exportData({
       stable: stableBackup.value,
       lazer: lazerBackup.value,
+      backupOnlineIds: backupOnlineIds.value,
+      backupLocalBeatmaps: backupLocalBeatmaps.value,
       backupByCollection: backupByCollection.value,
       collectionMergeMode: mergeMode.value,
       // Vue reactive arrays are proxies; send a plain array for Electron IPC cloning.
@@ -669,7 +677,7 @@ const handleExport = async (): Promise<void> => {
     }
 
     isSuccess.value = true
-    statusMessage.value =
+    const onlineSuccessMessage =
       backupByCollection.value && response.stats
         ? t('backup.collection.successStats', {
             count: response.count,
@@ -678,6 +686,21 @@ const handleExport = async (): Promise<void> => {
             notFound: response.stats.apiNotFound
           })
         : t('backup.success', { count: response.count })
+    let localMessage = ''
+    if (response.local && response.localLazer) {
+      localMessage = t('backup.combinedLocalSuccess', {
+        stable: response.local.count,
+        lazer: response.localLazer.count
+      })
+    } else if (response.local) {
+      localMessage = t('backup.localSuccess', { count: response.local.count })
+    } else if (response.localLazer) {
+      localMessage = t('backup.lazerLocalSuccess', { count: response.localLazer.count })
+    }
+    const messageParts: string[] = []
+    if (backupOnlineIds.value) messageParts.push(onlineSuccessMessage)
+    if (localMessage) messageParts.push(localMessage)
+    statusMessage.value = messageParts.join('. ')
   } catch (error: unknown) {
     isSuccess.value = false
     const msg = error instanceof Error ? error.message : t('backup.error')

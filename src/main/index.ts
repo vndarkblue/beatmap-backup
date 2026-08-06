@@ -176,6 +176,8 @@ app.whenReady().then(() => {
       options: {
         stable: boolean
         lazer: boolean
+        backupOnlineIds?: boolean
+        backupLocalBeatmaps?: boolean
         backupByCollection?: boolean
         collectionMergeMode?: 'merge' | 'split'
         selectedCollections?: string[]

@@ -11,7 +11,7 @@
             size="small"
             :lang="currentLocale"
             :disabled="isGeneralDefault || isResetting"
-            :title="$t('settings.resetGeneral')"
+            :title="$t('settings.reset.general')"
             @click="resetGeneralSettings"
           />
         </div>
@@ -81,7 +81,7 @@
             size="small"
             :lang="currentLocale"
             :disabled="isDownloadDefault || isResetting"
-            :title="$t('settings.resetDownload')"
+            :title="$t('settings.reset.download')"
             @click="resetDownloadSettings"
           />
         </div>
@@ -235,19 +235,19 @@
     <AppIsland card-class="mt-4" icon="mdi-backup-restore">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
-          <span>{{ $t('settings.resetAll') }}</span>
+          <span>{{ $t('settings.reset.all') }}</span>
         </div>
       </template>
-      <div class="text-body-2 mb-2" :lang="currentLocale">{{ $t('settings.resetWarning') }}</div>
+      <div class="text-body-2 mb-2" :lang="currentLocale">{{ $t('settings.reset.warning') }}</div>
       <div v-if="resetFeedbackMessage" class="text-caption mb-2" :class="resetFeedbackClass">
         {{ resetFeedbackMessage }}
       </div>
       <div v-if="showResetAllConfirm" class="mb-3">
         <div class="text-caption text-warning mb-2" :lang="currentLocale">
-          {{ $t('settings.resetConfirmWarning') }}
+          {{ $t('settings.reset.confirmWarning') }}
         </div>
         <div class="text-caption mb-2" :lang="currentLocale">
-          {{ $t('settings.resetHoldHint') }}
+          {{ $t('settings.reset.holdHint') }}
         </div>
       </div>
       <div class="d-flex justify-end ga-2">
@@ -258,7 +258,7 @@
           :lang="currentLocale"
           @click="cancelResetAllConfirm"
         >
-          {{ $t('settings.resetCancel') }}
+          {{ $t('settings.reset.cancel') }}
         </v-btn>
         <v-btn
           color="error"
@@ -274,7 +274,7 @@
           @pointerleave="cancelResetAllHold"
           @pointercancel="cancelResetAllHold"
         >
-          {{ showResetAllConfirm ? $t('settings.resetConfirmAction') : $t('settings.resetAll') }}
+          {{ showResetAllConfirm ? $t('settings.reset.confirmAction') : $t('settings.reset.all') }}
         </v-btn>
       </div>
     </AppIsland>
@@ -625,13 +625,13 @@ const performResetAllSettings = async (): Promise<void> => {
     await loadSettings()
     await loadDatabaseStatus()
     resetFeedbackClass.value = 'text-success'
-    resetFeedbackMessage.value = t('settings.resetSuccess')
+    resetFeedbackMessage.value = t('settings.reset.success')
     showResetAllConfirm.value = false
     window.location.reload()
   } catch (error) {
     console.error('Failed to reset settings:', error)
     resetFeedbackClass.value = 'text-error'
-    resetFeedbackMessage.value = t('settings.resetFailed')
+    resetFeedbackMessage.value = t('settings.reset.failed')
   } finally {
     cancelResetAllHold()
     isResetting.value = false

@@ -6,19 +6,18 @@
     "osuStablePath": "osu!stable directory",
     "osuLazerPath": "osu!lazer directory",
     "selectFolder": "Select Folder",
-    "rememberDownloadPath": "Remember download location",
-    "resetAll": "Reset settings",
-    "resetGeneral": "Reset general settings",
-    "resetDownload": "Reset download settings",
-    "resetWarning": "This resets saved app settings and local preferences.",
-    "resetConfirmWarning": "Warning: this action cannot be undone.",
-    "resetHoldHint": "Press and hold the confirm button to continue.",
-    "resetConfirmAction": "Hold to confirm reset",
-    "resetCancel": "Cancel",
-    "resetConfirm": "Reset all settings (including osu paths and download preferences) to defaults?",
-    "resetSuccess": "Settings reset complete. The app will reload.",
-    "resetFailed": "Failed to reset settings.",
-    "defaultPathHint": "Common Windows path: {path}",
+    "reset": {
+      "all": "Reset settings",
+      "general": "Reset to defaults",
+      "download": "Reset to defaults",
+      "warning": "This resets saved app settings and local preferences.",
+      "confirmWarning": "Warning: this action cannot be undone.",
+      "holdHint": "Press and hold the confirm button to continue.",
+      "confirmAction": "Hold to confirm reset",
+      "cancel": "Cancel",
+      "success": "Settings reset complete. The app will reload.",
+      "failed": "Failed to reset settings."
+    },
     "error": {
       "songsNotFound": "The Songs folder is not found in the directory",
       "realmNotFound": "The client.realm database is not found in the directory"
@@ -41,8 +40,6 @@
     "title": "Backup",
     "backupBeatmapTitle": "Backup beatmaps",
     "button": "Backup",
-    "stableBackup": "Backup from osu!stable",
-    "lazerBackup": "Backup from osu!lazer",
     "sources": {
       "title": "Sources"
     },
@@ -50,16 +47,15 @@
       "title": "Backup content",
       "onlineIds": "Online beatmapset IDs",
       "localBeatmaps": "Local beatmaps (has no online ID)",
-      "localBeatmapsPending": "Local beatmapsets will be exported as .osz files to a folder. Collections are not supported."
+      "localBeatmapsPending": "· Local beatmapsets will be exported as .osz files. Collections are not supported.",
+      "onlineIdsPending": "· Beatmapset IDs can be used to download beatmapsets on the Download page."
     },
     "success": "Successfully backed up {count} beatmaps",
-    "localSuccess": "Exported {count} local beatmaps to .osz files",
-    "lazerLocalSuccess": "Exported {count} local osu!lazer beatmaps to .osz files",
+    "localSuccess": "Exported {count} local {source} beatmaps to .osz files",
     "combinedLocalSuccess": "Exported {stable} stable + {lazer} lazer local beatmaps to .osz files",
-    "combinedSuccess": "{online}. Exported {local} local beatmaps to .osz files",
     "error": "Backup failed",
     "cancelled": "Backup cancelled",
-    "estimate": "Estimated backup output: {count} beatmapset IDs (~{size})",
+    "estimate": "Estimated output: {count} beatmapset IDs (~{size})",
     "localEstimate": "{count} local beatmapsets",
     "estimateUnavailable": "Could not estimate backup size with current settings.",
     "collection": {
@@ -67,8 +63,6 @@
       "mergeByName": "Merge duplicate collection names from both stable and lazer",
       "syncNow": "Resolve missing beatmaps",
       "secondsShort": "s",
-      "syncStatus": "Resolved: {resolved} · Pending: {pending} · API not found: {notFound} · Missing local: {missingLocal}",
-      "itemStats": "{maps} maps · {source} · resolved {resolved} · pending {pending} · not found {notFound}",
       "empty": "No collections found for selected sources.",
       "successStats": "Backed up {count} beatmaps (pending sync: {pending}, missing local: {missing}, api not found: {notFound})",
       "status": {
@@ -94,22 +88,13 @@
   "download": {
     "title": "Download beatmaps",
     "selectFile": "Select a file (.bbak)",
-    "dropHere": "Drop a file here to import",
-    "fileSelected": "File selected: {name}",
     "path": "Save to...",
     "fileRequired": "File is required",
     "options": {
-      "title": "Download Options",
-      "beatmapMirrors": "Beatmap mirrors",
       "ignoreExisting": "Ignore existing beatmaps",
       "ignoreStable": "From osu!stable",
       "ignoreLazer": "From osu!lazer",
       "threadCount": "Download threads",
-      "refresh": "Refresh",
-      "online": "Online",
-      "offline": "Offline",
-      "unknownError": "Unknown error",
-      "statusUnknown": "Status unknown",
       "other": "Other options",
       "noVideo": "Download without videos",
       "waitForDownloads": "Wait for downloads to complete when pausing",
@@ -121,7 +106,6 @@
     "started": "Download started",
     "finished": "Downloaded {success} beatmaps",
     "finishedWithErrors": "Downloaded {success}/{total} beatmaps · {failed} failed",
-    "error": "Download failed",
     "recovery": {
       "title": "Recover previous download queue",
       "description": "A previous download queue with {total} beatmaps was found.",
@@ -135,7 +119,7 @@
       "discardFailed": "Failed to discard saved queue"
     },
     "errors": {
-      "invalidFile": "Invalid file type. Only .txt files are allowed.",
+      "invalidFile": "Invalid file type. Only .bbak files are allowed.",
       "getFilePath": "Failed to get file path",
       "downloadPathNotExist": "Download path does not exist",
       "downloadPathNotDirectory": "Download path is not a directory",

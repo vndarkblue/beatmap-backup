@@ -10,7 +10,7 @@
               </div>
               <v-switch
                 v-model="stableBackup"
-                :label="$t('backup.stableBackup')"
+                :label="$t('settings.database.stable')"
                 :lang="currentLocale"
                 class="view-field pl-2"
                 color="primary"
@@ -18,7 +18,7 @@
               ></v-switch>
               <v-switch
                 v-model="lazerBackup"
-                :label="$t('backup.lazerBackup')"
+                :label="$t('settings.database.lazer')"
                 :lang="currentLocale"
                 class="view-field pl-2"
                 color="primary"
@@ -52,14 +52,15 @@
           </div>
 
           <v-alert
-            v-if="backupLocalBeatmaps"
+            v-if="backupOnlineIds || backupLocalBeatmaps"
             type="info"
             variant="tonal"
             density="compact"
             class="local-backup-alert"
             :lang="currentLocale"
           >
-            {{ $t('backup.content.localBeatmapsPending') }}
+            <div v-if="backupOnlineIds">{{ $t('backup.content.onlineIdsPending') }}</div>
+            <div v-if="backupLocalBeatmaps">{{ $t('backup.content.localBeatmapsPending') }}</div>
           </v-alert>
 
           <div class="backup-scope">
@@ -186,6 +187,21 @@
           </div>
         </div>
 
+        <v-alert
+          v-if="estimateMessage"
+          :type="estimateError ? 'warning' : 'info'"
+          variant="tonal"
+          density="comfortable"
+          class="mb-3"
+        >
+          {{ estimateMessage }}
+        </v-alert>
+        <v-progress-linear
+          v-if="isEstimating"
+          indeterminate
+          color="primary"
+          class="mb-2"
+        ></v-progress-linear>
         <v-btn
           color="primary"
           block
@@ -197,21 +213,6 @@
         >
           {{ $t('backup.button') }}
         </v-btn>
-        <v-alert
-          v-if="estimateMessage"
-          :type="estimateError ? 'warning' : 'info'"
-          variant="tonal"
-          density="comfortable"
-          class="mt-3"
-        >
-          {{ estimateMessage }}
-        </v-alert>
-        <v-progress-linear
-          v-if="isEstimating"
-          indeterminate
-          color="primary"
-          class="mt-2"
-        ></v-progress-linear>
         <div
           v-if="statusMessage"
           class="text-center mt-2"
@@ -693,9 +694,15 @@ const handleExport = async (): Promise<void> => {
         lazer: response.localLazer.count
       })
     } else if (response.local) {
-      localMessage = t('backup.localSuccess', { count: response.local.count })
+      localMessage = t('backup.localSuccess', {
+        count: response.local.count,
+        source: t('backup.collection.sources.stable')
+      })
     } else if (response.localLazer) {
-      localMessage = t('backup.lazerLocalSuccess', { count: response.localLazer.count })
+      localMessage = t('backup.localSuccess', {
+        count: response.localLazer.count,
+        source: t('backup.collection.sources.lazer')
+      })
     }
     const messageParts: string[] = []
     if (backupOnlineIds.value) messageParts.push(onlineSuccessMessage)

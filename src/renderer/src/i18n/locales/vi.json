@@ -6,22 +6,21 @@
     "osuStablePath": "Đường dẫn osu!stable",
     "osuLazerPath": "Đường dẫn osu!lazer",
     "selectFolder": "Chọn thư mục",
-    "rememberDownloadPath": "Ghi nhớ vị trí tải xuống",
-    "resetAll": "Khôi phục cài đặt",
-    "resetGeneral": "Khôi phục phần tổng quan",
-    "resetDownload": "Khôi phục phần tải xuống",
-    "resetWarning": "Thao tác này khôi phục cài đặt đã lưu và local preferences.",
-    "resetConfirmWarning": "Cảnh báo: không thể hoàn tác thao tác này.",
-    "resetHoldHint": "Nhấn giữ nút xác nhận để tiếp tục.",
-    "resetConfirmAction": "Nhấn giữ để xác nhận khôi phục",
-    "resetCancel": "Hủy",
-    "resetConfirm": "Khôi phục toàn bộ cài đặt (bao gồm đường dẫn osu và tuỳ chọn tải xuống) về mặc định?",
-    "resetSuccess": "Đã khôi phục cài đặt. Ứng dụng sẽ tải lại.",
-    "resetFailed": "Không thể khôi phục cài đặt.",
-    "defaultPathHint": "Đường dẫn Windows thường gặp: {path}",
+    "reset": {
+      "all": "Đặt lại toàn bộ",
+      "general": "Khôi phục mặc định",
+      "download": "Khôi phục mặc định",
+      "warning": "Đặt lại toàn bộ cài đặt đã lưu về trạng thái mặc định.",
+      "confirmWarning": "Cảnh báo: thao tác này không thể hoàn tác.",
+      "holdHint": "Nhấn giữ nút xác nhận để tiếp tục.",
+      "confirmAction": "Nhấn giữ để xác nhận",
+      "cancel": "Hủy",
+      "success": "Đã khôi phục cài đặt. Ứng dụng sẽ tải lại.",
+      "failed": "Không thể khôi phục cài đặt."
+    },
     "error": {
-      "songsNotFound": "Không tìm thấy thư mục Songs trong đường dẫn!",
-      "realmNotFound": "Không tìm thấy file client.realm trong đường dẫn!"
+      "songsNotFound": "Không tìm thấy thư mục Songs!",
+      "realmNotFound": "Không tìm thấy file client.realm!"
     },
     "database": {
       "title": "Cơ sở dữ liệu Beatmap",
@@ -41,25 +40,22 @@
     "title": "Sao lưu danh sách beatmap",
     "backupBeatmapTitle": "Sao lưu beatmap",
     "button": "Sao lưu",
-    "stableBackup": "Sao lưu từ osu!stable",
-    "lazerBackup": "Sao lưu từ osu!lazer",
     "sources": {
       "title": "Nguồn"
     },
     "content": {
       "title": "Nội dung sao lưu",
-      "onlineIds": "Beatmapset ID online",
-      "localBeatmaps": "Beatmap cục bộ (.osz)",
-      "localBeatmapsPending": "Beatmap cục bộ sẽ được xuất thành file .osz vào một thư mục. Không hỗ trợ Collections."
+      "onlineIds": "Beatmapset ID",
+      "localBeatmaps": "Beatmap cục bộ (không có id online)",
+      "localBeatmapsPending": "· Beatmap cục bộ sẽ được xuất thành file .osz. Không hỗ trợ Bộ sưu tập.",
+      "onlineIdsPending": "· Beatmapset ID có thể được dùng để tải xuống các beatmap ở trang Tải xuống."
     },
     "success": "Đã sao lưu thành công {count} beatmap",
-    "localSuccess": "Đã xuất {count} beatmap local thành file .osz",
-    "lazerLocalSuccess": "Đã xuất {count} beatmap từ osu!lazer thành file .osz",
+    "localSuccess": "Đã xuất {count} beatmap từ osu!{source} thành file .osz",
     "combinedLocalSuccess": "Đã xuất {stable} beatmap từ osu!stable và {lazer} beatmap từ osu!lazer thành file .osz",
-    "combinedSuccess": "{online}. Đã xuất {local} beatmap local thành file .osz",
     "error": "Sao lưu thất bại",
     "cancelled": "Đã huỷ thao tác",
-    "estimate": "Ước tính file backup: {count} beatmapset ID (~{size})",
+    "estimate": "Ước tính: {count} beatmapset ID (~{size})",
     "localEstimate": "{count} beatmapset cục bộ",
     "estimateUnavailable": "Không thể ước tính kích thước backup với cấu hình hiện tại.",
     "collection": {
@@ -67,8 +63,6 @@
       "mergeByName": "Gộp các Bộ sưu tập trùng tên",
       "syncNow": "Đồng bộ beatmap còn thiếu",
       "secondsShort": "giây",
-      "syncStatus": "Có sẵn: {resolved} · Chờ đồng bộ: {pending} · API không thấy: {notFound} · Thiếu local: {missingLocal}",
-      "itemStats": "{maps} map · {source} · có sẵn {resolved} · chờ {pending} · không thấy {notFound}",
       "empty": "Không tìm thấy collection theo nguồn đã chọn.",
       "successStats": "Đã sao lưu {count} beatmap (chờ đồng bộ: {pending}, thiếu local: {missing}, api không thấy: {notFound})",
       "status": {
@@ -94,22 +88,13 @@
   "download": {
     "title": "Tải xuống beatmap",
     "selectFile": "Chọn một file (.bbak)",
-    "dropHere": "Thả file vào đây để tải lên",
-    "fileSelected": "Đã chọn file: {name}",
     "path": "Lưu vào...",
     "fileRequired": "File là bắt buộc",
     "options": {
-      "title": "Tùy chọn tải xuống",
-      "beatmapMirrors": "Danh sách các beatmap mirror",
       "ignoreExisting": "Bỏ qua beatmap trùng lặp",
       "ignoreStable": "Từ osu!stable",
       "ignoreLazer": "Từ osu!lazer",
       "threadCount": "Số lượng luồng tải xuống",
-      "refresh": "Làm mới",
-      "online": "Trực tuyến",
-      "offline": "Ngoại tuyến",
-      "unknownError": "Lỗi không xác định",
-      "statusUnknown": "Trạng thái không xác định",
       "other": "Tuỳ chọn khác",
       "noVideo": "Không tải xuống video",
       "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng",
@@ -134,7 +119,7 @@
       "discardFailed": "Không thể bỏ hàng đợi đã lưu"
     },
     "errors": {
-      "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .txt",
+      "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .bbak",
       "getFilePath": "Không thể lấy đường dẫn file",
       "downloadPathNotExist": "Đường dẫn tải xuống không tồn tại",
       "downloadPathNotDirectory": "Đường dẫn tải xuống không phải là thư mục",

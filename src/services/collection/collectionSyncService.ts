@@ -1,6 +1,7 @@
 import { DatabaseService } from '../database/databaseService'
 import { resolveMd5FromOsuDirect } from './osuDirectService'
 import type { CollectionSyncStatus } from './types'
+import { is } from '@electron-toolkit/utils'
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
 const RETRY_BACKOFF_MS = 30 * 60 * 1000
@@ -155,7 +156,7 @@ class CollectionSyncService {
         }
       }
       this.lastRunSummary = runSummary
-      console.info('collection sync summary', runSummary)
+      if (is.dev) console.info('collection sync summary', runSummary)
     } finally {
       this.isRunning = false
       db.setMeta('collection_sync_running', '0')

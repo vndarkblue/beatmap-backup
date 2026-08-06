@@ -17,6 +17,7 @@ import {
   QUEUE_SNAPSHOT_VERSION
 } from './download/queuePersistence'
 import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs } from './settingsStore'
+import { is } from '@electron-toolkit/utils'
 
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }
@@ -76,6 +77,7 @@ class DownloadService extends EventEmitter {
   }
 
   private debugQueueState(label: string, extra?: Record<string, unknown>): void {
+    if (!is.dev) return
     const counts = { waiting: 0, downloading: 0, completed: 0, error: 0 }
     for (const t of this.tasks.values()) {
       counts[t.status]++
@@ -148,9 +150,11 @@ class DownloadService extends EventEmitter {
     }
     await this.persistence.saveSnapshot(snapshot)
     this.latestSnapshot = snapshot
-    console.log(
-      `[QueuePersistence] checkpoint(${reason}) tasks=${snapshot.tasks.length} queue=${snapshot.queueId}`
-    )
+    if (is.dev) {
+      console.log(
+        `[QueuePersistence] checkpoint(${reason}) tasks=${snapshot.tasks.length} queue=${snapshot.queueId}`
+      )
+    }
   }
 
   public async flushCheckpointWithTimeout(timeoutMs = 2500): Promise<void> {
@@ -325,14 +329,16 @@ class DownloadService extends EventEmitter {
         healthyMirrorNames.has(mirror.name)
       )
 
-      console.log(
-        `[DownloadDebug] startDownload sources=${JSON.stringify(options.sources)}` +
-          ` noVideo=${options.noVideo} threadCount=${options.threadCount}` +
-          ` ids=${beatmapsetIds.length} filtered=${filteredIds.length}` +
-          ` selected=[${selectedMirrors.map((m) => m.name).join(', ')}]` +
-          ` healthy=[${[...healthyMirrorNames].join(', ')}]` +
-          ` available=[${availableMirrors.map((m) => m.name).join(', ')}]`
-      )
+      if (is.dev) {
+        console.log(
+          `[DownloadDebug] startDownload sources=${JSON.stringify(options.sources)}` +
+            ` noVideo=${options.noVideo} threadCount=${options.threadCount}` +
+            ` ids=${beatmapsetIds.length} filtered=${filteredIds.length}` +
+            ` selected=[${selectedMirrors.map((m) => m.name).join(', ')}]` +
+            ` healthy=[${[...healthyMirrorNames].join(', ')}]` +
+            ` available=[${availableMirrors.map((m) => m.name).join(', ')}]`
+        )
+      }
 
       if (availableMirrors.length === 0) {
         if (options.noVideo && noVideoSupportedMirrors.length === 0) {
@@ -487,10 +493,12 @@ class DownloadService extends EventEmitter {
     this.emit(DownloadEvent.TASK_UPDATED, task)
     this.schedulePersistCheckpoint()
 
-    console.log(
-      `[DownloadDebug] download.start set=${task.beatmapsetId} attempt=${task.attemptCount}` +
-        ` mirror=${mirrorState.mirror.name} active=${this.activeDownloads}/${this.getGlobalConcurrencyLimit()}`
-    )
+    if (is.dev) {
+      console.log(
+        `[DownloadDebug] download.start set=${task.beatmapsetId} attempt=${task.attemptCount}` +
+          ` mirror=${mirrorState.mirror.name} active=${this.activeDownloads}/${this.getGlobalConcurrencyLimit()}`
+      )
+    }
 
     void this.runTask(task, mirrorState)
   }
@@ -533,10 +541,12 @@ class DownloadService extends EventEmitter {
       task.nextRetryAt = undefined
       this.touchTask(task)
 
-      console.log(
-        `[DownloadDebug] download.ok set=${task.beatmapsetId} mirror=${startMirrorName}` +
-          ` ms=${Date.now() - startTime} mirrorHealth={ok:${health.success},fail:${health.failure}}`
-      )
+      if (is.dev) {
+        console.log(
+          `[DownloadDebug] download.ok set=${task.beatmapsetId} mirror=${startMirrorName}` +
+            ` ms=${Date.now() - startTime} mirrorHealth={ok:${health.success},fail:${health.failure}}`
+        )
+      }
 
       this.emit(DownloadEvent.TASK_COMPLETED, task)
       this.schedulePersistCheckpoint()
@@ -576,11 +586,13 @@ class DownloadService extends EventEmitter {
     mirrorState.consecutiveFailures++
     mirrorState.consecutiveSuccesses = 0
 
-    console.log(
-      `[DownloadDebug] download.fail set=${task.beatmapsetId} mirror=${mirrorName}` +
-        ` attempt=${task.attemptCount} kind=${failureKind} error=${errorMessage}` +
-        ` mirrorHealth={ok:${health.success},fail:${health.failure}}`
-    )
+    if (is.dev) {
+      console.log(
+        `[DownloadDebug] download.fail set=${task.beatmapsetId} mirror=${mirrorName}` +
+          ` attempt=${task.attemptCount} kind=${failureKind} error=${errorMessage}` +
+          ` mirrorHealth={ok:${health.success},fail:${health.failure}}`
+      )
+    }
 
     task.assignedMirror = undefined
     task.lastErrorAt = Date.now()
@@ -665,10 +677,12 @@ class DownloadService extends EventEmitter {
     )
     const cooldownMs = retryAfterMs ?? backoffMs
     mirrorState.cooldownUntil = Date.now() + cooldownMs
-    console.log(
-      `[DownloadDebug] mirror.cooldown mirror=${mirrorState.mirror.name}` +
-        ` cooldownMs=${cooldownMs} rateLimitCount=${mirrorState.rateLimitCount}`
-    )
+    if (is.dev) {
+      console.log(
+        `[DownloadDebug] mirror.cooldown mirror=${mirrorState.mirror.name}` +
+          ` cooldownMs=${cooldownMs} rateLimitCount=${mirrorState.rateLimitCount}`
+      )
+    }
   }
 
   private getRetryDelay(task: DownloadTask, failureKind: FailureKind): number {
@@ -762,7 +776,7 @@ class DownloadService extends EventEmitter {
     try {
       await fs.promises.mkdir(downloadPath, { recursive: true })
       await fs.promises.writeFile(logPath, `${rows.join('\n')}\n`, 'utf-8')
-      console.log(`[DownloadDebug] mirrorUsageLog.${reason} path=${logPath} rows=${rows.length}`)
+      if (is.dev) console.log(`[DownloadDebug] mirrorUsageLog.${reason} path=${logPath} rows=${rows.length}`)
     } catch (error) {
       this.mirrorUsageLogQueueId = null
       console.error(`[DownloadDebug] Failed to write mirror usage log(${reason}):`, error)

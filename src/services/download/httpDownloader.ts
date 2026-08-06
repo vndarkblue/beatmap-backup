@@ -4,6 +4,7 @@ import https from 'https'
 import http from 'http'
 import { URL } from 'url'
 import type { DownloadTask } from './types'
+import { is } from '@electron-toolkit/utils'
 
 export interface MirrorHealth {
   success: number
@@ -97,7 +98,7 @@ export async function downloadFile(
     }
 
     const makeRequest = (targetUrl: URL, redirectCount = 0): void => {
-      if (redirectCount === 0) {
+      if (redirectCount === 0 && is.dev) {
         console.log(
           `[DownloadDebug] http.request set=${task.beatmapsetId} mirror=${task.mirror.name}` +
             ` url=${targetUrl.href}`
@@ -121,19 +122,23 @@ export async function downloadFile(
             response.headers.location
           ) {
             if (redirectCount >= 5) {
-              console.log(
-                `[DownloadDebug] http.redirectOverflow set=${task.beatmapsetId} mirror=${task.mirror.name}` +
-                  ` from=${targetUrl.href}`
-              )
+              if (is.dev) {
+                console.log(
+                  `[DownloadDebug] http.redirectOverflow set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+                    ` from=${targetUrl.href}`
+                )
+              }
               failWithCleanup(new Error('Too many redirects'))
               return
             }
             try {
               const nextUrl = new URL(response.headers.location, targetUrl)
-              console.log(
-                `[DownloadDebug] http.redirect set=${task.beatmapsetId} mirror=${task.mirror.name}` +
-                  ` ${response.statusCode} → ${nextUrl.href}`
-              )
+              if (is.dev) {
+                console.log(
+                  `[DownloadDebug] http.redirect set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+                    ` ${response.statusCode} → ${nextUrl.href}`
+                )
+              }
               req.destroy()
               makeRequest(nextUrl, redirectCount + 1)
               return
@@ -145,12 +150,14 @@ export async function downloadFile(
 
           if (response.statusCode !== 200) {
             const isRateLimit = response.statusCode === 429
-            console.log(
-              `[DownloadDebug] http.non200 set=${task.beatmapsetId} mirror=${task.mirror.name}` +
-                ` status=${response.statusCode} rateLimit=${isRateLimit}` +
-                ` url=${targetUrl.href}` +
-                ` retry-after=${response.headers['retry-after'] ?? 'n/a'}`
-            )
+            if (is.dev) {
+              console.log(
+                `[DownloadDebug] http.non200 set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+                  ` status=${response.statusCode} rateLimit=${isRateLimit}` +
+                  ` url=${targetUrl.href}` +
+                  ` retry-after=${response.headers['retry-after'] ?? 'n/a'}`
+              )
+            }
             failWithCleanup(
               new DownloadHttpError(
                 `Failed to download: ${response.statusCode}`,
@@ -239,18 +246,22 @@ export async function downloadFile(
       )
 
       req.on('error', (error) => {
-        console.log(
-          `[DownloadDebug] http.reqError set=${task.beatmapsetId} mirror=${task.mirror.name}` +
-            ` error=${error.message}`
-        )
+        if (is.dev) {
+          console.log(
+            `[DownloadDebug] http.reqError set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+              ` error=${error.message}`
+          )
+        }
         failWithCleanup(error)
       })
 
       req.setTimeout(30000, () => {
-        console.log(
-          `[DownloadDebug] http.timeout set=${task.beatmapsetId} mirror=${task.mirror.name}` +
-            ` url=${targetUrl.href}`
-        )
+        if (is.dev) {
+          console.log(
+            `[DownloadDebug] http.timeout set=${task.beatmapsetId} mirror=${task.mirror.name}` +
+              ` url=${targetUrl.href}`
+          )
+        }
         req.destroy(new Error('Request timeout'))
       })
 

@@ -1,5 +1,6 @@
 import { getOsuStablePath, getOsuLazerPath } from './settingsStore'
 import { realmService } from './realmService'
+import { is } from '@electron-toolkit/utils'
 import path from 'path'
 import fs from 'fs'
 import { collectionService } from './collection/collectionService'
@@ -169,7 +170,7 @@ export const exportService = {
   },
 
   async exportData(options: ExportOptions): Promise<ExportResult> {
-    console.log('exportService.exportData called with options:', options)
+    if (is.dev) console.log('exportService.exportData called with options:', options)
     try {
       const { dialog } = await import('electron')
       const beatmapsetIds: number[] = []
@@ -191,42 +192,44 @@ export const exportService = {
         collectionStats = resolved.stats
         stableCollectionBeatmapMd5s = resolved.stableBeatmapMd5s
       } else if (shouldWriteOnlineBackup && options.stable) {
-        console.log('Processing stable beatmaps...')
+        if (is.dev) console.log('Processing stable beatmaps...')
         const osuStablePath = getOsuStablePath()
-        console.log('Osu stable path:', osuStablePath)
+        if (is.dev) console.log('Osu stable path:', osuStablePath)
         if (!osuStablePath) {
           throw new Error('Osu stable path not set')
         }
 
         const songsPath = path.join(osuStablePath, 'Songs')
-        console.log('Songs path:', songsPath)
+        if (is.dev) console.log('Songs path:', songsPath)
         if (!fs.existsSync(songsPath)) {
           throw new Error('Songs directory not found')
         }
 
         const stableIds = scanStableBeatmapsetIds(songsPath)
-        console.log(
-          'Found',
-          exportService.getLastStableFolderScanSummary().processedFolders,
-          'folders in Songs directory'
-        )
+        if (is.dev) {
+          console.log(
+            'Found',
+            exportService.getLastStableFolderScanSummary().processedFolders,
+            'folders in Songs directory'
+          )
+          console.log('Found', beatmapsetIds.length + stableIds.length, 'stable beatmapset IDs')
+        }
         beatmapsetIds.push(...stableIds)
-        console.log('Found', beatmapsetIds.length, 'stable beatmapset IDs')
       }
 
       if (shouldWriteOnlineBackup && !options.backupByCollection && options.lazer) {
-        console.log('Processing lazer beatmaps...')
+        if (is.dev) console.log('Processing lazer beatmaps...')
         const lazerIds = await realmService.getBeatmapsetIds()
-        console.log('Found', lazerIds.length, 'lazer beatmapset IDs')
+        if (is.dev) console.log('Found', lazerIds.length, 'lazer beatmapset IDs')
         beatmapsetIds.push(...lazerIds)
       }
 
       // Remove duplicates and sort
       const uniqueIds = Array.from(new Set(beatmapsetIds)).sort((a, b) => a - b)
-      console.log('Total unique beatmapset IDs:', uniqueIds.length)
+      if (is.dev) console.log('Total unique beatmapset IDs:', uniqueIds.length)
 
       // Get save path from user
-      console.log('Opening save dialog...')
+      if (is.dev) console.log('Opening save dialog...')
       let filePath: string | undefined
 
       if (shouldWriteOnlineBackup) {
@@ -249,7 +252,7 @@ export const exportService = {
       }
 
       if (!filePath) {
-        console.log('Save dialog cancelled')
+        if (is.dev) console.log('Save dialog cancelled')
         return {
           success: false,
           count: 0,
@@ -259,10 +262,10 @@ export const exportService = {
       }
 
       if (shouldWriteOnlineBackup) {
-        console.log('Saving to file:', filePath)
+        if (is.dev) console.log('Saving to file:', filePath)
         // Write to file with header and comments
         fs.writeFileSync(filePath, buildBackupContent(uniqueIds, options))
-        console.log('File saved successfully')
+        if (is.dev) console.log('File saved successfully')
       }
 
       const result: ExportResult = {

@@ -59,7 +59,7 @@
           <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
           <div class="d-flex">
             <v-btn
-              :icon="isPaused ? 'mdi-play' : 'mdi-pause'"
+              :icon="isPaused ? '$play' : '$pause'"
               variant="text"
               :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
               :lang="currentLocale"
@@ -68,7 +68,7 @@
             ></v-btn>
             <template v-if="confirmingStop">
               <v-btn
-                icon="mdi-check"
+                icon="$check"
                 variant="text"
                 color="error"
                 :title="$t('downloadManager.stopConfirmYes')"
@@ -76,7 +76,7 @@
                 @click="confirmStopDownload"
               ></v-btn>
               <v-btn
-                icon="mdi-close"
+                icon="$close"
                 variant="text"
                 :title="$t('downloadManager.stopConfirmNo')"
                 :lang="currentLocale"
@@ -85,7 +85,7 @@
             </template>
             <v-btn
               v-else
-              icon="mdi-stop"
+              icon="$stop"
               variant="text"
               :title="$t('downloadManager.stop')"
               :lang="currentLocale"
@@ -162,11 +162,11 @@
             @click="showCompletedDownloads = !showCompletedDownloads"
           >
             <span class="d-flex align-center ga-2">
-              <v-icon icon="mdi-check-circle" color="success" size="20" />
+              <v-icon icon="$checkCircle" color="success" size="20" />
               <span>{{ $t('downloadManager.completedDownloads') }}</span>
               <span class="text-medium-emphasis">({{ completedDownloadFiles.length }})</span>
             </span>
-            <v-icon :icon="showCompletedDownloads ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
+            <v-icon :icon="showCompletedDownloads ? '$chevronUp' : '$chevronDown'" />
           </button>
           <v-expand-transition>
             <div v-show="showCompletedDownloads" class="completed-downloads-content">
@@ -218,7 +218,7 @@
     <v-dialog v-model="showRecoveryDialog" max-width="520" persistent>
       <v-card class="recovery-dialog">
         <v-card-title class="d-flex align-center ga-2">
-          <v-icon icon="mdi-restore-alert" color="primary" />
+          <v-icon icon="$restoreAlert" color="primary" />
           <span>{{ $t('download.recovery.title') }}</span>
         </v-card-title>
         <v-card-text>
@@ -239,7 +239,7 @@
             }}
           </div>
           <div v-if="showDiscardConfirm" class="recovery-warning mt-4">
-            <v-icon icon="mdi-alert" size="18" />
+            <v-icon icon="$alert" size="18" />
             {{ $t('download.recovery.discardConfirm') }}
           </div>
         </v-card-text>
@@ -688,15 +688,15 @@ const handleDiscardRecovery = async (): Promise<void> => {
 const getStatusIcon = (status: string): string => {
   switch (status) {
     case 'waiting':
-      return 'mdi-clock-outline'
+      return '$clockOutline'
     case 'downloading':
-      return 'mdi-download'
+      return '$download'
     case 'completed':
-      return 'mdi-check-circle'
+      return '$checkCircle'
     case 'error':
-      return 'mdi-alert-circle'
+      return '$alertCircle'
     default:
-      return 'mdi-help-circle'
+      return '$helpCircle'
   }
 }
 

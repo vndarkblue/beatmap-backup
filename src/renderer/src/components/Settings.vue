@@ -1,12 +1,12 @@
 <template>
   <AppViewShell :title="$t('settings.title')" :lang="currentLocale">
     <!-- General Settings Section -->
-    <AppIsland card-class="mb-4" icon="mdi-cog-outline">
+    <AppIsland card-class="mb-4" icon="$cogOutline">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
           <span>{{ $t('settings.general') }}</span>
           <v-btn
-            icon="mdi-restore"
+            icon="$restore"
             variant="text"
             size="small"
             :lang="currentLocale"
@@ -49,7 +49,7 @@
         v-model="currentLocale"
         :items="availableLocales"
         :label="$t('language.title')"
-        prepend-icon="mdi-translate"
+        prepend-icon="$translate"
         item-title="text"
         item-value="value"
         class="view-field"
@@ -71,12 +71,12 @@
     </AppIsland>
 
     <!-- Download Settings Section -->
-    <AppIsland card-class="mb-4" icon="mdi-download-outline">
+    <AppIsland card-class="mb-4" icon="$downloadOutline">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
           <span>{{ $t('settings.download') }}</span>
           <v-btn
-            icon="mdi-restore"
+            icon="$restore"
             variant="text"
             size="small"
             :lang="currentLocale"
@@ -94,7 +94,7 @@
             <template #activator="{ props }">
               <v-icon
                 v-bind="props"
-                icon="mdi-help-circle-outline"
+                icon="$helpCircleOutline"
                 size="18"
                 color="medium-emphasis"
               />
@@ -167,7 +167,7 @@
       </div>
     </AppIsland>
 
-    <AppIsland :title="$t('settings.database.title')" icon="mdi-database-outline">
+    <AppIsland :title="$t('settings.database.title')" icon="$databaseOutline">
       <div class="text-subtitle-1 mb-3" :lang="currentLocale">
         {{
           $t('settings.database.totalBeatmapsets', {
@@ -232,7 +232,7 @@
       </v-btn>
     </AppIsland>
 
-    <AppIsland card-class="mt-4" icon="mdi-backup-restore">
+    <AppIsland card-class="mt-4" icon="$backupRestore">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
           <span>{{ $t('settings.reset.all') }}</span>

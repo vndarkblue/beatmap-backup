@@ -6,12 +6,41 @@ import router from './router'
 import i18n from './i18n'
 import { THEME_PREF_KEY } from '../../config/frontendConstants'
 
-// Vuetify
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
-import '@mdi/font/css/materialdesignicons.css'
+import { aliases as mdiAliases, mdi } from 'vuetify/iconsets/mdi-svg'
+import {
+  mdiCog,
+  mdiCogOutline,
+  mdiExport,
+  mdiDownload,
+  mdiDownloadOutline,
+  mdiWeatherNight,
+  mdiWeatherSunny,
+  mdiRestore,
+  mdiTranslate,
+  mdiHelpCircleOutline,
+  mdiDatabaseOutline,
+  mdiBackupRestore,
+  mdiContentSaveOutline,
+  mdiPlay,
+  mdiPause,
+  mdiCheck,
+  mdiClose,
+  mdiStop,
+  mdiCheckCircle,
+  mdiChevronUp,
+  mdiChevronDown,
+  mdiRestoreAlert,
+  mdiAlert,
+  mdiClockOutline,
+  mdiAlertCircle,
+  mdiHelpCircle,
+  mdiFileDocument,
+  mdiFolder,
+  mdiFileSearch,
+  mdiFolderOpen
+} from '@mdi/js'
 
 const getInitialTheme = (): 'light' | 'dark' => {
   try {
@@ -23,9 +52,46 @@ const getInitialTheme = (): 'light' | 'dark' => {
 
 const initialTheme = getInitialTheme()
 
+const appIconAliases = {
+  ...mdiAliases,
+  cog: mdiCog,
+  cogOutline: mdiCogOutline,
+  export: mdiExport,
+  download: mdiDownload,
+  downloadOutline: mdiDownloadOutline,
+  weatherNight: mdiWeatherNight,
+  weatherSunny: mdiWeatherSunny,
+  restore: mdiRestore,
+  translate: mdiTranslate,
+  helpCircleOutline: mdiHelpCircleOutline,
+  databaseOutline: mdiDatabaseOutline,
+  backupRestore: mdiBackupRestore,
+  contentSaveOutline: mdiContentSaveOutline,
+  play: mdiPlay,
+  pause: mdiPause,
+  check: mdiCheck,
+  close: mdiClose,
+  stop: mdiStop,
+  checkCircle: mdiCheckCircle,
+  chevronUp: mdiChevronUp,
+  chevronDown: mdiChevronDown,
+  restoreAlert: mdiRestoreAlert,
+  alert: mdiAlert,
+  clockOutline: mdiClockOutline,
+  alertCircle: mdiAlertCircle,
+  helpCircle: mdiHelpCircle,
+  fileDocument: mdiFileDocument,
+  folder: mdiFolder,
+  fileSearch: mdiFileSearch,
+  folderOpen: mdiFolderOpen
+}
+
 const vuetify = createVuetify({
-  components,
-  directives,
+  icons: {
+    defaultSet: 'mdi',
+    aliases: appIconAliases,
+    sets: { mdi }
+  },
   theme: {
     defaultTheme: initialTheme,
     themes: {
@@ -53,12 +119,13 @@ app.use(router)
 app.use(i18n)
 app.mount('#app')
 
-const bootShell = document.getElementById('boot-shell')
-if (bootShell) {
+// Keep the boot-shell spinner up until the initial route component finishes
+// loading. Without this, the spinner disappears before Settings.vue (lazy)
+// has rendered, causing a flash of empty content.
+void router.isReady().then(() => {
   requestAnimationFrame(() => {
-    bootShell.remove()
+    const bootShell = document.getElementById('boot-shell')
+    bootShell?.remove()
     document.documentElement.classList.remove('booting')
   })
-} else {
-  document.documentElement.classList.remove('booting')
-}
+})

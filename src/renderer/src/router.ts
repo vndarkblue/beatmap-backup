@@ -1,5 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Settings from './components/Settings.vue'
 // import BeatmapFilter from './components/BeatmapFilter.vue'
 
 // Define route types
@@ -14,19 +13,19 @@ export interface RouteItem {
 export const routes: RouteItem[] = [
   {
     title: 'navigation.settings',
-    icon: 'mdi-cog',
+    icon: '$cog',
     to: '/settings',
     name: 'settings'
   },
   {
     title: 'navigation.backup',
-    icon: 'mdi-export',
+    icon: '$export',
     to: '/backup',
     name: 'backup'
   },
   {
     title: 'navigation.download',
-    icon: 'mdi-download',
+    icon: '$download',
     to: '/download',
     name: 'download'
   }
@@ -48,7 +47,7 @@ const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
-      component: Settings
+      component: () => import('./components/Settings.vue')
     },
     {
       path: '/backup',

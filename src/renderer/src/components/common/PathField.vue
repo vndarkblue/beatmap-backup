@@ -64,8 +64,8 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const prependIcon = computed(() => (props.mode === 'file' ? 'mdi-file-document' : 'mdi-folder'))
-const appendIcon = computed(() => (props.mode === 'file' ? 'mdi-file-search' : 'mdi-folder-open'))
+const prependIcon = computed(() => (props.mode === 'file' ? '$fileDocument' : '$folder'))
+const appendIcon = computed(() => (props.mode === 'file' ? '$fileSearch' : '$folderOpen'))
 const computedBrowseTitle = computed(() => props.browseTitle ?? props.label)
 
 const onUpdate = (value: string): void => {

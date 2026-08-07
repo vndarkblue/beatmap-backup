@@ -23,6 +23,9 @@ function createWindow(): BrowserWindow {
     minWidth: WINDOW_CONFIG.MIN_WIDTH,
     minHeight: WINDOW_CONFIG.MIN_HEIGHT,
     show: false,
+    // Match the boot-shell background so the OS window chrome doesn't flash
+    // white before the HTML document is parsed.
+    backgroundColor: '#fafafa',
     autoHideMenuBar: true,
     icon: icon,
     webPreferences: {
@@ -33,13 +36,26 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    startupMark('window:ready-to-show')
+  // Show the window as soon as navigation commits (HTTP response received).
+  // dom-ready fires only after <script type="module"> finishes executing,
+  // which blocks DOMContentLoaded — so it's too late (~1.4 s in dev).
+  // did-navigate fires right after the server responds (~100 ms), letting
+  // the #boot-shell spinner be visible throughout the Vite/Vue load time.
+  // ready-to-show is kept only for the startup trace log.
+  mainWindow.webContents.once('did-navigate', () => {
+    startupMark('window:did-navigate')
     mainWindow.show()
-    // Open DevTools in development
     if (is.dev) {
       mainWindow.webContents.openDevTools()
     }
+  })
+
+  mainWindow.webContents.on('dom-ready', () => {
+    startupMark('window:dom-ready')
+  })
+
+  mainWindow.on('ready-to-show', () => {
+    startupMark('window:ready-to-show')
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -209,21 +225,14 @@ app.whenReady().then(() => {
     }
   })
 
-  const mainWindow = createWindow()
-  let startupTasksStarted = false
-  const startDeferredStartupTasks = (): void => {
-    if (startupTasksStarted) return
-    startupTasksStarted = true
-    startupMark('startupTasks:start')
-    startServer()
-    CollectionSyncService.getInstance().startBackgroundSync()
-    startupMark('startupTasks:scheduled')
-  }
+  createWindow()
 
-  mainWindow.once('ready-to-show', () => {
-    // Defer heavy startup tasks until first paint to improve first-run window time.
-    setTimeout(startDeferredStartupTasks, 0)
-  })
+  // Start background services immediately so the API is ready before Vue
+  // mounts and makes its first fetch calls.
+  startupMark('startupTasks:start')
+  startServer()
+  CollectionSyncService.getInstance().startBackgroundSync()
+  startupMark('startupTasks:scheduled')
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

@@ -1,6 +1,6 @@
 <template>
   <AppViewShell :title="$t('backup.title')" :lang="currentLocale">
-    <AppIsland :title="$t('backup.backupBeatmapTitle')" icon="mdi-content-save-outline">
+    <AppIsland :title="$t('backup.backupBeatmapTitle')" icon="$contentSaveOutline">
       <AppForm>
         <div class="backup-controls">
           <div class="d-flex flex-column flex-sm-row backup-options-row">

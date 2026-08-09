@@ -1,5 +1,6 @@
 import Realm from 'realm'
 import { getOsuLazerPath } from './settingsStore'
+import { is } from '@electron-toolkit/utils'
 import path from 'path'
 import fs from 'fs'
 
@@ -200,13 +201,13 @@ export const realmService = {
 
     try {
       const onDiskSchemaVersion = Realm.schemaVersion(realmPath)
-      console.log('osu!lazer realm schema version:', onDiskSchemaVersion)
+      if (is.dev) console.log('osu!lazer realm schema version:', onDiskSchemaVersion)
 
       const realmConfig: Realm.Configuration = {
         path: realmPath,
         readOnly: true
       }
-      console.log('REALM CONFIG BEFORE OPEN:', JSON.stringify(realmConfig))
+      if (is.dev) console.log('REALM CONFIG BEFORE OPEN:', JSON.stringify(realmConfig))
 
       realm = await Realm.open(realmConfig)
 

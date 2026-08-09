@@ -307,6 +307,7 @@ type PreviewSnapshot = {
 
 const previewCache = new Map<string, PreviewCacheEntry>()
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let estimateDebounceTimer: ReturnType<typeof setTimeout> | null = null
 let previewRequestSeq = 0
 let latestPreviewAppliedSeq = 0
 
@@ -507,6 +508,16 @@ const scheduleCollectionPreviewLoad = (options?: {
   previewDebounceTimer = setTimeout(run, PREVIEW_DEBOUNCE_MS)
 }
 
+const scheduleRefreshEstimate = (): void => {
+  if (estimateDebounceTimer) {
+    clearTimeout(estimateDebounceTimer)
+  }
+  estimateDebounceTimer = setTimeout(() => {
+    estimateDebounceTimer = null
+    void refreshEstimate()
+  }, PREVIEW_DEBOUNCE_MS)
+}
+
 const formatBytes = (bytes: number): string => {
   if (bytes <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
@@ -613,14 +624,14 @@ watch([stableBackup, lazerBackup, backupByCollection, mergeCollectionNames], () 
   ensureToggleRules()
   saveToggleState()
   scheduleCollectionPreviewLoad()
-  void refreshEstimate()
+  scheduleRefreshEstimate()
 })
 
 watch([backupOnlineIds, backupLocalBeatmaps], () => {
   ensureToggleRules()
   saveToggleState()
   scheduleCollectionPreviewLoad()
-  void refreshEstimate()
+  scheduleRefreshEstimate()
 })
 
 watch(selectedCollectionKeys, () => {
@@ -638,13 +649,17 @@ onMounted(() => {
   saveToggleState()
   loadPreviewSnapshot()
   scheduleCollectionPreviewLoad({ immediate: true })
-  void refreshEstimate()
+  scheduleRefreshEstimate()
 })
 
 onBeforeUnmount(() => {
   if (previewDebounceTimer) {
     clearTimeout(previewDebounceTimer)
     previewDebounceTimer = null
+  }
+  if (estimateDebounceTimer) {
+    clearTimeout(estimateDebounceTimer)
+    estimateDebounceTimer = null
   }
   if (cooldownTicker) {
     clearInterval(cooldownTicker)

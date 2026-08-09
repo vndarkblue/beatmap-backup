@@ -46,21 +46,21 @@
     "content": {
       "title": "Backup content",
       "onlineIds": "Online beatmapset IDs",
-      "localBeatmaps": "Local beatmaps (has no online ID)",
-      "localBeatmapsPending": "· Local beatmapsets will be exported as .osz files. Collections are not supported.",
+      "localBeatmaps": "Offline beatmaps (has no online ID)",
+      "localBeatmapsPending": "· Offline beatmapsets will be exported as .osz files. Collections are not supported.",
       "onlineIdsPending": "· Beatmapset IDs can be used to download beatmapsets on the Download page."
     },
     "success": "Successfully backed up {count} beatmaps",
-    "localSuccess": "Exported {count} local {source} beatmaps to .osz files",
-    "combinedLocalSuccess": "Exported {stable} stable + {lazer} lazer local beatmaps to .osz files",
+    "localSuccess": "Exported {count} beatmaps from {source} to .osz files",
+    "combinedLocalSuccess": "Exported {stable} stable + {lazer} lazer beatmaps to .osz files",
     "error": "Backup failed",
     "cancelled": "Backup cancelled",
     "estimate": "Estimated output: {count} beatmapset IDs (~{size})",
-    "localEstimate": "{count} local beatmapsets",
+    "localEstimate": "{count} offline beatmapsets",
     "estimateUnavailable": "Could not estimate backup size with current settings.",
     "collection": {
       "enabled": "Choose collection(s) to backup",
-      "mergeByName": "Merge duplicate collection names from both stable and lazer",
+      "mergeByName": "Merge collections with the same name",
       "syncNow": "Resolve missing beatmaps",
       "secondsShort": "s",
       "empty": "No collections found for selected sources.",
@@ -70,7 +70,7 @@
         "pending": "pending",
         "notFound": "not found",
         "failed": "failed",
-        "missingLocal": "local"
+        "missingLocal": "offline"
       },
       "sources": {
         "stable": "stable",

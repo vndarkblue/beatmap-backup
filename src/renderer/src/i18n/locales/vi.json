@@ -46,8 +46,8 @@
     "content": {
       "title": "Nội dung sao lưu",
       "onlineIds": "Beatmapset ID",
-      "localBeatmaps": "Beatmap cục bộ (không có id online)",
-      "localBeatmapsPending": "· Beatmap cục bộ sẽ được xuất thành file .osz. Không hỗ trợ Bộ sưu tập.",
+      "localBeatmaps": "Beatmap ngoại tuyến (không có id online)",
+      "localBeatmapsPending": "· Beatmap ngoại tuyến sẽ được xuất thành file .osz. Không hỗ trợ Bộ sưu tập.",
       "onlineIdsPending": "· Beatmapset ID có thể được dùng để tải xuống các beatmap ở trang Tải xuống."
     },
     "success": "Đã sao lưu thành công {count} beatmap",
@@ -56,7 +56,7 @@
     "error": "Sao lưu thất bại",
     "cancelled": "Đã huỷ thao tác",
     "estimate": "Ước tính: {count} beatmapset ID (~{size})",
-    "localEstimate": "{count} beatmapset cục bộ",
+    "localEstimate": "{count} beatmapset ngoại tuyến",
     "estimateUnavailable": "Không thể ước tính kích thước backup với cấu hình hiện tại.",
     "collection": {
       "enabled": "Chọn bộ sưu tập để sao lưu",

@@ -33,7 +33,8 @@
       "upToDate": "Đã cập nhật",
       "outOfDate": "Cần đồng bộ",
       "totalBeatmapsets": "Beatmapset: {count}",
-      "totalBeatmaps": "Beatmap: {count}"
+      "totalBeatmaps": "Beatmap: {count}",
+      "error": "Đã xảy ra lỗi không xác định."
     }
   },
   "backup": {

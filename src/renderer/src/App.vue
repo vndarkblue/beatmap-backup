@@ -49,6 +49,21 @@
         </v-container>
       </SimpleBar>
     </v-main>
+
+    <v-snackbar
+      v-model="toastVisible"
+      :color="toastColor"
+      :timeout="toastTimeout"
+      location="bottom end"
+      elevation="6"
+    >
+      <div class="d-flex align-center justify-space-between w-100">
+        <span class="mr-2">{{ toastMessage }}</span>
+        <v-btn v-if="toastAction" variant="text" size="small" @click="toastAction.onClick">
+          {{ toastAction.label }}
+        </v-btn>
+      </div>
+    </v-snackbar>
   </v-app>
 </template>
 
@@ -72,6 +87,46 @@ const scrollHostRef = ref<InstanceType<typeof SimpleBar> | null>(null)
 const routeScrollPositions = new Map<string, number>()
 let removeBeforeEachGuard: (() => void) | null = null
 let removeAfterEachHook: (() => void) | null = null
+
+const toastVisible = ref(false)
+const toastMessage = ref('')
+const toastColor = ref('info')
+const toastTimeout = ref(4000)
+const toastAction = ref<{ label: string; onClick: () => void } | null>(null)
+let unsubscribeDatabaseSync: (() => void) | null = null
+
+const showToast = (
+  message: string,
+  color = 'info',
+  timeout = 4000,
+  action?: { label: string; onClick: () => void }
+): void => {
+  toastMessage.value = message
+  toastColor.value = color
+  toastTimeout.value = timeout
+  toastAction.value = action ?? null
+  toastVisible.value = true
+}
+
+const setupGlobalDatabaseSyncListener = (): void => {
+  if (unsubscribeDatabaseSync) return
+  unsubscribeDatabaseSync = window.electronAPI.database.onSyncProgress((progress) => {
+    if (progress.phase === 'error') {
+      showToast(
+        t('syncToast.error', { error: progress.error || t('settings.database.error') }),
+        'error',
+        6000,
+        {
+          label: t('syncToast.viewSettings'),
+          onClick: () => {
+            toastVisible.value = false
+            void router.push('/settings')
+          }
+        }
+      )
+    }
+  })
+}
 
 const currentLocale = computed(() => locale.value)
 const themeIcon = computed(() =>
@@ -207,6 +262,7 @@ onMounted(() => {
   prefetchSecondaryViews()
   prewarmBackupCollectionPreview()
   setupRouteScrollMemory()
+  setupGlobalDatabaseSyncListener()
 })
 
 onBeforeUnmount(() => {
@@ -215,6 +271,8 @@ onBeforeUnmount(() => {
   removeAfterEachHook?.()
   removeBeforeEachGuard = null
   removeAfterEachHook = null
+  unsubscribeDatabaseSync?.()
+  unsubscribeDatabaseSync = null
 })
 </script>
 

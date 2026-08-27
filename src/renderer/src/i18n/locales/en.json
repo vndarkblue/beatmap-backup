@@ -297,5 +297,9 @@
       "openFolder": "Open Folder",
       "dismiss": "Dismiss"
     }
+  },
+  "syncToast": {
+    "error": "Database sync failed: {error}",
+    "viewSettings": "View Settings"
   }
 }

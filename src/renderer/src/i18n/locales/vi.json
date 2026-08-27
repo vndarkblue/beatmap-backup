@@ -297,5 +297,9 @@
       "openFolder": "Mở thư mục",
       "dismiss": "Đóng"
     }
+  },
+  "syncToast": {
+    "error": "Đồng bộ cơ sở dữ liệu thất bại: {error}",
+    "viewSettings": "Xem Thiết lập"
   }
 }

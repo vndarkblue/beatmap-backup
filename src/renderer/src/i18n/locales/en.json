@@ -57,6 +57,7 @@
     "cancelled": "Backup cancelled",
     "estimate": "Estimated output: {count} beatmapset IDs (~{size})",
     "localEstimate": "{count} offline beatmapsets",
+    "localProgress": "Exporting offline beatmaps: {current}/{total} ({percent}%)",
     "estimateUnavailable": "Could not estimate backup size with current settings.",
     "collection": {
       "enabled": "Choose collection(s) to backup",

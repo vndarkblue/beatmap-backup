@@ -57,6 +57,7 @@
     "cancelled": "Đã huỷ thao tác",
     "estimate": "Ước tính: {count} beatmapset ID (~{size})",
     "localEstimate": "{count} beatmapset ngoại tuyến",
+    "localProgress": "Đang xuất beatmap ngoại tuyến: {current}/{total} ({percent}%)",
     "estimateUnavailable": "Không thể ước tính kích thước backup với cấu hình hiện tại.",
     "collection": {
       "enabled": "Chọn bộ sưu tập để sao lưu",

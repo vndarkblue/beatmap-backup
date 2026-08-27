@@ -124,6 +124,13 @@ export interface ManualSyncResult {
   status?: CollectionSyncStatus
 }
 
+export interface LocalExportProgress {
+  current: number
+  total: number
+  percent: number
+  currentBeatmap?: string
+}
+
 export interface ElectronApi {
   settings: {
     get: () => Promise<AppSettings>
@@ -165,6 +172,7 @@ export interface ElectronApi {
     previewCollections: (options: PreviewCollectionOptions) => Promise<CollectionPreviewResult>
     estimate: (options: ExportDataOptions) => Promise<ExportEstimateResult>
     export: (options: ExportDataOptions) => Promise<ExportDataResult>
+    onLocalExportProgress: (listener: (progress: LocalExportProgress) => void) => () => void
   }
   system: {
     selectDirectory: () => Promise<string>

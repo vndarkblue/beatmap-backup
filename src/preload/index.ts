@@ -6,6 +6,7 @@ import type {
   DownloadPushEvent,
   PreviewCollectionOptions,
   ExportDataOptions,
+  LocalExportProgress,
   SyncProgressEvent
 } from './electronApiTypes'
 
@@ -55,7 +56,14 @@ const electronAPI: ElectronApi = {
     previewCollections: (options: PreviewCollectionOptions) =>
       ipcRenderer.invoke('backup:preview-collections', options),
     estimate: (options: ExportDataOptions) => ipcRenderer.invoke('backup:estimate', options),
-    export: (options: ExportDataOptions) => ipcRenderer.invoke('backup:export', options)
+    export: (options: ExportDataOptions) => ipcRenderer.invoke('backup:export', options),
+    onLocalExportProgress: (listener: (progress: LocalExportProgress) => void) => {
+      const handler = (_: IpcRendererEvent, progress: LocalExportProgress): void => listener(progress)
+      ipcRenderer.on('backup:local-export-progress', handler)
+      return () => {
+        ipcRenderer.removeListener('backup:local-export-progress', handler)
+      }
+    }
   },
   system: {
     selectDirectory: () => ipcRenderer.invoke('system:select-directory'),

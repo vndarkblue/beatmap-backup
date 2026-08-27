@@ -241,6 +241,35 @@
           {{ $t('backup.button') }}
         </v-btn>
         <div
+          v-if="isExporting && backupLocalBeatmaps && localExportProgress.total > 0"
+          class="local-export-progress mt-3"
+        >
+          <div class="d-flex justify-space-between text-caption mb-1">
+            <span>
+              {{
+                $t('backup.localProgress', {
+                  current: localExportProgress.current,
+                  total: localExportProgress.total,
+                  percent: localExportProgress.percent
+                })
+              }}
+            </span>
+            <span>{{ localExportProgress.percent }}%</span>
+          </div>
+          <v-progress-linear
+            :model-value="localExportProgress.percent"
+            color="primary"
+            height="6"
+            rounded
+          ></v-progress-linear>
+          <div
+            v-if="localExportProgress.currentBeatmap"
+            class="text-caption text-truncate mt-1 text-medium-emphasis"
+          >
+            {{ localExportProgress.currentBeatmap }}
+          </div>
+        </div>
+        <div
           v-if="statusMessage"
           class="text-center mt-2"
           :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
@@ -261,6 +290,8 @@ import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
 import SimpleBar from 'simplebar-vue'
 import 'simplebar-vue/dist/simplebar.min.css'
+
+import type { LocalExportProgress } from '../../../preload/electronApiTypes'
 
 type CollectionItem = {
   key: string
@@ -283,6 +314,13 @@ const backupLocalBeatmaps = ref(false)
 const backupByCollection = ref(false)
 const mergeCollectionNames = ref(true)
 const isExporting = ref(false)
+const localExportProgress = ref<LocalExportProgress>({
+  current: 0,
+  total: 0,
+  percent: 0,
+  currentBeatmap: ''
+})
+let unsubscribeLocalExportProgress: (() => void) | null = null
 const isSyncing = ref(false)
 const syncCooldownUntil = ref(0)
 const nowMs = ref(Date.now())
@@ -710,6 +748,9 @@ onMounted(() => {
   }
   scheduleRefreshEstimate()
   updateCooldownTicker()
+  unsubscribeLocalExportProgress = window.electronAPI.backup.onLocalExportProgress((progress) => {
+    localExportProgress.value = progress
+  })
 })
 
 onBeforeUnmount(() => {
@@ -725,6 +766,10 @@ onBeforeUnmount(() => {
     clearInterval(cooldownTicker)
     cooldownTicker = null
   }
+  if (unsubscribeLocalExportProgress) {
+    unsubscribeLocalExportProgress()
+    unsubscribeLocalExportProgress = null
+  }
 })
 
 const handleExport = async (): Promise<void> => {
@@ -733,6 +778,7 @@ const handleExport = async (): Promise<void> => {
   try {
     isExporting.value = true
     statusMessage.value = ''
+    localExportProgress.value = { current: 0, total: 0, percent: 0, currentBeatmap: '' }
 
     const response = await window.electronAPI.backup.export({
       stable: stableBackup.value,
@@ -789,6 +835,7 @@ const handleExport = async (): Promise<void> => {
     statusMessage.value = msg === 'cancelled' ? t('backup.cancelled') : msg
   } finally {
     isExporting.value = false
+    localExportProgress.value = { current: 0, total: 0, percent: 0, currentBeatmap: '' }
   }
 }
 </script>

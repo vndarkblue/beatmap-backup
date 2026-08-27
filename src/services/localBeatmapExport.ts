@@ -5,10 +5,17 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 
+export interface LocalBeatmapProgressEvent {
+  current: number
+  total: number
+  name: string
+}
+
 export interface LocalBeatmapExportOptions {
   stable: boolean
   outputDirectory?: string
   beatmapMd5s?: string[]
+  onProgress?: (progress: LocalBeatmapProgressEvent) => void
 }
 
 export interface LazerLocalBeatmapExportResult {
@@ -324,7 +331,8 @@ export const localBeatmapExport = {
   exportLazerLocalBeatmaps(
     beatmapsets: LazerLocalBeatmapset[],
     lazerPath: string,
-    outputDirectory: string
+    outputDirectory: string,
+    onProgress?: (progress: LocalBeatmapProgressEvent) => void
   ): LazerLocalBeatmapExportResult {
     const resolvedOutput = path.resolve(outputDirectory)
     const isRoot = resolvedOutput === path.parse(resolvedOutput).root
@@ -336,18 +344,23 @@ export const localBeatmapExport = {
     let noExportableFiles = 0
     let totalMissingFiles = 0
 
-    for (const beatmapset of beatmapsets) {
+    const total = beatmapsets.length
+    for (let i = 0; i < beatmapsets.length; i++) {
+      const beatmapset = beatmapsets[i]
       const { entries, missingFileCount } = collectLazerEntries(lazerPath, beatmapset)
       totalMissingFiles += missingFileCount
 
+      const name = buildLazerOszName(beatmapset)
       if (entries.length === 0) {
         noExportableFiles++
+        onProgress?.({ current: i + 1, total, name })
         continue
       }
 
-      const oszPath = path.join(outputDirectory, `${buildLazerOszName(beatmapset)}.osz`)
+      const oszPath = path.join(outputDirectory, `${name}.osz`)
       writeOszFromEntries(entries, oszPath)
       count++
+      onProgress?.({ current: i + 1, total, name })
     }
 
     return {
@@ -412,9 +425,12 @@ export const localBeatmapExport = {
       songsPath,
       normalizeMd5Filter(options.beatmapMd5s)
     )
-    for (const folder of folders) {
+    const total = folders.length
+    for (let i = 0; i < folders.length; i++) {
+      const folder = folders[i]
       const oszPath = path.join(outputPath, `${sanitizeFileName(folder.name)}.osz`)
       createOszFromFolder(folder.path, oszPath)
+      options.onProgress?.({ current: i + 1, total, name: folder.name })
     }
 
     return {

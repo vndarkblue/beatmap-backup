@@ -365,7 +365,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
   })
 
   ipcMain.handle('backup:export', async (_event, options: ExportOptions) => {
-    return exportService.exportData(options)
+    return exportService.exportData(options, (progress) => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('backup:local-export-progress', progress)
+      }
+    })
   })
 
   // --- 5. SYSTEM & DIALOG DOMAIN ---

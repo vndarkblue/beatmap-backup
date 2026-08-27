@@ -12,6 +12,8 @@ import {
   getBackupBaseNameFromFilePath
 } from './backupNaming'
 import type { CollectionMergeMode } from './collection/types'
+import type { LocalExportProgress } from '../preload/electronApiTypes'
+import type { LazerLocalBeatmapset } from './realmService'
 
 export interface ExportOptions {
   stable: boolean
@@ -170,7 +172,10 @@ export const exportService = {
     }
   },
 
-  async exportData(options: ExportOptions): Promise<ExportResult> {
+  async exportData(
+    options: ExportOptions,
+    onProgress?: (progress: LocalExportProgress) => void
+  ): Promise<ExportResult> {
     if (is.dev) console.log('exportService.exportData called with options:', options)
     try {
       const { dialog } = await import('electron')
@@ -284,6 +289,27 @@ export const exportService = {
             : path.join(filePath, buildLocalOszDirectoryName())
           : ''
 
+      let totalLocalCount = 0
+      let lazerLocalBeatmapsets: LazerLocalBeatmapset[] = []
+      let exportedLocalCount = 0
+
+      if (options.backupLocalBeatmaps && (options.stable || options.lazer)) {
+        if (options.stable) {
+          totalLocalCount += localBeatmapExport.scanStableLocalBeatmaps().count
+        }
+        if (options.lazer) {
+          lazerLocalBeatmapsets = await realmService.getLazerLocalBeatmapsets()
+          totalLocalCount += lazerLocalBeatmapsets.length
+        }
+        if (totalLocalCount > 0) {
+          onProgress?.({
+            current: 0,
+            total: totalLocalCount,
+            percent: 0
+          })
+        }
+      }
+
       if (options.backupLocalBeatmaps && options.stable) {
         if (options.backupByCollection && !stableCollectionBeatmapMd5s) {
           stableCollectionBeatmapMd5s =
@@ -297,7 +323,18 @@ export const exportService = {
         const localResult = localBeatmapExport.exportStableLocalBeatmaps({
           stable: options.stable,
           outputDirectory: localOutputDirectory,
-          beatmapMd5s: options.backupByCollection ? (stableCollectionBeatmapMd5s ?? []) : undefined
+          beatmapMd5s: options.backupByCollection ? (stableCollectionBeatmapMd5s ?? []) : undefined,
+          onProgress: (p) => {
+            exportedLocalCount++
+            const percent =
+              totalLocalCount > 0 ? Math.round((exportedLocalCount / totalLocalCount) * 100) : 100
+            onProgress?.({
+              current: exportedLocalCount,
+              total: totalLocalCount,
+              percent,
+              currentBeatmap: p.name
+            })
+          }
         })
         result.local = {
           count: localResult.count,
@@ -310,11 +347,25 @@ export const exportService = {
         const lazerPath = getOsuLazerPath()
         if (!lazerPath) throw new Error('Osu lazer path not set')
 
-        const beatmapsets = await realmService.getLazerLocalBeatmapsets()
+        const beatmapsets =
+          lazerLocalBeatmapsets.length > 0
+            ? lazerLocalBeatmapsets
+            : await realmService.getLazerLocalBeatmapsets()
         const lazerResult = localBeatmapExport.exportLazerLocalBeatmaps(
           beatmapsets,
           lazerPath,
-          localOutputDirectory
+          localOutputDirectory,
+          (p) => {
+            exportedLocalCount++
+            const percent =
+              totalLocalCount > 0 ? Math.round((exportedLocalCount / totalLocalCount) * 100) : 100
+            onProgress?.({
+              current: exportedLocalCount,
+              total: totalLocalCount,
+              percent,
+              currentBeatmap: p.name
+            })
+          }
         )
         result.localLazer = {
           count: lazerResult.count,

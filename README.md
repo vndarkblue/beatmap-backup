@@ -75,7 +75,7 @@ Continue unfinished downloads from the previous session without restarting from 
 1. Go to the [Releases](https://github.com/vndarkblue/beatmap-backup/releases) page
 2. Download the latest installer for your operating system, install and launch **Beatmap Backup**.
 3. If you do not want to install, you can also download and extract the zip file, then run `beatmap-backup.exe`.
-3. Make sure **osu!** (stable or lazer) is installed on your system
+4. Make sure **osu!** (stable or lazer) is installed on your system
 
 ## 🛠️ Development Setup
 

@@ -375,6 +375,7 @@ class DownloadService extends EventEmitter {
           downloadPath: dlPath,
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          mirrorAttemptCount: 0,
           attemptCount: 0,
           triedMirrors: []
         }
@@ -497,7 +498,6 @@ class DownloadService extends EventEmitter {
     task.remainingTime = 0
     task.error = undefined
     task.nextRetryAt = undefined
-    task.attemptCount = (task.attemptCount ?? 0) + 1
     this.touchTask(task)
     mirrorState.activeDownloads++
     this.activeDownloads++
@@ -600,7 +600,8 @@ class DownloadService extends EventEmitter {
     if (is.dev) {
       console.log(
         `[DownloadDebug] download.fail set=${task.beatmapsetId} mirror=${mirrorName}` +
-          ` attempt=${task.attemptCount} kind=${failureKind} error=${errorMessage}` +
+          ` itemAttempts=${task.attemptCount ?? 0} mirrorAttempts=${task.mirrorAttemptCount ?? 0}` +
+          ` kind=${failureKind} error=${errorMessage}` +
           ` mirrorHealth={ok:${health.success},fail:${health.failure}}`
       )
     }
@@ -619,6 +620,15 @@ class DownloadService extends EventEmitter {
       return
     }
 
+    // Only an item-level miss consumes the item's retry budget. Mirror and
+    // network failures use a separate budget so an unhealthy mirror cannot
+    // exhaust retries for otherwise downloadable items.
+    if (failureKind === 'not-found') {
+      task.attemptCount = (task.attemptCount ?? 0) + 1
+    } else if (failureKind !== 'permanent') {
+      task.mirrorAttemptCount = (task.mirrorAttemptCount ?? 0) + 1
+    }
+
     if (failureKind === 'rate-limit') {
       this.applyMirrorCooldown(mirrorState, error)
     }
@@ -633,7 +643,7 @@ class DownloadService extends EventEmitter {
       return
     }
 
-    if (!this.canRetryTask(task)) {
+    if (!this.canRetryTask(task, failureKind)) {
       this.failTask(task, errorMessage)
       return
     }
@@ -703,13 +713,14 @@ class DownloadService extends EventEmitter {
     if (failureKind === 'not-found') {
       return 0
     }
-    const attempts = Math.max(1, task.attemptCount ?? 1)
+    const attempts = Math.max(1, task.mirrorAttemptCount ?? 1)
     return Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * 2 ** Math.max(0, attempts - 1))
   }
 
-  private canRetryTask(task: DownloadTask): boolean {
+  private canRetryTask(task: DownloadTask, failureKind: FailureKind): boolean {
     const maxAttempts = Math.max(5, this.currentMirrors.length * 2)
-    return (task.attemptCount ?? 0) < maxAttempts
+    const attempts = failureKind === 'not-found' ? task.attemptCount : task.mirrorAttemptCount
+    return (attempts ?? 0) < maxAttempts
   }
 
   private hasTriedEveryMirror(task: DownloadTask): boolean {

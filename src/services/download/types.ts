@@ -23,6 +23,8 @@ export interface DownloadTask {
   filePath?: string
   createdAt?: number
   updatedAt?: number
+  /** Number of retries caused by failures on mirrors (separate from item failures). */
+  mirrorAttemptCount?: number
   attemptCount?: number
   lastErrorAt?: number
   request?: ReturnType<typeof https.get>

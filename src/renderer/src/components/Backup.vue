@@ -85,7 +85,11 @@
             class="mb-3"
             :lang="currentLocale"
           >
-            {{ $t('backup.collection.errors.stableReadFailed', { error: collectionReadErrors.stable }) }}
+            {{
+              $t('backup.collection.errors.stableReadFailed', {
+                error: collectionReadErrors.stable
+              })
+            }}
           </v-alert>
           <v-alert
             v-if="collectionReadErrors.lazer"
@@ -95,7 +99,9 @@
             class="mb-3"
             :lang="currentLocale"
           >
-            {{ $t('backup.collection.errors.lazerReadFailed', { error: collectionReadErrors.lazer }) }}
+            {{
+              $t('backup.collection.errors.lazerReadFailed', { error: collectionReadErrors.lazer })
+            }}
           </v-alert>
 
           <v-switch

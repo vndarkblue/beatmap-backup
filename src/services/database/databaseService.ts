@@ -233,7 +233,9 @@ export class DatabaseService {
       const tableInfo = this.db.pragma('table_info(beatmaps)') as Array<{ name: string }>
       const hasMetricsSource = tableInfo.some((col) => col.name === 'metrics_source')
       if (!hasMetricsSource) {
-        this.db.exec("ALTER TABLE beatmaps ADD COLUMN metrics_source TEXT NOT NULL DEFAULT 'stable'")
+        this.db.exec(
+          "ALTER TABLE beatmaps ADD COLUMN metrics_source TEXT NOT NULL DEFAULT 'stable'"
+        )
       }
     }
     if (!Number.isFinite(current) || current < CURRENT_SCHEMA_VERSION) {

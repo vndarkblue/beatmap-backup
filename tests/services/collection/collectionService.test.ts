@@ -55,7 +55,9 @@ describe('collectionService error surfacing', () => {
 
   it('captures stable reading error in previewCollections when collection.db parse fails', async () => {
     mockParseStableCollectionDb.mockImplementation(() => {
-      throw new Error('collection.db is currently locked by another process (likely osu!stable). Please close the game and try again.')
+      throw new Error(
+        'collection.db is currently locked by another process (likely osu!stable). Please close the game and try again.'
+      )
     })
 
     const result = await collectionService.previewCollections({
@@ -70,9 +72,7 @@ describe('collectionService error surfacing', () => {
   })
 
   it('captures lazer reading error in previewCollections when realm fails', async () => {
-    mockParseStableCollectionDb.mockReturnValue([
-      { name: 'Favorites', beatmapMd5s: ['abc'] }
-    ])
+    mockParseStableCollectionDb.mockReturnValue([{ name: 'Favorites', beatmapMd5s: ['abc'] }])
     mockGetCollections.mockRejectedValue(new Error('Realm database file is locked'))
 
     const result = await collectionService.previewCollections({

@@ -16,7 +16,11 @@ import {
   type QueueSnapshot,
   QUEUE_SNAPSHOT_VERSION
 } from './download/queuePersistence'
-import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs, getWaitForDownloadsOnPause } from './settingsStore'
+import {
+  getMaxCheckpointFileSizeMB,
+  getQueueCheckpointIntervalMs,
+  getWaitForDownloadsOnPause
+} from './settingsStore'
 import { is } from '../utils/env'
 
 export type { DownloadTask, DownloadOptions }
@@ -657,8 +661,11 @@ class DownloadService extends EventEmitter {
       if (error.statusCode === 404) {
         return 'not-found'
       }
+      // A 4xx response (other than 404/429 above) may be specific to this mirror:
+      // e.g. a missing/DMCA'd file (410) or an IP/user-agent restriction (401/403/451).
+      // Let the scheduler try another mirror before exhausting the task's retries.
       if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
-        return 'permanent'
+        return 'transient'
       }
       return 'transient'
     }

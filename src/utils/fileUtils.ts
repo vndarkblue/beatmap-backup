@@ -13,7 +13,11 @@ export async function atomicWriteFile(
   options?: { encoding?: BufferEncoding; mode?: number }
 ): Promise<void> {
   const dir = path.dirname(targetPath)
-  await fs.promises.mkdir(dir, { recursive: true })
+  const resolvedDir = path.resolve(dir)
+  const isRoot = resolvedDir === path.parse(resolvedDir).root
+  if (!isRoot && !fs.existsSync(dir)) {
+    await fs.promises.mkdir(dir, { recursive: true })
+  }
 
   const uniqueSuffix = `${Date.now()}.${Math.random().toString(36).slice(2, 8)}`
   const tmpPath = `${targetPath}.${uniqueSuffix}.tmp`

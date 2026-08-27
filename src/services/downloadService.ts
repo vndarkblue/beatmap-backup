@@ -906,7 +906,11 @@ class DownloadService extends EventEmitter {
     const logPath = this.getMirrorUsageLogPath(downloadPath, reason)
 
     try {
-      await fs.promises.mkdir(downloadPath, { recursive: true })
+      const resolvedDownloadPath = path.resolve(downloadPath)
+      const isRoot = resolvedDownloadPath === path.parse(resolvedDownloadPath).root
+      if (!isRoot && !fs.existsSync(downloadPath)) {
+        await fs.promises.mkdir(downloadPath, { recursive: true })
+      }
       await fs.promises.writeFile(logPath, `${rows.join('\n')}\n`, 'utf-8')
       if (is.dev)
         console.log(`[DownloadDebug] mirrorUsageLog.${reason} path=${logPath} rows=${rows.length}`)

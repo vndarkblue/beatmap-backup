@@ -326,7 +326,11 @@ export const localBeatmapExport = {
     lazerPath: string,
     outputDirectory: string
   ): LazerLocalBeatmapExportResult {
-    fs.mkdirSync(outputDirectory, { recursive: true })
+    const resolvedOutput = path.resolve(outputDirectory)
+    const isRoot = resolvedOutput === path.parse(resolvedOutput).root
+    if (!isRoot && !fs.existsSync(outputDirectory)) {
+      fs.mkdirSync(outputDirectory, { recursive: true })
+    }
 
     let count = 0
     let noExportableFiles = 0
@@ -398,7 +402,11 @@ export const localBeatmapExport = {
 
     const outputPath =
       options.outputDirectory ?? path.join(osuStablePath, getDefaultOutputDirectoryName())
-    fs.mkdirSync(outputPath, { recursive: true })
+    const resolvedOutput = path.resolve(outputPath)
+    const isRoot = resolvedOutput === path.parse(resolvedOutput).root
+    if (!isRoot && !fs.existsSync(outputPath)) {
+      fs.mkdirSync(outputPath, { recursive: true })
+    }
 
     const { folders, skipped } = getStableLocalBeatmapFolders(
       songsPath,

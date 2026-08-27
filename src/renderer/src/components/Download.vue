@@ -517,7 +517,8 @@ const handleDownload = async (): Promise<void> => {
       filePath,
       options: {
         threadCount: threadCount.value,
-        sources: selectedSources.value,
+        // Vue reactive arrays are proxies; send a plain array for Electron IPC cloning.
+        sources: [...selectedSources.value],
         removeFromStable: removeFromStable.value,
         removeFromLazer: removeFromLazer.value,
         noVideo: noVideo.value

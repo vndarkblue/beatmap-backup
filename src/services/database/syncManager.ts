@@ -54,7 +54,7 @@ class SyncManager extends EventEmitter {
         message: 'osu!stable is currently running'
       })
     } else {
-      await this.syncSource('stable', false)
+      await this.syncSource('stable', false, stableProc)
     }
 
     startupMark('db:startupSync:afterStable')
@@ -68,7 +68,7 @@ class SyncManager extends EventEmitter {
         message: 'osu!lazer is currently running'
       })
     } else {
-      await this.syncSource('lazer', false)
+      await this.syncSource('lazer', false, lazerProc)
     }
 
     startupMark('db:startupSync:done')
@@ -140,7 +140,11 @@ class SyncManager extends EventEmitter {
     this.emit('sync', payload)
   }
 
-  private async syncSource(source: SyncSource, force: boolean): Promise<void> {
+  private async syncSource(
+    source: SyncSource,
+    force: boolean,
+    processCheck?: Awaited<ReturnType<typeof isOsuProcessRunning>>
+  ): Promise<void> {
     if (this.runningSources.has(source)) {
       this.emitSyncEvent({
         source,
@@ -156,7 +160,7 @@ class SyncManager extends EventEmitter {
 
     try {
       // Check if osu! process is running
-      const procCheck = await isOsuProcessRunning(source)
+      const procCheck = processCheck ?? (await isOsuProcessRunning(source))
       if (procCheck.running) {
         if (force) {
           this.emitSyncEvent({

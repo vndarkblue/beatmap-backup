@@ -145,6 +145,9 @@ describe('SyncManager', () => {
     expect(mockImportFromStableDb).not.toHaveBeenCalled()
     // Lazer should run and not be blocked by previous sync
     expect(mockImportFromLazerRealm).toHaveBeenCalled()
+    expect(mockIsOsuProcessRunning).toHaveBeenCalledTimes(2)
+    expect(mockIsOsuProcessRunning).toHaveBeenNthCalledWith(1, 'stable')
+    expect(mockIsOsuProcessRunning).toHaveBeenNthCalledWith(2, 'lazer')
   })
 
   it('skips lazer startup sync when osu!lazer is currently running', async () => {

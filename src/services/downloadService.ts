@@ -16,7 +16,7 @@ import {
   type QueueSnapshot,
   QUEUE_SNAPSHOT_VERSION
 } from './download/queuePersistence'
-import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs } from './settingsStore'
+import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs, getWaitForDownloadsOnPause } from './settingsStore'
 import { is } from '../utils/env'
 
 export type { DownloadTask, DownloadOptions }
@@ -832,7 +832,6 @@ class DownloadService extends EventEmitter {
   }
 
   public async pauseQueue(): Promise<void> {
-    const { getWaitForDownloadsOnPause } = await import('./settingsStore')
     const shouldWaitForCompletion = getWaitForDownloadsOnPause()
 
     this.debugQueueState('pauseQueue.before', { shouldWaitForCompletion })

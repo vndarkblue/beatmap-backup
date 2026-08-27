@@ -81,6 +81,32 @@ function selectCollections(entries: CollectionEntry[], selectedKeys: string[]): 
   )
 }
 
+function getSelectedCollectionSources(selectedKeys: string[]): Set<CollectionSource> {
+  const sources = new Set<CollectionSource>()
+  for (const key of selectedKeys) {
+    const source = key.split('::', 1)[0]
+    if (source === 'stable' || source === 'lazer' || source === 'both') {
+      sources.add(source)
+    }
+  }
+  return sources
+}
+
+function getSelectedCollectionReadErrors(
+  selectedKeys: string[],
+  errors: CollectionReadErrors
+): string[] {
+  const selectedSources = getSelectedCollectionSources(selectedKeys)
+  const messages: string[] = []
+  if ((selectedSources.has('stable') || selectedSources.has('both')) && errors.stable) {
+    messages.push(errors.stable)
+  }
+  if ((selectedSources.has('lazer') || selectedSources.has('both')) && errors.lazer) {
+    messages.push(errors.lazer)
+  }
+  return messages
+}
+
 function getStableCandidateMd5s(entries: CollectionEntry[]): string[] {
   return normalizeMd5s(
     entries
@@ -261,12 +287,13 @@ export const collectionService = {
     const { entries: collections, errors } = await this.readCollectionsDetailed(options)
     const selected = selectCollections(collections, options.selectedKeys)
     const stableBeatmapMd5s = getStableCandidateMd5s(selected)
+    const selectedReadErrors = getSelectedCollectionReadErrors(options.selectedKeys, errors)
+
+    if (selectedReadErrors.length > 0) {
+      throw new Error(`Could not read selected collections: ${selectedReadErrors.join('; ')}`)
+    }
 
     if (selected.length === 0) {
-      if (options.selectedKeys.length > 0 && (errors.stable || errors.lazer)) {
-        const errorMsg = [errors.stable, errors.lazer].filter(Boolean).join('; ')
-        throw new Error(`Could not read selected collections: ${errorMsg}`)
-      }
       return {
         ids: [],
         stats: { resolved: 0, pendingSync: 0, missingLocal: 0, apiNotFound: 0 },

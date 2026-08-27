@@ -101,4 +101,18 @@ describe('collectionService error surfacing', () => {
       })
     ).rejects.toThrow('Could not read selected collections: File locked')
   })
+
+  it('throws when a selected lazer collection cannot be read alongside stable collections', async () => {
+    mockParseStableCollectionDb.mockReturnValue([{ name: 'Favorites', beatmapMd5s: ['abc'] }])
+    mockGetCollections.mockRejectedValue(new Error('Realm database file is locked'))
+
+    await expect(
+      collectionService.resolveCollectionBeatmapsetIds({
+        stable: true,
+        lazer: true,
+        mergeMode: 'split',
+        selectedKeys: ['stable::Favorites', 'lazer::Lazer Favorites']
+      })
+    ).rejects.toThrow('Could not read selected collections: Realm database file is locked')
+  })
 })

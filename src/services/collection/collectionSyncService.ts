@@ -1,5 +1,5 @@
 import { DatabaseService } from '../database/databaseService'
-import { resolveMd5FromOsuDirect } from './osuDirectService'
+import { OsuDirectRateLimitError, resolveMd5FromOsuDirect } from './osuDirectService'
 import { is } from '../../utils/env'
 import type { CollectionSyncStatus } from './types'
 
@@ -8,6 +8,7 @@ const RETRY_BACKOFF_MS = 30 * 60 * 1000
 const BATCH_SIZE = 25
 const MANUAL_SYNC_COOLDOWN_MS = 5 * 1000
 const INITIAL_SYNC_DELAY_MS = 60 * 1000
+const INTER_REQUEST_DELAY_MS = 100
 
 export interface CollectionSyncRunSummary {
   processed: number
@@ -22,6 +23,7 @@ class CollectionSyncService {
   private initialTimer: NodeJS.Timeout | null = null
   private isRunning = false
   private lastManualSyncAt = 0
+  private rateLimitCooldownUntil = 0
   private lastRunSummary: CollectionSyncRunSummary = {
     processed: 0,
     resolved: 0,
@@ -84,6 +86,10 @@ class CollectionSyncService {
     return { ...this.lastRunSummary }
   }
 
+  getRateLimitCooldownUntil(): number {
+    return this.rateLimitCooldownUntil
+  }
+
   async requestManualSync(): Promise<{
     executed: boolean
     reason?: 'running' | 'cooldown'
@@ -93,6 +99,13 @@ class CollectionSyncService {
       return { executed: false, reason: 'running', retryAfterMs: 1000 }
     }
     const now = Date.now()
+    if (now < this.rateLimitCooldownUntil) {
+      return {
+        executed: false,
+        reason: 'cooldown',
+        retryAfterMs: this.rateLimitCooldownUntil - now
+      }
+    }
     const elapsed = now - this.lastManualSyncAt
     if (elapsed < MANUAL_SYNC_COOLDOWN_MS) {
       return {
@@ -109,12 +122,21 @@ class CollectionSyncService {
 
   async syncMissingMd5s(): Promise<void> {
     if (this.isRunning) return
+    const now = Date.now()
+    if (now < this.rateLimitCooldownUntil) {
+      if (is.dev) {
+        console.log(
+          `[CollectionSync] Rate limited until ${new Date(this.rateLimitCooldownUntil).toISOString()}, skipping batch`
+        )
+      }
+      return
+    }
+
     this.isRunning = true
     const db = DatabaseService.getInstance()
     db.setMeta('collection_sync_running', '1')
 
     try {
-      const now = Date.now()
       const retryBefore = now - RETRY_BACKOFF_MS
       const rows = db.getCollectionMapCachePendingForSync({
         limit: BATCH_SIZE,
@@ -127,7 +149,12 @@ class CollectionSyncService {
         failed: 0
       }
 
-      for (const row of rows) {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        if (i > 0 && INTER_REQUEST_DELAY_MS > 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, INTER_REQUEST_DELAY_MS))
+        }
+
         runSummary.processed += 1
         try {
           const resolved = await resolveMd5FromOsuDirect(row.md5hash)
@@ -154,7 +181,16 @@ class CollectionSyncService {
               lastCheckedAt: Date.now()
             })
           }
-        } catch {
+        } catch (error) {
+          if (error instanceof OsuDirectRateLimitError) {
+            this.rateLimitCooldownUntil = Date.now() + error.retryAfterMs
+            console.warn(
+              `[CollectionSync] Rate limit 429 received from osu.direct. Cooling down for ${Math.round(error.retryAfterMs / 1000)}s. Aborting batch.`
+            )
+            // Leave current row and remaining items as pending for next run after cooldown
+            break
+          }
+
           runSummary.failed += 1
           db.upsertCollectionMapCache({
             md5hash: row.md5hash,

@@ -10,6 +10,17 @@ export interface ResolvedMd5Info {
   beatmapsetId: number | null
 }
 
+export class OsuDirectRateLimitError extends Error {
+  readonly status = 429
+  readonly retryAfterMs: number
+
+  constructor(message: string, retryAfterMs = 60_000) {
+    super(message)
+    this.name = 'OsuDirectRateLimitError'
+    this.retryAfterMs = retryAfterMs
+  }
+}
+
 const OSU_DIRECT_MD5_URL = 'https://osu.direct/api/md5'
 
 export async function resolveMd5FromOsuDirect(md5: string): Promise<ResolvedMd5Info | null> {
@@ -18,6 +29,17 @@ export async function resolveMd5FromOsuDirect(md5: string): Promise<ResolvedMd5I
   })
   if (!response.ok) {
     if (response.status === 404) return null
+    if (response.status === 429) {
+      const retryAfterHeader = response.headers.get('retry-after')
+      let retryAfterMs = 60_000
+      if (retryAfterHeader) {
+        const parsedSec = Number(retryAfterHeader)
+        if (!isNaN(parsedSec) && parsedSec > 0) {
+          retryAfterMs = parsedSec * 1000
+        }
+      }
+      throw new OsuDirectRateLimitError('osu.direct rate limit exceeded (429)', retryAfterMs)
+    }
     throw new Error(`osu.direct request failed (${response.status})`)
   }
 

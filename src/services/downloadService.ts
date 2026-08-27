@@ -42,6 +42,9 @@ const BASE_RETRY_DELAY_MS = 1000
 const MAX_RETRY_DELAY_MS = 30000
 const BASE_RATE_LIMIT_COOLDOWN_MS = 5000
 const MAX_RATE_LIMIT_COOLDOWN_MS = 60000
+const BASE_MIRROR_COOLDOWN_MS = 2000
+const MAX_MIRROR_COOLDOWN_MS = 60000
+const MIRROR_HEALTH_REFRESH_INTERVAL_MS = 30000
 
 class DownloadService extends EventEmitter {
   private static instance: DownloadService
@@ -59,6 +62,8 @@ class DownloadService extends EventEmitter {
   private persistTimer?: NodeJS.Timeout
   private latestSnapshot: QueueSnapshot | null = null
   private mirrorUsageLogQueueId: string | null = null
+  private mirrorHealthRefreshAt = 0
+  private mirrorHealthRefreshInFlight?: Promise<void>
 
   private constructor() {
     super()
@@ -430,6 +435,8 @@ class DownloadService extends EventEmitter {
       return
     }
 
+    this.refreshMirrorAvailability()
+
     let dispatched = 0
     while (this.activeDownloads < this.getGlobalConcurrencyLimit()) {
       const next = this.pickNextRunnableTask()
@@ -446,6 +453,81 @@ class DownloadService extends EventEmitter {
 
     this.scheduleNextWakeup()
     this.checkQueueCompletion()
+  }
+
+  private refreshMirrorAvailability(): void {
+    const now = Date.now()
+    if (
+      !this.currentOptions ||
+      this.mirrorHealthRefreshInFlight ||
+      this.mirrorHealthRefreshAt > now
+    ) {
+      return
+    }
+
+    this.mirrorHealthRefreshAt = now + MIRROR_HEALTH_REFRESH_INTERVAL_MS
+    const options = this.currentOptions
+    const mirrorService = BeatmapMirrorService.getInstance()
+    this.mirrorHealthRefreshInFlight = (async () => {
+      const healthyMirrorNames = await mirrorService.getHealthyMirrorNames(true)
+      const availableMirrors = DefaultBeatmapMirrors.filter(
+        (mirror) =>
+          options.sources.includes(mirror.name) &&
+          (!options.noVideo || mirror.supportsNoVideo !== false) &&
+          healthyMirrorNames.has(mirror.name)
+      )
+      // Keep the last usable set if a health probe temporarily reports every
+      // mirror offline; per-mirror cooldowns still prevent hot-looping.
+      if (availableMirrors.length === 0) {
+        return
+      }
+      const previousNames = new Set(this.currentMirrors.map((mirror) => mirror.name))
+      const nextNames = new Set(availableMirrors.map((mirror) => mirror.name))
+      if (
+        availableMirrors.length === this.currentMirrors.length &&
+        availableMirrors.every((mirror) => previousNames.has(mirror.name))
+      ) {
+        return
+      }
+
+      this.currentMirrors = availableMirrors
+      const perMirrorConcurrency = Math.max(
+        1,
+        Math.ceil(this.getGlobalConcurrencyLimit(options) / Math.max(1, availableMirrors.length))
+      )
+      for (const state of this.mirrorStates.values()) {
+        if (nextNames.has(state.mirror.name)) {
+          state.maxConcurrency = perMirrorConcurrency
+        }
+      }
+      for (const mirror of availableMirrors) {
+        if (!this.mirrorStates.has(mirror.name)) {
+          this.mirrorStates.set(mirror.name, {
+            mirror,
+            activeDownloads: 0,
+            maxConcurrency: perMirrorConcurrency,
+            cooldownUntil: 0,
+            rateLimitCount: 0,
+            consecutiveFailures: 0,
+            consecutiveSuccesses: 0
+          })
+        }
+      }
+      if (is.dev) {
+        console.log(
+          `[DownloadDebug] mirror availability updated available=[${availableMirrors
+            .map((mirror) => mirror.name)
+            .join(', ')}]`
+        )
+      }
+    })()
+      .catch((error) => {
+        console.warn('[DownloadDebug] mirror availability refresh failed:', error)
+      })
+      .finally(() => {
+        this.mirrorHealthRefreshInFlight = undefined
+        this.scheduleDownloads()
+      })
   }
 
   private pickNextRunnableTask(): { task: DownloadTask; mirror: MirrorRuntimeState } | null {
@@ -467,8 +549,12 @@ class DownloadService extends EventEmitter {
 
   private pickAvailableMirror(task: DownloadTask, now: number): MirrorRuntimeState | null {
     const tried = new Set(task.triedMirrors ?? [])
+    const currentMirrorNames = new Set(this.currentMirrors.map((mirror) => mirror.name))
     const available = Array.from(this.mirrorStates.values()).filter(
-      (state) => state.cooldownUntil <= now && state.activeDownloads < state.maxConcurrency
+      (state) =>
+        currentMirrorNames.has(state.mirror.name) &&
+        state.cooldownUntil <= now &&
+        state.activeDownloads < state.maxConcurrency
     )
     if (available.length === 0) {
       return null
@@ -632,8 +718,8 @@ class DownloadService extends EventEmitter {
       task.mirrorAttemptCount = (task.mirrorAttemptCount ?? 0) + 1
     }
 
-    if (failureKind === 'rate-limit') {
-      this.applyMirrorCooldown(mirrorState, error)
+    if (failureKind === 'rate-limit' || failureKind === 'transient') {
+      this.applyMirrorCooldown(mirrorState, error, failureKind)
     }
 
     if (failureKind === 'permanent') {
@@ -695,14 +781,25 @@ class DownloadService extends EventEmitter {
     return 'transient'
   }
 
-  private applyMirrorCooldown(mirrorState: MirrorRuntimeState, error: unknown): void {
-    mirrorState.rateLimitCount++
+  private applyMirrorCooldown(
+    mirrorState: MirrorRuntimeState,
+    error: unknown,
+    failureKind: 'rate-limit' | 'transient'
+  ): void {
+    if (failureKind === 'rate-limit') {
+      mirrorState.rateLimitCount++
+    }
     const retryAfterMs = error instanceof DownloadHttpError ? error.retryAfterMs : undefined
-    const backoffMs = Math.min(
+    const failureBackoffMs = Math.min(
+      MAX_MIRROR_COOLDOWN_MS,
+      BASE_MIRROR_COOLDOWN_MS * 2 ** Math.max(0, mirrorState.consecutiveFailures - 1)
+    )
+    const rateLimitBackoffMs = Math.min(
       MAX_RATE_LIMIT_COOLDOWN_MS,
       BASE_RATE_LIMIT_COOLDOWN_MS * 2 ** Math.max(0, mirrorState.rateLimitCount - 1)
     )
-    const cooldownMs = retryAfterMs ?? backoffMs
+    const cooldownMs =
+      failureKind === 'rate-limit' ? (retryAfterMs ?? rateLimitBackoffMs) : failureBackoffMs
     mirrorState.cooldownUntil = Date.now() + cooldownMs
     if (is.dev) {
       console.log(

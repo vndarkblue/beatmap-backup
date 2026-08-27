@@ -159,8 +159,8 @@ class BeatmapMirrorService {
     }
   }
 
-  public async getHealthyMirrorNames(): Promise<Set<string>> {
-    const statuses = await this.getMirrorsStatus()
+  public async getHealthyMirrorNames(forceRefresh = false): Promise<Set<string>> {
+    const statuses = await this.getMirrorsStatus(forceRefresh)
     const healthy = new Set(statuses.filter((s) => s.isOnline).map((s) => s.name))
     if (is.dev) {
       console.log(

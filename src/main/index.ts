@@ -1,20 +1,20 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../renderer/src/assets/logo.ico?asset'
-import { startServer, stopServer } from '../services/api'
-import { exportService } from '../services/exportService'
-import fs from 'fs'
 import { APP_NAME, APP_ID } from '../config/sharedConstants'
 import { WINDOW_CONFIG } from '../config/backendConstants'
-import DownloadService from '../services/downloadService'
-import { collectionService } from '../services/collection/collectionService'
-import CollectionSyncService from '../services/collection/collectionSyncService'
-import { resolveExistingPathWithinRoot } from './pathGuards'
 import { startupMark } from '../services/startupTrace'
+import { registerIpcHandlers } from './ipc/registerIpcHandlers'
+import {
+  initEarlyServices,
+  startDeferredBackgroundServices,
+  stopBackgroundServices
+} from './backgroundServices'
+
+let cleanupIpcHandlers: (() => void) | undefined
 
 function createWindow(): BrowserWindow {
-  // Create the browser window.
   startupMark('createWindow:start')
   const mainWindow = new BrowserWindow({
     title: APP_NAME,
@@ -23,8 +23,6 @@ function createWindow(): BrowserWindow {
     minWidth: WINDOW_CONFIG.MIN_WIDTH,
     minHeight: WINDOW_CONFIG.MIN_HEIGHT,
     show: false,
-    // Match the boot-shell background so the OS window chrome doesn't flash
-    // white before the HTML document is parsed.
     backgroundColor: '#fafafa',
     autoHideMenuBar: true,
     icon: icon,
@@ -36,26 +34,35 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  // Show the window as soon as navigation commits (HTTP response received).
-  // dom-ready fires only after <script type="module"> finishes executing,
-  // which blocks DOMContentLoaded — so it's too late (~1.4 s in dev).
-  // did-navigate fires right after the server responds (~100 ms), letting
-  // the #boot-shell spinner be visible throughout the Vite/Vue load time.
-  // ready-to-show is kept only for the startup trace log.
-  mainWindow.webContents.once('did-navigate', () => {
-    startupMark('window:did-navigate')
+  let backgroundStarted = false
+  const scheduleDeferredTasks = (): void => {
+    if (backgroundStarted) return
+    backgroundStarted = true
+    startupMark('startupTasks:scheduled')
+    setTimeout(() => {
+      startDeferredBackgroundServices()
+    }, 1500)
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    startupMark('window:ready-to-show')
     mainWindow.show()
     if (is.dev) {
-      mainWindow.webContents.openDevTools()
+      mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
+    scheduleDeferredTasks()
   })
+
+  // Fallback to guarantee window visibility even if ready-to-show is delayed
+  setTimeout(() => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
+    scheduleDeferredTasks()
+  }, 1000)
 
   mainWindow.webContents.on('dom-ready', () => {
     startupMark('window:dom-ready')
-  })
-
-  mainWindow.on('ready-to-show', () => {
-    startupMark('window:ready-to-show')
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -63,8 +70,6 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     startupMark('window:loadURL', { url: process.env['ELECTRON_RENDERER_URL'] })
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -73,185 +78,42 @@ function createWindow(): BrowserWindow {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
+  // Register domain-driven IPC handlers and event dispatchers
+  cleanupIpcHandlers = registerIpcHandlers(mainWindow)
+
+  mainWindow.on('closed', () => {
+    if (cleanupIpcHandlers) {
+      cleanupIpcHandlers()
+      cleanupIpcHandlers = undefined
+    }
+  })
+
   startupMark('createWindow:end')
   return mainWindow
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   startupMark('app:whenReady')
-  // Set app user model id for windows
   electronApp.setAppUserModelId(APP_ID)
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Register IPC handlers for electronAPI
-  ipcMain.handle('select-directory', async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory']
-    })
-    return result.canceled ? '' : result.filePaths[0]
-  })
-
-  ipcMain.handle('get-file-path', async () => {
-    try {
-      const result = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [{ name: 'Beatmap Backup Files', extensions: ['bbak'] }]
-      })
-      if (result.canceled) {
-        throw new Error('No file selected')
-      }
-      return result.filePaths[0]
-    } catch (error) {
-      console.error('Error getting file path:', error)
-      throw error
-    }
-  })
-
-  ipcMain.handle('check-subdir', async (_, dir: string, sub: string) => {
-    try {
-      const safePath = await resolveExistingPathWithinRoot(dir, sub)
-      if (!safePath.valid || !safePath.resolvedPath) {
-        return false
-      }
-      const subDirPath = safePath.resolvedPath
-      return fs.existsSync(subDirPath) && fs.statSync(subDirPath).isDirectory()
-    } catch (error) {
-      console.error('Error checking subdirectory:', error)
-      return false
-    }
-  })
-
-  ipcMain.handle('check-file', async (_, dir: string, file: string) => {
-    try {
-      const safePath = await resolveExistingPathWithinRoot(dir, file)
-      if (!safePath.valid || !safePath.resolvedPath) {
-        return false
-      }
-      const filePath = safePath.resolvedPath
-      return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
-    } catch (error) {
-      console.error('Error checking file:', error)
-      return false
-    }
-  })
-
-  ipcMain.handle(
-    'preview-collections',
-    async (_, options: { stable: boolean; lazer: boolean; mergeMode: 'merge' | 'split' }) => {
-      try {
-        return await collectionService.previewCollections({
-          stable: options.stable,
-          lazer: options.lazer,
-          mergeMode: options.mergeMode
-        })
-      } catch (error) {
-        return {
-          success: false,
-          collections: [],
-          syncStatus: CollectionSyncService.getInstance().getStatus(),
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
-      }
-    }
-  )
-
-  ipcMain.handle('sync-collection-md5-cache', async () => {
-    try {
-      const result = await CollectionSyncService.getInstance().requestManualSync()
-      return {
-        success: true,
-        ...result,
-        status: CollectionSyncService.getInstance().getStatus()
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        status: CollectionSyncService.getInstance().getStatus()
-      }
-    }
-  })
-
-  ipcMain.handle('get-collection-sync-status', async () => {
-    return CollectionSyncService.getInstance().getStatus()
-  })
-
-  ipcMain.handle(
-    'export-data',
-    async (
-      _,
-      options: {
-        stable: boolean
-        lazer: boolean
-        backupOnlineIds?: boolean
-        backupLocalBeatmaps?: boolean
-        backupByCollection?: boolean
-        collectionMergeMode?: 'merge' | 'split'
-        selectedCollections?: string[]
-      }
-    ) => {
-      try {
-        return await exportService.exportData(options)
-      } catch (error) {
-        console.error('Export failed:', error)
-        return {
-          success: false,
-          count: 0,
-          outputPath: '',
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
-      }
-    }
-  )
-
-  // Open a file or directory path on host OS
-  ipcMain.handle('open-path', async (_event, targetPath: string) => {
-    try {
-      const result = await shell.openPath(targetPath)
-      // shell.openPath returns empty string on success, error message otherwise
-      return result
-    } catch (error) {
-      console.error('Failed to open path:', error)
-      return error instanceof Error ? error.message : 'Failed to open path'
-    }
-  })
+  // Quick synchronous early services (e.g. auto detect paths)
+  initEarlyServices()
 
   createWindow()
 
-  // Start background services immediately so the API is ready before Vue
-  // mounts and makes its first fetch calls.
-  startupMark('startupTasks:start')
-  startServer()
-  CollectionSyncService.getInstance().startBackgroundSync()
-  startupMark('startupTasks:scheduled')
-
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    void DownloadService.getInstance().flushCheckpointWithTimeout()
-    CollectionSyncService.getInstance().stopBackgroundSync()
-    stopServer()
-    app.quit()
+    void stopBackgroundServices().finally(() => {
+      app.quit()
+    })
   }
 })
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.

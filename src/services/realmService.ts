@@ -1,6 +1,6 @@
 import Realm from 'realm'
 import { getOsuLazerPath } from './settingsStore'
-import { is } from '@electron-toolkit/utils'
+import { is } from '../utils/env'
 import path from 'path'
 import fs from 'fs'
 

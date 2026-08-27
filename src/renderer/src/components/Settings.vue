@@ -92,12 +92,7 @@
           <span class="text-subtitle-1" :lang="currentLocale">{{ threadCountLabel }}</span>
           <v-tooltip location="top">
             <template #activator="{ props }">
-              <v-icon
-                v-bind="props"
-                icon="$helpCircleOutline"
-                size="18"
-                color="medium-emphasis"
-              />
+              <v-icon v-bind="props" icon="$helpCircleOutline" size="18" color="medium-emphasis" />
             </template>
             <span :lang="currentLocale">{{ $t('download.options.threadCountHelp') }}</span>
           </v-tooltip>
@@ -284,11 +279,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { API_ENDPOINTS } from '../../../config/sharedConstants'
 import {
   FRONTEND_DEFAULTS,
   FRONTEND_TIMINGS_MS,
-  HTTP_HEADERS,
   STORAGE_KEYS
 } from '../../../config/frontendConstants'
 import { languageNames, languageFlags } from '../i18n/languageProperties'
@@ -298,6 +291,7 @@ import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
 import PathField from './common/PathField.vue'
+import type { DatabaseStatus } from '../../../services/database/types'
 
 const { t, locale } = useI18n()
 
@@ -354,21 +348,6 @@ const osuLazerPlaceholder = computed(() =>
 const showAutoDetectWarningInline = ref(false)
 let autoDetectWarningTimer: number | null = null
 
-type DatabaseStatus = {
-  totals: {
-    beatmapsets: number
-    beatmaps: number
-  }
-  stable: {
-    isDirty: boolean
-    lastSyncAt: number | null
-  }
-  lazer: {
-    isDirty: boolean
-    lastSyncAt: number | null
-  }
-}
-
 const databaseStatus = ref<DatabaseStatus | null>(null)
 const isSyncing = ref(false)
 const syncMessage = ref('')
@@ -380,13 +359,12 @@ const resetFeedbackClass = ref('')
 let resetHoldRaf: number | null = null
 let resetHoldStartedAt = 0
 let isResetHoldActive = false
-let databaseEventSource: EventSource | null = null
+let unsubscribeDatabaseSync: (() => void) | null = null
 const RESET_HOLD_MS = 727
 
 const loadSettings = async (): Promise<void> => {
   try {
-    const res = await fetch(API_ENDPOINTS.SETTINGS)
-    const data = await res.json()
+    const data = await window.electronAPI.settings.get()
     osuStablePath.value = data.osuStablePath || ''
     osuLazerPath.value = data.osuLazerPath || ''
     loadDownloadSettings()
@@ -398,8 +376,7 @@ const loadSettings = async (): Promise<void> => {
 
 const loadDatabaseStatus = async (): Promise<void> => {
   try {
-    const res = await fetch(API_ENDPOINTS.DATABASE_STATUS)
-    databaseStatus.value = await res.json()
+    databaseStatus.value = await window.electronAPI.database.getStatus()
   } catch (error) {
     console.error('Failed to load database status:', error)
   }
@@ -407,8 +384,7 @@ const loadDatabaseStatus = async (): Promise<void> => {
 
 const loadAutoDetectWarning = async (): Promise<void> => {
   try {
-    const res = await fetch(API_ENDPOINTS.SETTINGS_AUTO_DETECT_STATUS)
-    const data = (await res.json()) as { showWarning?: boolean }
+    const data = await window.electronAPI.settings.getAutoDetectStatus()
     if (!data.showWarning) return
     showAutoDetectWarningInline.value = true
     if (autoDetectWarningTimer) {
@@ -424,26 +400,18 @@ const loadAutoDetectWarning = async (): Promise<void> => {
 }
 
 const saveOsuStablePath = async (path: string): Promise<void> => {
-  await fetch(API_ENDPOINTS.SETTINGS_OSU_STABLE, {
-    method: 'POST',
-    headers: HTTP_HEADERS.JSON,
-    body: JSON.stringify({ path })
-  })
+  await window.electronAPI.settings.update({ osuStablePath: path })
 }
 
 const saveOsuLazerPath = async (path: string): Promise<void> => {
-  await fetch(API_ENDPOINTS.SETTINGS_OSU_LAZER, {
-    method: 'POST',
-    headers: HTTP_HEADERS.JSON,
-    body: JSON.stringify({ path })
-  })
+  await window.electronAPI.settings.update({ osuLazerPath: path })
 }
 
 const selectOsuStablePath = async (): Promise<void> => {
-  const dir = await window.electronAPI.selectDirectory()
+  const dir = await window.electronAPI.system.selectDirectory()
   if (!dir) return
-  const hasSongs = await window.electronAPI.checkSubDir(dir, 'Songs')
-  if (hasSongs) {
+  const validation = await window.electronAPI.settings.validatePath('stable', dir)
+  if (validation.valid) {
     osuStablePath.value = dir
     await saveOsuStablePath(dir)
     await loadDatabaseStatus()
@@ -453,12 +421,10 @@ const selectOsuStablePath = async (): Promise<void> => {
 }
 
 const selectOsuLazerPath = async (): Promise<void> => {
-  const dir = await window.electronAPI.selectDirectory()
+  const dir = await window.electronAPI.system.selectDirectory()
   if (!dir) return
-  const hasRealm =
-    (await window.electronAPI.checkFile(dir, 'client.realm')) ||
-    (await window.electronAPI.checkFile(dir, 'files/client.realm'))
-  if (hasRealm) {
+  const validation = await window.electronAPI.settings.validatePath('lazer', dir)
+  if (validation.valid) {
     osuLazerPath.value = dir
     await saveOsuLazerPath(dir)
     await loadDatabaseStatus()
@@ -473,45 +439,28 @@ const formatSyncTime = (timestamp: number | null): string => {
 }
 
 const ensureDatabaseEvents = (): void => {
-  if (databaseEventSource) return
-  databaseEventSource = new EventSource(API_ENDPOINTS.DATABASE_SYNC_EVENTS)
-
-  const updateByEvent = (event: MessageEvent<string>): void => {
-    try {
-      const payload = JSON.parse(event.data) as { message?: string; error?: string }
-      syncMessage.value = payload.error || payload.message || ''
+  if (unsubscribeDatabaseSync) return
+  unsubscribeDatabaseSync = window.electronAPI.database.onSyncProgress((progress) => {
+    if (progress.phase === 'started') {
+      isSyncing.value = true
+    } else if (progress.phase === 'progress') {
+      syncMessage.value = progress.error || progress.message || ''
       void loadDatabaseStatus()
-    } catch {
-      // no-op
+    } else if (progress.phase === 'completed' || progress.phase === 'skipped') {
+      isSyncing.value = false
+      void loadDatabaseStatus()
+    } else if (progress.phase === 'error') {
+      isSyncing.value = false
+      syncMessage.value = progress.error || progress.message || ''
+      void loadDatabaseStatus()
     }
-  }
-
-  databaseEventSource.addEventListener('started', () => {
-    isSyncing.value = true
-  })
-  databaseEventSource.addEventListener('progress', updateByEvent)
-  databaseEventSource.addEventListener('completed', () => {
-    isSyncing.value = false
-    void loadDatabaseStatus()
-  })
-  databaseEventSource.addEventListener('skipped', () => {
-    isSyncing.value = false
-    void loadDatabaseStatus()
-  })
-  databaseEventSource.addEventListener('error', (event) => {
-    isSyncing.value = false
-    updateByEvent(event as MessageEvent<string>)
   })
 }
 
 const triggerDatabaseSync = async (): Promise<void> => {
   isSyncing.value = true
   syncMessage.value = t('settings.database.syncing')
-  await fetch(API_ENDPOINTS.DATABASE_SYNC, {
-    method: 'POST',
-    headers: HTTP_HEADERS.JSON,
-    body: JSON.stringify({ source: 'all', force: true })
-  })
+  await window.electronAPI.database.sync({ source: 'all', force: true })
 }
 
 const isGeneralDefault = computed(() => {
@@ -532,7 +481,7 @@ const resetGeneralSettings = async (): Promise<void> => {
   if (isResetting.value) return
   isResetting.value = true
   try {
-    await Promise.all([saveOsuStablePath(''), saveOsuLazerPath('')])
+    await window.electronAPI.settings.update({ osuStablePath: '', osuLazerPath: '' })
     osuStablePath.value = ''
     osuLazerPath.value = ''
     currentLocale.value = FRONTEND_DEFAULTS.LOCALE
@@ -611,10 +560,7 @@ const performResetAllSettings = async (): Promise<void> => {
   if (isResetting.value) return
   isResetting.value = true
   try {
-    await fetch(API_ENDPOINTS.SETTINGS_RESET, {
-      method: 'POST',
-      headers: HTTP_HEADERS.JSON
-    })
+    await window.electronAPI.settings.reset()
 
     localStorage.removeItem(STORAGE_KEYS.DOWNLOAD_SETTINGS)
     localStorage.removeItem(STORAGE_KEYS.BACKUP_TOGGLE_STATE)
@@ -641,11 +587,7 @@ const performResetAllSettings = async (): Promise<void> => {
 // Sync waitForDownloadsOnPause to backend whenever it changes
 watch(waitForDownloadsOnPause, async (newValue) => {
   try {
-    await fetch(API_ENDPOINTS.SETTINGS_WAIT_FOR_DOWNLOADS, {
-      method: 'POST',
-      headers: HTTP_HEADERS.JSON,
-      body: JSON.stringify({ waitForDownloadsOnPause: newValue })
-    })
+    await window.electronAPI.settings.update({ waitForDownloadsOnPause: newValue })
   } catch (error) {
     console.error('Failed to save waitForDownloadsOnPause setting:', error)
   }
@@ -665,9 +607,9 @@ onBeforeUnmount(() => {
     autoDetectWarningTimer = null
   }
   clearResetHoldRaf()
-  if (databaseEventSource) {
-    databaseEventSource.close()
-    databaseEventSource = null
+  if (unsubscribeDatabaseSync) {
+    unsubscribeDatabaseSync()
+    unsubscribeDatabaseSync = null
   }
 })
 </script>

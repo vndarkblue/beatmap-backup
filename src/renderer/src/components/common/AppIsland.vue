@@ -3,12 +3,7 @@
     <template v-if="$slots.title || title || icon">
       <v-card-title class="text-h6 app-island-title">
         <div class="d-flex align-center w-100" :class="{ 'ga-2': icon }">
-          <v-icon
-            v-if="icon"
-            :icon="icon"
-            class="app-island-title__icon flex-shrink-0"
-            size="22"
-          />
+          <v-icon v-if="icon" :icon="icon" class="app-island-title__icon flex-shrink-0" size="22" />
           <div class="app-island-title__content flex-grow-1 min-w-0">
             <slot name="title">{{ title }}</slot>
           </div>

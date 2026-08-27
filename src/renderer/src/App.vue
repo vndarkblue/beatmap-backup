@@ -58,7 +58,6 @@ import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useRouter, type NavigationFailure } from 'vue-router'
 import { routes } from './router'
-import { API_ENDPOINTS } from '../../config/sharedConstants'
 import { STORAGE_KEYS, THEME_PREF_KEY } from '../../config/frontendConstants'
 import logoUrl from './assets/logo.png'
 import SimpleBar from 'simplebar-vue'
@@ -101,15 +100,13 @@ const syncThemeFromLocalPreference = (): void => {
 const validateOsuPaths = async (): Promise<void> => {
   try {
     // Check osu!stable path
-    const stableRes = await fetch(API_ENDPOINTS.SETTINGS_VALIDATE_OSU_STABLE)
-    const stableData = await stableRes.json()
+    const stableData = await window.electronAPI.settings.validatePath('stable')
     if (!stableData.valid) {
       console.warn('Invalid osu!stable path:', stableData.error)
     }
 
     // Check osu!lazer path
-    const lazerRes = await fetch(API_ENDPOINTS.SETTINGS_VALIDATE_OSU_LAZER)
-    const lazerData = await lazerRes.json()
+    const lazerData = await window.electronAPI.settings.validatePath('lazer')
     if (!lazerData.valid) {
       console.warn('Invalid osu!lazer path:', lazerData.error)
     }
@@ -148,7 +145,7 @@ const prewarmBackupCollectionPreview = (): void => {
       const backupByCollection = Boolean(state.backupByCollection)
       if (!backupOnlineIds || !backupByCollection || (!stable && !lazer)) return
       const mergeMode: 'merge' | 'split' = state.mergeCollectionNames === false ? 'split' : 'merge'
-      void window.electronAPI.previewCollections({ stable, lazer, mergeMode })
+      void window.electronAPI.backup.previewCollections({ stable, lazer, mergeMode })
     } catch {
       // Ignore invalid persisted state.
     }

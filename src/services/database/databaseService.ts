@@ -81,7 +81,10 @@ export class DatabaseService {
     ]
   >
   private readonly markBeatmapSourceStmt: Database.Statement<[string, string]>
-  private readonly selectBeatmapsetByMd5Stmt: Database.Statement<[string], BeatmapSetIdRow | undefined>
+  private readonly selectBeatmapsetByMd5Stmt: Database.Statement<
+    [string],
+    BeatmapSetIdRow | undefined
+  >
   private readonly upsertCollectionMapCacheStmt: Database.Statement<
     [string, number | null, number | null, number, string, string | null, number]
   >

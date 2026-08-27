@@ -1,4 +1,4 @@
-import { is } from '@electron-toolkit/utils'
+import { is } from '../utils/env'
 
 const START_MS = Date.now()
 

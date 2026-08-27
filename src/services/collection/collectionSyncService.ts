@@ -1,7 +1,7 @@
 import { DatabaseService } from '../database/databaseService'
 import { resolveMd5FromOsuDirect } from './osuDirectService'
+import { is } from '../../utils/env'
 import type { CollectionSyncStatus } from './types'
-import { is } from '@electron-toolkit/utils'
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
 const RETRY_BACKOFF_MS = 30 * 60 * 1000

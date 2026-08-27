@@ -130,7 +130,7 @@ function buildGeneralSearchClause(
   const useSource = !(parsed.source ?? '').trim()
   const useGenre = parsed.genre === 'any'
   const useLanguage = parsed.language === 'any'
-  const useTags = !((parsed.tags ?? []).some((x) => typeof x === 'string' && x.trim()))
+  const useTags = !(parsed.tags ?? []).some((x) => typeof x === 'string' && x.trim())
 
   const tokenSqlParts: string[] = []
   const tokenParams: unknown[] = []
@@ -145,26 +145,26 @@ function buildGeneralSearchClause(
 
     if (useArtist) {
       parts.push(
-        '(LOWER(s.artist) LIKE LOWER(?) ESCAPE \'\\\' OR LOWER(s.artist_unicode) LIKE LOWER(?) ESCAPE \'\\\')'
+        "(LOWER(s.artist) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.artist_unicode) LIKE LOWER(?) ESCAPE '\\')"
       )
       params.push(like, like)
     }
     if (useTitle) {
       parts.push(
-        '(LOWER(s.title) LIKE LOWER(?) ESCAPE \'\\\' OR LOWER(s.title_unicode) LIKE LOWER(?) ESCAPE \'\\\')'
+        "(LOWER(s.title) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.title_unicode) LIKE LOWER(?) ESCAPE '\\')"
       )
       params.push(like, like)
     }
     if (useCreator) {
-      parts.push('LOWER(s.creator) LIKE LOWER(?) ESCAPE \'\\\'')
+      parts.push("LOWER(s.creator) LIKE LOWER(?) ESCAPE '\\'")
       params.push(like)
     }
     if (useSource) {
-      parts.push('LOWER(s.source) LIKE LOWER(?) ESCAPE \'\\\'')
+      parts.push("LOWER(s.source) LIKE LOWER(?) ESCAPE '\\'")
       params.push(like)
     }
     if (useTags) {
-      parts.push('LOWER(s.tags) LIKE LOWER(?) ESCAPE \'\\\'')
+      parts.push("LOWER(s.tags) LIKE LOWER(?) ESCAPE '\\'")
       params.push(like)
     }
 
@@ -384,7 +384,10 @@ function parseFilterBody(body: unknown): BeatmapFilterRequestBody | null {
     tags: Array.isArray(o.tags) ? o.tags.filter((t): t is string => typeof t === 'string') : [],
     generalSearch: typeof o.generalSearch === 'string' ? o.generalSearch : '',
     sortBy:
-      o.sortBy === 'title' || o.sortBy === 'artist' || o.sortBy === 'difficulty' || o.sortBy === 'ranked'
+      o.sortBy === 'title' ||
+      o.sortBy === 'artist' ||
+      o.sortBy === 'difficulty' ||
+      o.sortBy === 'ranked'
         ? o.sortBy
         : 'difficulty',
     page: typeof o.page === 'number' ? o.page : 1,
@@ -423,7 +426,7 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
   if (artist) {
     const like = `%${artist.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
     where.push(
-      '(LOWER(s.artist) LIKE LOWER(?) ESCAPE \'\\\' OR LOWER(s.artist_unicode) LIKE LOWER(?) ESCAPE \'\\\')'
+      "(LOWER(s.artist) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.artist_unicode) LIKE LOWER(?) ESCAPE '\\')"
     )
     params.push(like, like)
   }
@@ -432,7 +435,7 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
   if (title) {
     const like = `%${title.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
     where.push(
-      '(LOWER(s.title) LIKE LOWER(?) ESCAPE \'\\\' OR LOWER(s.title_unicode) LIKE LOWER(?) ESCAPE \'\\\')'
+      "(LOWER(s.title) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.title_unicode) LIKE LOWER(?) ESCAPE '\\')"
     )
     params.push(like, like)
   }
@@ -440,14 +443,14 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
   const creator = (parsed.creator ?? '').trim()
   if (creator) {
     const like = `%${creator.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-    where.push('LOWER(s.creator) LIKE LOWER(?) ESCAPE \'\\\'')
+    where.push("LOWER(s.creator) LIKE LOWER(?) ESCAPE '\\'")
     params.push(like)
   }
 
   const source = (parsed.source ?? '').trim()
   if (source) {
     const like = `%${source.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-    where.push('LOWER(s.source) LIKE LOWER(?) ESCAPE \'\\\'')
+    where.push("LOWER(s.source) LIKE LOWER(?) ESCAPE '\\'")
     params.push(like)
   }
 
@@ -471,7 +474,7 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
     const t = tag.trim()
     if (!t) continue
     const like = `%${t.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-    where.push('LOWER(s.tags) LIKE LOWER(?) ESCAPE \'\\\'')
+    where.push("LOWER(s.tags) LIKE LOWER(?) ESCAPE '\\'")
     params.push(like)
   }
 
@@ -556,9 +559,7 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
 
   const t0 = Date.now()
   const countRow = db.prepare(countSql).get(...params) as { c: number; sets: number }
-  const rows = db
-    .prepare(dataSql)
-    .all(...params, pageSize, offset) as BeatmapFilterRow[]
+  const rows = db.prepare(dataSql).all(...params, pageSize, offset) as BeatmapFilterRow[]
   const durationMs = Date.now() - t0
 
   return {

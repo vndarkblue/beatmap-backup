@@ -300,14 +300,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { DefaultBeatmapMirrors } from '../../../config/beatmapMirrors'
-import { API_ENDPOINTS } from '../../../config/sharedConstants'
-import { FRONTEND_TIMINGS_MS, HTTP_HEADERS } from '../../../config/frontendConstants'
+import { FRONTEND_TIMINGS_MS } from '../../../config/frontendConstants'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
 import PathField from './common/PathField.vue'
+import type { DownloadTask, RecoveryState } from '../../../preload/electronApiTypes'
 
 const { locale, t } = useI18n()
 const currentLocale = computed(() => locale.value)
@@ -317,36 +316,13 @@ interface ElectronFile extends File {
   path: string
 }
 
-// Download Task interface
-interface DownloadTask {
-  id: string
-  beatmapsetId: string
-  mirror: string
-  noVideo: boolean
-  status: 'waiting' | 'downloading' | 'completed' | 'error'
-  progress: number
-  speed: number
-  remainingTime: number
-  error?: string
-  downloadPath?: string
-  fileName?: string
-  filePath?: string
-}
-
 // Queue Summary interface
 type QueueSummary = {
   total: number
   success: number
   failed: number
-  downloadPath?: string
+  downloadPath?: string | null
   durationMs?: number
-}
-
-type RecoveryState = {
-  canResume: boolean
-  taskCount: number
-  waitingCount: number
-  downloadingCount: number
 }
 
 // Download settings from composable
@@ -367,9 +343,6 @@ const isDownloading = ref(false)
 const statusMessage = ref('')
 const isSuccess = ref(false)
 
-// Load beatmap mirrors from backend
-const beatmapMirrors = ref(DefaultBeatmapMirrors)
-
 // Download Manager State
 const showDownloadManager = ref(false)
 const isPaused = ref(false)
@@ -388,8 +361,7 @@ const recoveryActionLoading = ref(false)
 const recoveryState = ref<RecoveryState | null>(null)
 const MAX_RENDERED_DOWNLOAD_ROWS = 600
 
-// SSE connection
-let eventSource: EventSource | null = null
+let unsubscribeDownloadEvents: (() => void) | null = null
 let downloadStateFlushHandle: number | null = null
 const downloadTaskIndex = new Map<string, number>()
 const pendingAddedTasks: DownloadTask[] = []
@@ -398,29 +370,19 @@ const pendingTaskUpdates = new Map<string, DownloadTask>()
 // Load settings
 const loadSettings = async (): Promise<void> => {
   try {
-    const res = await fetch(API_ENDPOINTS.SETTINGS)
-    const data = await res.json()
-
-    if (data.beatmapMirrors && Array.isArray(data.beatmapMirrors)) {
-      beatmapMirrors.value = data.beatmapMirrors
-    }
-
-    try {
-      const downloadPathRes = await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH)
-      const downloadPathData = await downloadPathRes.json()
-      if (downloadPathData.downloadPath) {
-        downloadPath.value = downloadPathData.downloadPath
-        const validation = await validateDownloadPath(downloadPath.value)
-        if (!validation.valid) {
-          downloadPath.value = ''
-          await saveDownloadPath('')
-          console.warn('Loaded download path is invalid:', validation.error)
-        }
+    const data = await window.electronAPI.settings.get()
+    if (data.downloadPath) {
+      downloadPath.value = data.downloadPath
+      const validation = await window.electronAPI.settings.validatePath(
+        'download',
+        data.downloadPath
+      )
+      if (!validation.valid) {
+        downloadPath.value = ''
+        await saveDownloadPath('')
+        console.warn('Loaded download path is invalid:', validation.error)
       }
-    } catch (error) {
-      console.error('Failed to load download path:', error)
     }
-
     loadDownloadSettings()
   } catch (error) {
     console.error('Failed to load settings:', error)
@@ -433,12 +395,11 @@ onMounted(() => {
   loadSettings()
   void syncQueueRuntimeState()
   void checkRecoveryQueue()
-  // Check if there's an active download queue
-  connectSSE()
+  connectDownloadEvents()
 })
 
 onUnmounted(() => {
-  disconnectSSE()
+  disconnectDownloadEvents()
 })
 
 // Computed properties
@@ -465,7 +426,7 @@ const visibleCompletedDownloadFiles = computed(() =>
 // Handle file selection
 const handleFileSelect = async (): Promise<void> => {
   try {
-    const filePath = await window.electronAPI.getFilePath()
+    const filePath = await window.electronAPI.system.selectBackupFile()
     if (filePath) {
       const fileName = filePath.split(/[\\/]/).pop() || ''
       selectedFileName.value = fileName
@@ -480,27 +441,21 @@ const handleFileSelect = async (): Promise<void> => {
 
 // Methods
 const selectDownloadPath = async (): Promise<void> => {
-  const dir = await window.electronAPI.selectDirectory()
+  const dir = await window.electronAPI.system.selectDirectory()
   if (dir) {
     downloadPath.value = dir
-    // Save download path to settings
     await saveDownloadPath(dir)
   }
 }
 
 const clearDownloadPath = async (): Promise<void> => {
   downloadPath.value = ''
-  // Save empty download path to settings
   await saveDownloadPath('')
 }
 
 const saveDownloadPath = async (path: string): Promise<void> => {
   try {
-    await fetch(API_ENDPOINTS.SETTINGS_DOWNLOAD_PATH, {
-      method: 'POST',
-      headers: HTTP_HEADERS.JSON,
-      body: JSON.stringify({ path })
-    })
+    await window.electronAPI.settings.update({ downloadPath: path })
   } catch (error) {
     console.error('Failed to save download path:', error)
   }
@@ -510,16 +465,12 @@ const validateDownloadPath = async (
   path: string
 ): Promise<{ valid: boolean; error: string | null }> => {
   if (!path || path.trim().length === 0) {
-    // Empty path is valid (will use default path)
     return { valid: true, error: null }
   }
 
   try {
-    const response = await fetch(
-      `${API_ENDPOINTS.SETTINGS_VALIDATE_DOWNLOAD_PATH}?path=${encodeURIComponent(path)}`
-    )
-    const data = await response.json()
-    return { valid: data.valid, error: data.error || null }
+    const res = await window.electronAPI.settings.validatePath('download', path)
+    return { valid: res.valid, error: res.error || null }
   } catch (error) {
     console.error('Failed to validate download path:', error)
     return { valid: false, error: t('download.errors.downloadPathInvalid') }
@@ -533,19 +484,16 @@ const handleDownload = async (): Promise<void> => {
     isDownloading.value = true
     statusMessage.value = ''
 
-    // Get the file path from the enhanced File object
     const filePath = selectedFile.value?.path
     if (!filePath) {
       throw new Error('Could not get file path')
     }
 
-    // Validate download path if provided
     if (downloadPath.value && downloadPath.value.trim().length > 0) {
       const validation = await validateDownloadPath(downloadPath.value)
       if (!validation.valid) {
         let errorMessage = t('download.errors.downloadPathInvalid')
         if (validation.error) {
-          // Map backend error messages to i18n keys
           if (validation.error.includes('does not exist')) {
             errorMessage = t('download.errors.downloadPathNotExist')
           } else if (validation.error.includes('not a directory')) {
@@ -565,7 +513,7 @@ const handleDownload = async (): Promise<void> => {
       }
     }
 
-    const downloadData = {
+    await window.electronAPI.download.start({
       filePath,
       options: {
         threadCount: threadCount.value,
@@ -575,31 +523,12 @@ const handleDownload = async (): Promise<void> => {
         noVideo: noVideo.value
       },
       downloadPath: downloadPath.value || undefined
-    }
-
-    const response = await fetch(API_ENDPOINTS.DOWNLOAD, {
-      method: 'POST',
-      headers: HTTP_HEADERS.JSON,
-      body: JSON.stringify(downloadData)
     })
-
-    if (!response.ok) {
-      let errorMessage = t('download.errors.downloadPathInvalid')
-      try {
-        const errorData = await response.json()
-        errorMessage = errorData.error || errorMessage
-      } catch {
-        // If JSON parsing fails, use status text
-        errorMessage = response.statusText || errorMessage
-      }
-      throw new Error(errorMessage)
-    }
 
     isSuccess.value = true
     statusMessage.value = t('download.started')
-    // Show download manager instead of navigating
     showDownloadManager.value = true
-    connectSSE()
+    connectDownloadEvents()
   } catch (error) {
     console.error('Download failed:', error)
     isSuccess.value = false
@@ -614,11 +543,9 @@ const handleDownload = async (): Promise<void> => {
 const checkRecoveryQueue = async (): Promise<void> => {
   if (showDownloadManager.value) return
   try {
-    const res = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY)
-    if (!res.ok) return
-    const data = await res.json()
-    if (!data?.canResume) return
-    recoveryState.value = data
+    const state = await window.electronAPI.download.getState()
+    if (!state.recovery?.canResume) return
+    recoveryState.value = state.recovery
     showDiscardConfirm.value = false
     showRecoveryDialog.value = true
   } catch (error) {
@@ -628,10 +555,8 @@ const checkRecoveryQueue = async (): Promise<void> => {
 
 const syncQueueRuntimeState = async (): Promise<void> => {
   try {
-    const res = await fetch(API_ENDPOINTS.DOWNLOAD_STATUS)
-    if (!res.ok) return
-    const data = await res.json()
-    isPaused.value = Boolean(data?.isPaused)
+    const state = await window.electronAPI.download.getState()
+    isPaused.value = Boolean(state.runtime?.isPaused)
   } catch (error) {
     console.error('Failed to sync queue runtime state:', error)
   }
@@ -640,8 +565,8 @@ const syncQueueRuntimeState = async (): Promise<void> => {
 const handleResumeRecovery = async (): Promise<void> => {
   recoveryActionLoading.value = true
   try {
-    const resumeRes = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY_RESUME, { method: 'POST' })
-    if (resumeRes.ok) {
+    const res = await window.electronAPI.download.handleRecovery('resume')
+    if (res.success) {
       showDownloadManager.value = true
       showRecoveryDialog.value = false
       showDiscardConfirm.value = false
@@ -666,8 +591,8 @@ const handleDiscardRecovery = async (): Promise<void> => {
   }
   recoveryActionLoading.value = true
   try {
-    const discardRes = await fetch(API_ENDPOINTS.DOWNLOAD_RECOVERY_DISCARD, { method: 'POST' })
-    if (discardRes.ok) {
+    const res = await window.electronAPI.download.handleRecovery('discard')
+    if (res.success) {
       showRecoveryDialog.value = false
       showDiscardConfirm.value = false
       recoveryState.value = null
@@ -718,31 +643,34 @@ const getStatusColor = (status: string): string => {
 const getStatusText = (status: string): string => {
   switch (status) {
     case 'waiting':
-      return t('downloadManager.status.waiting')
+      return t('download.status.waiting')
     case 'downloading':
-      return t('downloadManager.status.downloading')
+      return t('download.status.downloading')
     case 'completed':
-      return t('downloadManager.status.completed')
+      return t('download.status.completed')
     case 'error':
-      return t('downloadManager.status.error')
+      return t('download.status.error')
     default:
-      return t('downloadManager.status.unknown')
+      return status
   }
 }
 
 // Format helpers
 const formatSpeed = (speed: number): string => {
-  if (speed === 0) return '0 B/s'
-  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
-  const i = Math.floor(Math.log(speed) / Math.log(1024))
-  return `${(speed / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+  if (!speed || speed <= 0) return '0 KB/s'
+  if (speed < 1024) return `${Math.round(speed)} KB/s`
+  return `${(speed / 1024).toFixed(1)} MB/s`
 }
 
 const formatTime = (seconds: number): string => {
-  if (seconds === 0) return '--:--'
+  if (!seconds || seconds <= 0) return '0s'
+  if (seconds < 60) return `${Math.round(seconds)}s`
   const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  const remainingSeconds = Math.round(seconds % 60)
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}h ${remainingMinutes}m`
 }
 
 const getDownloadFileName = (file: DownloadTask): string => {
@@ -752,16 +680,17 @@ const getDownloadFileName = (file: DownloadTask): string => {
 // Update download state
 const rebuildDownloadTaskIndex = (tasks: DownloadTask[]): void => {
   downloadTaskIndex.clear()
-  tasks.forEach((task, index) => {
-    downloadTaskIndex.set(task.id, index)
-  })
+  for (let i = 0; i < tasks.length; i++) {
+    downloadTaskIndex.set(tasks[i].id, i)
+  }
 }
 
 const updateDownloadStats = (tasks: DownloadTask[]): void => {
   totalFiles.value = tasks.length
-  completedFiles.value = tasks.filter((task) => task.status === 'completed').length
-  queueProgress.value = totalFiles.value > 0 ? (completedFiles.value / totalFiles.value) * 100 : 0
-  showDownloadManager.value = totalFiles.value > 0
+  completedFiles.value = tasks.filter((t) => t.status === 'completed').length
+
+  const totalProgress = tasks.reduce((sum, task) => sum + task.progress, 0)
+  queueProgress.value = tasks.length > 0 ? totalProgress / tasks.length : 0
 }
 
 const setDownloadTasks = (tasks: DownloadTask[]): void => {
@@ -777,25 +706,33 @@ const flushPendingDownloadState = (): void => {
     return
   }
 
-  const nextTasks = downloadFiles.value.slice()
+  let nextTasks = downloadFiles.value
+  let mutated = false
 
-  for (const task of pendingAddedTasks.splice(0)) {
-    const index = downloadTaskIndex.get(task.id)
-    if (index === undefined) {
-      downloadTaskIndex.set(task.id, nextTasks.length)
-      nextTasks.push(task)
-    } else {
-      nextTasks[index] = task
+  if (pendingAddedTasks.length > 0) {
+    nextTasks = nextTasks.concat(pendingAddedTasks)
+    for (let i = nextTasks.length - pendingAddedTasks.length; i < nextTasks.length; i++) {
+      downloadTaskIndex.set(nextTasks[i].id, i)
     }
+    pendingAddedTasks.length = 0
+    mutated = true
   }
 
-  for (const task of pendingTaskUpdates.values()) {
-    const index = downloadTaskIndex.get(task.id)
-    if (index === undefined) {
-      downloadTaskIndex.set(task.id, nextTasks.length)
-      nextTasks.push(task)
-    } else {
-      nextTasks[index] = task
+  if (pendingTaskUpdates.size > 0) {
+    if (!mutated) {
+      nextTasks = nextTasks.slice()
+    }
+    for (const [id, updatedTask] of pendingTaskUpdates) {
+      let index = downloadTaskIndex.get(id)
+      if (index === undefined || index >= nextTasks.length || nextTasks[index].id !== id) {
+        index = nextTasks.findIndex((t) => t.id === id)
+        if (index !== -1) {
+          downloadTaskIndex.set(id, index)
+        }
+      }
+      if (index !== -1 && index !== undefined) {
+        nextTasks[index] = updatedTask
+      }
     }
   }
   pendingTaskUpdates.clear()
@@ -822,11 +759,7 @@ const queueTaskUpdate = (task: DownloadTask): void => {
 // Action handlers
 const togglePause = async (): Promise<void> => {
   try {
-    const endpoint = isPaused.value ? API_ENDPOINTS.DOWNLOAD_RESUME : API_ENDPOINTS.DOWNLOAD_PAUSE
-    const response = await fetch(endpoint, { method: 'POST' })
-    if (!response.ok) {
-      throw new Error('Failed to toggle pause state')
-    }
+    await window.electronAPI.download.control(isPaused.value ? 'resume' : 'pause')
   } catch (error) {
     console.error('Failed to toggle pause:', error)
   }
@@ -839,10 +772,7 @@ const requestStopDownload = (): void => {
 const confirmStopDownload = async (): Promise<void> => {
   confirmingStop.value = false
   try {
-    const response = await fetch(API_ENDPOINTS.DOWNLOAD_STOP, { method: 'POST' })
-    if (!response.ok) {
-      throw new Error('Failed to stop download')
-    }
+    await window.electronAPI.download.control('stop')
   } catch (error) {
     console.error('Failed to stop download:', error)
   }
@@ -854,14 +784,9 @@ const cancelStopDownload = (): void => {
 
 const openFolder = async (): Promise<void> => {
   const dir = completedDownloadPath.value.trim()
-  const electronAPI = (
-    window as unknown as {
-      electronAPI?: { openPath?: (p: string) => Promise<string> }
-    }
-  ).electronAPI
-  if (!dir || !electronAPI?.openPath) return
+  if (!dir) return
   try {
-    const result = await electronAPI.openPath(dir)
+    const result = await window.electronAPI.system.openPath(dir)
     if (result) {
       console.error('Failed to open folder:', result)
     }
@@ -870,164 +795,80 @@ const openFolder = async (): Promise<void> => {
   }
 }
 
-// SSE setup
-const connectSSE = (): void => {
-  if (eventSource) return
+// Event Dispatcher setup
+const connectDownloadEvents = async (): Promise<void> => {
+  if (unsubscribeDownloadEvents) return
 
-  eventSource = new EventSource(API_ENDPOINTS.DOWNLOAD_EVENTS)
-
-  eventSource.addEventListener('initialState', (e) => {
-    try {
-      const data = JSON.parse(e.data)
-      // Check if data is an array of tasks
-      if (Array.isArray(data)) {
-        setDownloadTasks(data)
-      } else {
-        console.warn('Invalid initialState data format:', data)
-        setDownloadTasks([])
-      }
-    } catch (error) {
-      console.error('Failed to parse initialState:', error)
-      setDownloadTasks([])
+  try {
+    const initialTasks = await window.electronAPI.download.getTasks()
+    if (initialTasks && initialTasks.length > 0) {
+      setDownloadTasks(initialTasks)
+      showDownloadManager.value = true
     }
-  })
-  eventSource.addEventListener('initialStateChunk', (e) => {
-    try {
-      const data = JSON.parse(e.data)
-      if (Array.isArray(data)) {
-        queueAddedTasks(data)
-      }
-    } catch (error) {
-      console.error('Failed to parse initialStateChunk:', error)
-    }
-  })
-  eventSource.addEventListener('initialStateComplete', () => {
-    scheduleDownloadStateFlush()
-  })
-
-  eventSource.addEventListener('taskAdded', (e) => {
-    try {
-      const task = JSON.parse(e.data)
-      queueAddedTasks([task])
-    } catch (error) {
-      console.error('Failed to parse taskAdded:', error)
-    }
-  })
-
-  eventSource.addEventListener('tasksAdded', (e) => {
-    try {
-      const tasks = JSON.parse(e.data)
-      if (Array.isArray(tasks)) {
-        queueAddedTasks(tasks)
-      }
-    } catch (error) {
-      console.error('Failed to parse tasksAdded:', error)
-    }
-  })
-
-  eventSource.addEventListener('taskUpdated', (e) => {
-    try {
-      const updatedTask = JSON.parse(e.data)
-      queueTaskUpdate(updatedTask)
-    } catch (error) {
-      console.error('Failed to parse taskUpdated:', error)
-    }
-  })
-
-  eventSource.addEventListener('taskCompleted', (e) => {
-    try {
-      const completedTask = JSON.parse(e.data)
-      queueTaskUpdate(completedTask)
-    } catch (error) {
-      console.error('Failed to parse taskCompleted:', error)
-    }
-  })
-
-  eventSource.addEventListener('taskError', (e) => {
-    try {
-      const errorTask = JSON.parse(e.data)
-      queueTaskUpdate(errorTask)
-    } catch (error) {
-      console.error('Failed to parse taskError:', error)
-    }
-  })
-
-  eventSource.addEventListener('queuePaused', () => {
-    isPaused.value = true
-  })
-
-  eventSource.addEventListener('queueResumed', () => {
-    isPaused.value = false
-  })
-
-  eventSource.addEventListener('queueCleared', () => {
-    showDownloadManager.value = false
-    isPaused.value = false
-    confirmingStop.value = false
-    completedFiles.value = 0
-    totalFiles.value = 0
-    queueProgress.value = 0
-    downloadFiles.value = []
-    rebuildDownloadTaskIndex([])
-    pendingAddedTasks.length = 0
-    pendingTaskUpdates.clear()
-
-    const summary = completedSummary.value
-    if (summary) {
-      // Natural completion
-      isSuccess.value = summary.failed === 0
-      statusMessage.value =
-        summary.failed > 0
-          ? t('download.finishedWithErrors', {
-              success: summary.success,
-              total: summary.total,
-              failed: summary.failed
-            })
-          : t('download.finished', { success: summary.success })
-      completedSummary.value = null
-    } else {
-      // Stopped by user
-      isSuccess.value = false
-      statusMessage.value = t('download.cancelled')
-    }
-
-    // Close SSE connection when queue is cleared
-    disconnectSSE()
-  })
-
-  eventSource.addEventListener('queueCompleted', (e) => {
-    try {
-      const summary = JSON.parse(e.data)
-      completedSummary.value = summary
-      completedDownloadPath.value =
-        typeof summary?.downloadPath === 'string' ? summary.downloadPath : ''
-      showCompletedToast.value = true
-    } catch (error) {
-      console.error('Failed to parse queueCompleted:', error)
-    }
-  })
-
-  eventSource.onerror = (error) => {
-    console.error('SSE error:', error)
-    // Only try to reconnect if we're still showing download manager
-    if (showDownloadManager.value) {
-      setTimeout(() => {
-        if (eventSource) {
-          eventSource.close()
-          eventSource = null
-          connectSSE()
-        }
-      }, FRONTEND_TIMINGS_MS.DOWNLOAD_SSE_RECONNECT)
-    } else {
-      disconnectSSE()
-    }
+  } catch (err) {
+    console.error('Failed to get initial tasks:', err)
   }
+
+  unsubscribeDownloadEvents = window.electronAPI.download.onEvent((payload) => {
+    const { event, data } = payload
+    if (event === 'initialState' && Array.isArray(data)) {
+      setDownloadTasks(data)
+    } else if (event === 'initialStateChunk' && Array.isArray(data)) {
+      queueAddedTasks(data)
+    } else if (event === 'initialStateComplete') {
+      scheduleDownloadStateFlush()
+    } else if (event === 'tasksAdded' && Array.isArray(data)) {
+      queueAddedTasks(data)
+    } else if (event === 'taskUpdated' && data) {
+      queueTaskUpdate(data)
+    } else if (event === 'taskCompleted' && data) {
+      queueTaskUpdate(data)
+    } else if (event === 'taskError' && data) {
+      queueTaskUpdate(data)
+    } else if (event === 'queuePaused') {
+      isPaused.value = true
+    } else if (event === 'queueResumed') {
+      isPaused.value = false
+    } else if (event === 'queueCleared') {
+      showDownloadManager.value = false
+      isPaused.value = false
+      confirmingStop.value = false
+      completedFiles.value = 0
+      totalFiles.value = 0
+      queueProgress.value = 0
+      downloadFiles.value = []
+      rebuildDownloadTaskIndex([])
+      pendingAddedTasks.length = 0
+      pendingTaskUpdates.clear()
+
+      const summary = completedSummary.value
+      if (summary) {
+        isSuccess.value = summary.failed === 0
+        statusMessage.value =
+          summary.failed > 0
+            ? t('download.finishedWithErrors', {
+                success: summary.success,
+                total: summary.total,
+                failed: summary.failed
+              })
+            : t('download.finished', { success: summary.success })
+        completedSummary.value = null
+      } else {
+        isSuccess.value = false
+        statusMessage.value = t('download.cancelled')
+      }
+    } else if (event === 'queueCompleted' && data) {
+      completedSummary.value = data
+      completedDownloadPath.value = typeof data?.downloadPath === 'string' ? data.downloadPath : ''
+      showCompletedToast.value = true
+    }
+  })
 }
 
-const disconnectSSE = (): void => {
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
+const disconnectDownloadEvents = (): void => {
+  if (unsubscribeDownloadEvents) {
+    unsubscribeDownloadEvents()
+    unsubscribeDownloadEvents = null
   }
 }
 </script>

@@ -3,8 +3,8 @@ import fs from 'fs'
 import https from 'https'
 import http from 'http'
 import { URL } from 'url'
+import { is } from '../../utils/env'
 import type { DownloadTask } from './types'
-import { is } from '@electron-toolkit/utils'
 
 export interface MirrorHealth {
   success: number

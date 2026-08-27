@@ -67,7 +67,8 @@ export function runStartupAutoDetect(depsArg?: AutoDetectDeps): StartupAutoDetec
     }
   }
 
-  const detectFailed = (!stableValid && !didUpdateStablePath) || (!lazerValid && !didUpdateLazerPath)
+  const detectFailed =
+    (!stableValid && !didUpdateStablePath) || (!lazerValid && !didUpdateLazerPath)
   const alreadyDismissed = deps.settings.getAutoDetectWarningDismissed()
   const showWarning = detectFailed && !alreadyDismissed
 

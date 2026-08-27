@@ -17,7 +17,7 @@ import {
   QUEUE_SNAPSHOT_VERSION
 } from './download/queuePersistence'
 import { getMaxCheckpointFileSizeMB, getQueueCheckpointIntervalMs } from './settingsStore'
-import { is } from '@electron-toolkit/utils'
+import { is } from '../utils/env'
 
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }
@@ -178,7 +178,9 @@ class DownloadService extends EventEmitter {
   } {
     const hasActiveInMemoryQueue =
       this.queueId !== null ||
-      Array.from(this.tasks.values()).some((t) => t.status === 'waiting' || t.status === 'downloading')
+      Array.from(this.tasks.values()).some(
+        (t) => t.status === 'waiting' || t.status === 'downloading'
+      )
     if (hasActiveInMemoryQueue) {
       return {
         canResume: false,
@@ -391,8 +393,13 @@ class DownloadService extends EventEmitter {
     snapshot?: QueueSnapshot
   ): void {
     this.mirrorStates.clear()
-    const perMirrorConcurrency = Math.max(1, Math.ceil(this.getGlobalConcurrencyLimit(options) / mirrors.length))
-    const persistedStates = new Map(snapshot?.scheduler?.mirrors.map((state) => [state.name, state]))
+    const perMirrorConcurrency = Math.max(
+      1,
+      Math.ceil(this.getGlobalConcurrencyLimit(options) / mirrors.length)
+    )
+    const persistedStates = new Map(
+      snapshot?.scheduler?.mirrors.map((state) => [state.name, state])
+    )
 
     for (const mirror of mirrors) {
       const persisted = persistedStates.get(mirror.name)
@@ -770,13 +777,15 @@ class DownloadService extends EventEmitter {
 
     this.mirrorUsageLogQueueId = this.queueId
     const firstTask = this.tasks.values().next().value as DownloadTask | undefined
-    const downloadPath = firstTask?.downloadPath || this.currentOptions?.downloadPath || getDefaultDownloadPath()
+    const downloadPath =
+      firstTask?.downloadPath || this.currentOptions?.downloadPath || getDefaultDownloadPath()
     const logPath = this.getMirrorUsageLogPath(downloadPath, reason)
 
     try {
       await fs.promises.mkdir(downloadPath, { recursive: true })
       await fs.promises.writeFile(logPath, `${rows.join('\n')}\n`, 'utf-8')
-      if (is.dev) console.log(`[DownloadDebug] mirrorUsageLog.${reason} path=${logPath} rows=${rows.length}`)
+      if (is.dev)
+        console.log(`[DownloadDebug] mirrorUsageLog.${reason} path=${logPath} rows=${rows.length}`)
     } catch (error) {
       this.mirrorUsageLogQueueId = null
       console.error(`[DownloadDebug] Failed to write mirror usage log(${reason}):`, error)

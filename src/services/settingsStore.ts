@@ -1,6 +1,6 @@
 import Store from 'electron-store'
 
-interface Settings {
+export interface Settings {
   osuStablePath: string
   osuLazerPath: string
   autoDetectWarningDismissed: boolean
@@ -44,6 +44,14 @@ export const getSettings = (): Settings => {
     queueAutoResume: settingsStore.get('queueAutoResume', true),
     queueCheckpointIntervalMs: settingsStore.get('queueCheckpointIntervalMs', 1500),
     maxCheckpointFileSizeMB: settingsStore.get('maxCheckpointFileSizeMB', 20)
+  }
+}
+
+export const updateSettings = (patch: Partial<Settings>): void => {
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) {
+      settingsStore.set(key, value)
+    }
   }
 }
 

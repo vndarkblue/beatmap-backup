@@ -192,6 +192,10 @@ export async function importFromStableDb(
     if (onProgress && i % 5000 === 0) {
       onProgress(i, beatmaps.length)
     }
+
+    if (i > 0 && i % 2000 === 0) {
+      await new Promise<void>((resolve) => setImmediate(resolve))
+    }
   }
   lastStableImportSummary = summary
 

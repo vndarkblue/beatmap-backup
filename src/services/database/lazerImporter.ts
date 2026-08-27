@@ -110,6 +110,10 @@ export async function importFromLazerRealm(
     if (onProgress && i % 5000 === 0) {
       onProgress(i, rows.length)
     }
+
+    if (i > 0 && i % 2000 === 0) {
+      await new Promise<void>((resolve) => setImmediate(resolve))
+    }
   }
   lastLazerImportSummary = summary
 

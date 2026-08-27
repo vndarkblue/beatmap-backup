@@ -228,8 +228,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { API_ENDPOINTS } from '../../../config/sharedConstants'
-import { HTTP_HEADERS, STORAGE_KEYS } from '../../../config/frontendConstants'
+import { STORAGE_KEYS } from '../../../config/frontendConstants'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
@@ -466,7 +465,7 @@ const loadCollectionPreview = async (options?: { forceRefresh?: boolean }): Prom
   }
 
   const requestSeq = ++previewRequestSeq
-  const response = await window.electronAPI.previewCollections({
+  const response = await window.electronAPI.backup.previewCollections({
     stable: stableBackup.value,
     lazer: lazerBackup.value,
     mergeMode: mergeMode.value
@@ -535,25 +534,15 @@ const refreshEstimate = async (): Promise<void> => {
   isEstimating.value = true
   estimateError.value = false
   try {
-    const response = await fetch(API_ENDPOINTS.EXPORT_ESTIMATE, {
-      method: 'POST',
-      headers: HTTP_HEADERS.JSON,
-      body: JSON.stringify({
-        options: {
-          stable: stableBackup.value,
-          lazer: lazerBackup.value,
-          backupOnlineIds: backupOnlineIds.value,
-          backupLocalBeatmaps: backupLocalBeatmaps.value,
-          backupByCollection: backupByCollection.value,
-          collectionMergeMode: mergeMode.value,
-          selectedCollections: [...selectedCollectionKeys.value]
-        }
-      })
+    const payload = await window.electronAPI.backup.estimate({
+      stable: stableBackup.value,
+      lazer: lazerBackup.value,
+      backupOnlineIds: backupOnlineIds.value,
+      backupLocalBeatmaps: backupLocalBeatmaps.value,
+      backupByCollection: backupByCollection.value,
+      collectionMergeMode: mergeMode.value,
+      selectedCollections: [...selectedCollectionKeys.value]
     })
-    const payload = await response.json()
-    if (!response.ok || !payload?.success) {
-      throw new Error(payload?.error || 'Failed to estimate backup')
-    }
     const estimateParts: string[] = []
     if (backupOnlineIds.value) {
       estimateParts.push(
@@ -576,7 +565,7 @@ const syncMissingNow = async (): Promise<void> => {
   if (!canTriggerSync.value) return
   try {
     isSyncing.value = true
-    const syncResponse = await window.electronAPI.syncCollectionMd5Cache()
+    const syncResponse = await window.electronAPI.database.syncCollections()
     if (!syncResponse.success) {
       throw new Error(syncResponse.error || t('backup.error'))
     }
@@ -620,36 +609,58 @@ const getSourceLabel = (source: CollectionItem['source']): string => {
   return t('backup.collection.sources.both')
 }
 
-watch([stableBackup, lazerBackup, backupByCollection, mergeCollectionNames], () => {
-  ensureToggleRules()
-  saveToggleState()
-  scheduleCollectionPreviewLoad()
-  scheduleRefreshEstimate()
-})
-
-watch([backupOnlineIds, backupLocalBeatmaps], () => {
-  ensureToggleRules()
-  saveToggleState()
-  scheduleCollectionPreviewLoad()
-  scheduleRefreshEstimate()
-})
-
-watch(selectedCollectionKeys, () => {
-  if (backupByCollection.value) {
-    void refreshEstimate()
+watch(
+  () => [
+    stableBackup.value,
+    lazerBackup.value,
+    backupOnlineIds.value,
+    backupLocalBeatmaps.value,
+    backupByCollection.value,
+    mergeCollectionNames.value
+  ],
+  () => {
+    saveToggleState()
   }
-})
+)
+
+watch(
+  () => [
+    stableBackup.value,
+    lazerBackup.value,
+    backupOnlineIds.value,
+    backupLocalBeatmaps.value,
+    backupByCollection.value,
+    mergeCollectionNames.value,
+    selectedCollectionKeys.value.length
+  ],
+  () => {
+    scheduleRefreshEstimate()
+  }
+)
+
+watch(
+  () => [stableBackup.value, lazerBackup.value, backupByCollection.value, mergeMode.value],
+  () => {
+    if (!backupByCollection.value || !isSourceSelected.value) {
+      collections.value = []
+      selectedCollectionKeys.value = []
+      return
+    }
+    scheduleCollectionPreviewLoad()
+  }
+)
 
 onMounted(() => {
-  cooldownTicker = setInterval(() => {
-    nowMs.value = Date.now()
-  }, 250)
   loadToggleState()
-  ensureToggleRules()
-  saveToggleState()
   loadPreviewSnapshot()
-  scheduleCollectionPreviewLoad({ immediate: true })
+  if (backupByCollection.value && isSourceSelected.value) {
+    scheduleCollectionPreviewLoad({ immediate: true })
+  }
   scheduleRefreshEstimate()
+  cooldownTicker = setInterval(() => {
+    // Triggers reactivity for canTriggerSync computed property.
+    nowMs.value = Date.now()
+  }, 500)
 })
 
 onBeforeUnmount(() => {
@@ -674,7 +685,7 @@ const handleExport = async (): Promise<void> => {
     isExporting.value = true
     statusMessage.value = ''
 
-    const response = await window.electronAPI.exportData({
+    const response = await window.electronAPI.backup.export({
       stable: stableBackup.value,
       lazer: lazerBackup.value,
       backupOnlineIds: backupOnlineIds.value,

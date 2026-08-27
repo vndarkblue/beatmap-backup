@@ -1,6 +1,5 @@
 import { DefaultBeatmapMirrors, BeatmapMirror } from '../config/beatmapMirrors'
-import fetch from 'node-fetch'
-import { is } from '@electron-toolkit/utils'
+import { is } from '../utils/env'
 
 export interface MirrorStatus {
   name: string
@@ -111,8 +110,18 @@ class BeatmapMirrorService {
     if (is.dev) {
       console.log(
         `[MirrorHealth] getMirrorsStatus done cacheHits=${cacheHits} freshChecks=${freshChecks}` +
-          ` online=${results.filter((s) => s.isOnline).map((s) => s.name).join(',') || '(none)'}` +
-          ` offline=${results.filter((s) => !s.isOnline).map((s) => `${s.name}(${s.error ?? '?'})`).join(',') || '(none)'}`
+          ` online=${
+            results
+              .filter((s) => s.isOnline)
+              .map((s) => s.name)
+              .join(',') || '(none)'
+          }` +
+          ` offline=${
+            results
+              .filter((s) => !s.isOnline)
+              .map((s) => `${s.name}(${s.error ?? '?'})`)
+              .join(',') || '(none)'
+          }`
       )
     }
 
@@ -130,8 +139,18 @@ class BeatmapMirrorService {
     if (is.dev) {
       console.log(
         `[MirrorHealth] background refresh done` +
-          ` online=${checks.filter((s) => s.isOnline).map((s) => s.name).join(',') || '(none)'}` +
-          ` offline=${checks.filter((s) => !s.isOnline).map((s) => `${s.name}(${s.error ?? '?'})`).join(',') || '(none)'}`
+          ` online=${
+            checks
+              .filter((s) => s.isOnline)
+              .map((s) => s.name)
+              .join(',') || '(none)'
+          }` +
+          ` offline=${
+            checks
+              .filter((s) => !s.isOnline)
+              .map((s) => `${s.name}(${s.error ?? '?'})`)
+              .join(',') || '(none)'
+          }`
       )
     }
   }

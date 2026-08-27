@@ -1,6 +1,6 @@
 import { getOsuStablePath, getOsuLazerPath } from './settingsStore'
 import { realmService } from './realmService'
-import { is } from '@electron-toolkit/utils'
+import { is } from '../utils/env'
 import path from 'path'
 import fs from 'fs'
 import { collectionService } from './collection/collectionService'

@@ -95,30 +95,44 @@ export const collectionService = {
     const entries: CollectionEntry[] = []
 
     if (options.stable) {
-      const stablePath = getOsuStablePath()
-      if (stablePath) {
-        const collectionDbPath = path.join(stablePath, 'collection.db')
-        if (fs.existsSync(collectionDbPath)) {
-          const collections = parseStableCollectionDb(collectionDbPath)
-          for (const collection of collections) {
-            entries.push({
-              name: collection.name,
-              beatmapMd5s: collection.beatmapMd5s,
-              source: 'stable'
-            })
+      try {
+        const stablePath = getOsuStablePath()
+        if (stablePath) {
+          const collectionDbPath = path.join(stablePath, 'collection.db')
+          if (fs.existsSync(collectionDbPath)) {
+            const collections = parseStableCollectionDb(collectionDbPath)
+            for (const collection of collections) {
+              entries.push({
+                name: collection.name,
+                beatmapMd5s: collection.beatmapMd5s,
+                source: 'stable'
+              })
+            }
           }
         }
+      } catch (error) {
+        console.warn(
+          'Could not read stable collections:',
+          error instanceof Error ? error.message : error
+        )
       }
     }
 
     if (options.lazer) {
-      const collections = await realmService.getCollections()
-      for (const collection of collections) {
-        entries.push({
-          name: collection.name,
-          beatmapMd5s: collection.beatmapMd5s,
-          source: 'lazer'
-        })
+      try {
+        const collections = await realmService.getCollections()
+        for (const collection of collections) {
+          entries.push({
+            name: collection.name,
+            beatmapMd5s: collection.beatmapMd5s,
+            source: 'lazer'
+          })
+        }
+      } catch (error) {
+        console.warn(
+          'Could not read lazer collections:',
+          error instanceof Error ? error.message : error
+        )
       }
     }
 

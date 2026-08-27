@@ -83,4 +83,3 @@ CREATE INDEX IF NOT EXISTS idx_collection_map_cache_missing ON collection_map_ca
 CREATE INDEX IF NOT EXISTS idx_collection_map_cache_status ON collection_map_cache(resolve_status);
 CREATE INDEX IF NOT EXISTS idx_collection_map_cache_checked ON collection_map_cache(last_checked_at);
 `
-

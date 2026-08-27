@@ -11,7 +11,9 @@ import { DownloadHttpError } from '../../../src/services/download/httpDownloader
 
 describe('DownloadService failure classification', () => {
   const service = DownloadService.getInstance()
-  const classify = (service as unknown as { classifyFailure: (err: unknown) => string }).classifyFailure.bind(service)
+  const classify = (
+    service as unknown as { classifyFailure: (err: unknown) => string }
+  ).classifyFailure.bind(service)
 
   it('classifies 429 as rate-limit', () => {
     expect(classify(new DownloadHttpError('Rate limit', 429))).toBe('rate-limit')

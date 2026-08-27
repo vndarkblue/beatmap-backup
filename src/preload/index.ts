@@ -58,7 +58,8 @@ const electronAPI: ElectronApi = {
     estimate: (options: ExportDataOptions) => ipcRenderer.invoke('backup:estimate', options),
     export: (options: ExportDataOptions) => ipcRenderer.invoke('backup:export', options),
     onLocalExportProgress: (listener: (progress: LocalExportProgress) => void) => {
-      const handler = (_: IpcRendererEvent, progress: LocalExportProgress): void => listener(progress)
+      const handler = (_: IpcRendererEvent, progress: LocalExportProgress): void =>
+        listener(progress)
       ipcRenderer.on('backup:local-export-progress', handler)
       return () => {
         ipcRenderer.removeListener('backup:local-export-progress', handler)

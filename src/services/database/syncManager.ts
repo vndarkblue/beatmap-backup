@@ -7,6 +7,7 @@ import { realmService } from '../realmService'
 import { getOsuLazerPath, getOsuStablePath } from '../settingsStore'
 import type { DatabaseStatus, SyncProgressEvent, SyncSource } from './types'
 import { startupMark } from '../startupTrace'
+import { isOsuProcessRunning } from '../processDetector'
 
 class SyncManager extends EventEmitter {
   private static instance: SyncManager
@@ -21,9 +22,43 @@ class SyncManager extends EventEmitter {
 
   async runStartupSync(): Promise<void> {
     startupMark('db:startupSync:begin')
-    await this.syncSource('stable', false)
+
+    // Stable startup sync
+    const stableProc = await isOsuProcessRunning('stable')
+    if (stableProc.running) {
+      this.emitSyncEvent({
+        source: 'stable',
+        phase: 'skipped',
+        message: 'osu!stable is currently running'
+      })
+    } else {
+      await this.syncSource('stable', false)
+    }
+
     startupMark('db:startupSync:afterStable')
-    await this.syncSource('lazer', false)
+
+    // Lazer startup sync: only sync if never synced before and lazer is not running
+    const db = DatabaseService.getInstance()
+    const lazerLastSyncAt = Number(db.getMeta('last_sync_lazer_at') ?? '0') || null
+    if (lazerLastSyncAt) {
+      this.emitSyncEvent({
+        source: 'lazer',
+        phase: 'skipped',
+        message: 'Lazer startup sync skipped (already synced)'
+      })
+    } else {
+      const lazerProc = await isOsuProcessRunning('lazer')
+      if (lazerProc.running) {
+        this.emitSyncEvent({
+          source: 'lazer',
+          phase: 'skipped',
+          message: 'osu!lazer is currently running'
+        })
+      } else {
+        await this.syncSource('lazer', false)
+      }
+    }
+
     startupMark('db:startupSync:done')
   }
 
@@ -82,9 +117,9 @@ class SyncManager extends EventEmitter {
         lastFileMtime: lazerLastMtime,
         currentFileMtime: lazerCurrentMtime,
         beatmapCount: db.getBeatmapCountBySource('lazer'),
-        isDirty: Boolean(
-          lazerCurrentMtime && lazerLastMtime && lazerCurrentMtime !== lazerLastMtime
-        )
+        // For lazer, do not use mtime to determine dirty state.
+        // It is considered dirty only if configured and has never been synced.
+        isDirty: Boolean(lazerConfiguredPath && !lazerLastSyncAt)
       }
     }
   }
@@ -108,6 +143,26 @@ class SyncManager extends EventEmitter {
     const db = DatabaseService.getInstance()
 
     try {
+      // Check if osu! process is running
+      const procCheck = await isOsuProcessRunning(source)
+      if (procCheck.running) {
+        if (force) {
+          this.emitSyncEvent({
+            source,
+            phase: 'error',
+            error: `Cannot sync: osu!${source === 'lazer' ? 'lazer' : 'stable'} is currently running. Please close the game first.`
+          })
+          return
+        } else {
+          this.emitSyncEvent({
+            source,
+            phase: 'skipped',
+            message: `osu!${source === 'lazer' ? 'lazer' : 'stable'} is currently running`
+          })
+          return
+        }
+      }
+
       const filePath = source === 'stable' ? getStableDbPath() : realmService.getRealmPath()
       if (!filePath || !fs.existsSync(filePath)) {
         this.emitSyncEvent({
@@ -120,14 +175,24 @@ class SyncManager extends EventEmitter {
 
       const currentMtime = fs.statSync(filePath).mtimeMs
       const lastMtime = Number(db.getMeta(`last_sync_${source}_mtime`) ?? '0')
+      const lastSyncAt = Number(db.getMeta(`last_sync_${source}_at`) ?? '0')
 
-      if (!force && lastMtime === currentMtime) {
-        this.emitSyncEvent({
-          source,
-          phase: 'skipped',
-          message: 'Source unchanged'
-        })
-        return
+      if (!force) {
+        if (source === 'stable' && lastMtime === currentMtime) {
+          this.emitSyncEvent({
+            source,
+            phase: 'skipped',
+            message: 'Source unchanged'
+          })
+          return
+        } else if (source === 'lazer' && lastSyncAt > 0) {
+          this.emitSyncEvent({
+            source,
+            phase: 'skipped',
+            message: 'Source unchanged'
+          })
+          return
+        }
       }
 
       this.emitSyncEvent({

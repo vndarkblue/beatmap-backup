@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 
 export const CREATE_TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS beatmapsets (
@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS beatmaps (
   playcount INTEGER NULL,
   passcount INTEGER NULL,
   source_origin TEXT NOT NULL,
+  metrics_source TEXT NOT NULL DEFAULT 'stable',
   last_synced_at INTEGER NOT NULL,
   FOREIGN KEY (beatmapset_id) REFERENCES beatmapsets(id) ON DELETE CASCADE
 );

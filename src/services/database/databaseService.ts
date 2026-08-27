@@ -77,6 +77,7 @@ export class DatabaseService {
       number | null,
       number | null,
       string,
+      string,
       number
     ]
   >
@@ -120,25 +121,25 @@ export class DatabaseService {
         video, storyboard, is_scoreable, source_origin, last_synced_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
-        artist = excluded.artist,
-        artist_unicode = excluded.artist_unicode,
-        title = excluded.title,
-        title_unicode = excluded.title_unicode,
-        creator = excluded.creator,
-        source = excluded.source,
-        tags = excluded.tags,
-        status = excluded.status,
-        bpm = excluded.bpm,
-        ranked_date = excluded.ranked_date,
-        submitted_date = excluded.submitted_date,
-        last_updated = excluded.last_updated,
-        genre_id = excluded.genre_id,
-        language_id = excluded.language_id,
-        rating = excluded.rating,
-        spotlight = excluded.spotlight,
-        video = excluded.video,
-        storyboard = excluded.storyboard,
-        is_scoreable = excluded.is_scoreable,
+        artist = CASE WHEN excluded.artist != '' THEN excluded.artist ELSE beatmapsets.artist END,
+        artist_unicode = CASE WHEN excluded.artist_unicode != '' THEN excluded.artist_unicode ELSE beatmapsets.artist_unicode END,
+        title = CASE WHEN excluded.title != '' THEN excluded.title ELSE beatmapsets.title END,
+        title_unicode = CASE WHEN excluded.title_unicode != '' THEN excluded.title_unicode ELSE beatmapsets.title_unicode END,
+        creator = CASE WHEN excluded.creator != '' THEN excluded.creator ELSE beatmapsets.creator END,
+        source = CASE WHEN excluded.source != '' THEN excluded.source ELSE beatmapsets.source END,
+        tags = CASE WHEN excluded.tags != '' THEN excluded.tags ELSE beatmapsets.tags END,
+        status = CASE WHEN excluded.status != '' AND excluded.status != 'unranked' THEN excluded.status ELSE beatmapsets.status END,
+        bpm = CASE WHEN excluded.bpm > 0 THEN excluded.bpm ELSE beatmapsets.bpm END,
+        ranked_date = COALESCE(excluded.ranked_date, beatmapsets.ranked_date),
+        submitted_date = COALESCE(excluded.submitted_date, beatmapsets.submitted_date),
+        last_updated = COALESCE(excluded.last_updated, beatmapsets.last_updated),
+        genre_id = COALESCE(excluded.genre_id, beatmapsets.genre_id),
+        language_id = COALESCE(excluded.language_id, beatmapsets.language_id),
+        rating = COALESCE(excluded.rating, beatmapsets.rating),
+        spotlight = CASE WHEN excluded.spotlight != 0 THEN excluded.spotlight ELSE beatmapsets.spotlight END,
+        video = CASE WHEN excluded.video != 0 THEN excluded.video ELSE beatmapsets.video END,
+        storyboard = CASE WHEN excluded.storyboard != 0 THEN excluded.storyboard ELSE beatmapsets.storyboard END,
+        is_scoreable = CASE WHEN excluded.is_scoreable != 0 THEN excluded.is_scoreable ELSE beatmapsets.is_scoreable END,
         source_origin = CASE
           WHEN beatmapsets.source_origin = excluded.source_origin THEN beatmapsets.source_origin
           WHEN beatmapsets.source_origin = 'both' OR excluded.source_origin = 'both' THEN 'both'
@@ -149,8 +150,8 @@ export class DatabaseService {
     this.upsertBeatmapStmt = this.db.prepare(`
       INSERT INTO beatmaps (
         id, beatmapset_id, md5, mode, mode_name, status, version, difficulty_rating, total_length,
-        hit_length, bpm, cs, ar, hp, od, max_combo, playcount, passcount, source_origin, last_synced_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        hit_length, bpm, cs, ar, hp, od, max_combo, playcount, passcount, source_origin, metrics_source, last_synced_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(md5) DO UPDATE SET
         id = COALESCE(excluded.id, beatmaps.id),
         beatmapset_id = excluded.beatmapset_id,
@@ -158,21 +159,30 @@ export class DatabaseService {
         mode_name = excluded.mode_name,
         status = excluded.status,
         version = excluded.version,
-        difficulty_rating = excluded.difficulty_rating,
-        total_length = excluded.total_length,
-        hit_length = excluded.hit_length,
-        bpm = excluded.bpm,
+        difficulty_rating = CASE
+          WHEN excluded.source_origin = 'lazer' AND excluded.difficulty_rating > 0 THEN excluded.difficulty_rating
+          WHEN beatmaps.difficulty_rating > 0 THEN beatmaps.difficulty_rating
+          ELSE excluded.difficulty_rating
+        END,
+        total_length = CASE WHEN excluded.total_length > 0 THEN excluded.total_length ELSE beatmaps.total_length END,
+        hit_length = CASE WHEN excluded.hit_length > 0 THEN excluded.hit_length ELSE beatmaps.hit_length END,
+        bpm = CASE WHEN excluded.bpm > 0 THEN excluded.bpm ELSE beatmaps.bpm END,
         cs = excluded.cs,
         ar = excluded.ar,
         hp = excluded.hp,
         od = excluded.od,
-        max_combo = excluded.max_combo,
-        playcount = excluded.playcount,
-        passcount = excluded.passcount,
+        max_combo = COALESCE(excluded.max_combo, beatmaps.max_combo),
+        playcount = COALESCE(excluded.playcount, beatmaps.playcount),
+        passcount = COALESCE(excluded.passcount, beatmaps.passcount),
         source_origin = CASE
           WHEN beatmaps.source_origin = excluded.source_origin THEN beatmaps.source_origin
           WHEN beatmaps.source_origin = 'both' OR excluded.source_origin = 'both' THEN 'both'
           ELSE 'both'
+        END,
+        metrics_source = CASE
+          WHEN excluded.source_origin = 'stable' AND excluded.playcount IS NOT NULL THEN 'stable'
+          WHEN excluded.source_origin = 'lazer' AND excluded.difficulty_rating > 0 THEN 'lazer'
+          ELSE COALESCE(beatmaps.metrics_source, excluded.metrics_source)
         END,
         last_synced_at = excluded.last_synced_at
     `)
@@ -219,6 +229,13 @@ export class DatabaseService {
       | MetaRow
       | undefined
     const current = row ? Number(row.value) : 0
+    if (current < 3) {
+      const tableInfo = this.db.pragma('table_info(beatmaps)') as Array<{ name: string }>
+      const hasMetricsSource = tableInfo.some((col) => col.name === 'metrics_source')
+      if (!hasMetricsSource) {
+        this.db.exec("ALTER TABLE beatmaps ADD COLUMN metrics_source TEXT NOT NULL DEFAULT 'stable'")
+      }
+    }
     if (!Number.isFinite(current) || current < CURRENT_SCHEMA_VERSION) {
       this.db
         .prepare(
@@ -346,6 +363,7 @@ export class DatabaseService {
           beatmap.playcount,
           beatmap.passcount,
           beatmap.sourceOrigin,
+          beatmap.metricsSource ?? beatmap.sourceOrigin,
           syncedAt
         )
       }
@@ -420,6 +438,7 @@ export class DatabaseService {
             beatmap.playcount,
             beatmap.passcount,
             beatmap.sourceOrigin,
+            beatmap.metricsSource ?? beatmap.sourceOrigin,
             syncedAt
           )
         }

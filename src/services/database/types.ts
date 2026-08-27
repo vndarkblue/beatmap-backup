@@ -46,6 +46,7 @@ export interface NormalizedBeatmapRecord {
   playcount: number | null
   passcount: number | null
   sourceOrigin: SourceOrigin
+  metricsSource?: SourceOrigin
 }
 
 export interface SyncProgressEvent {

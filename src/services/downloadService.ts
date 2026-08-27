@@ -466,10 +466,16 @@ class DownloadService extends EventEmitter {
     }
 
     this.mirrorHealthRefreshAt = now + MIRROR_HEALTH_REFRESH_INTERVAL_MS
-    const options = this.currentOptions
+    const refreshQueueId = this.queueId
     const mirrorService = BeatmapMirrorService.getInstance()
     this.mirrorHealthRefreshInFlight = (async () => {
       const healthyMirrorNames = await mirrorService.getHealthyMirrorNames(true)
+      // A new queue may have replaced the configuration while the health probe
+      // was in flight. Never apply the old probe result to that queue.
+      const options = this.currentOptions
+      if (!options || this.queueId !== refreshQueueId) {
+        return
+      }
       const availableMirrors = DefaultBeatmapMirrors.filter(
         (mirror) =>
           options.sources.includes(mirror.name) &&

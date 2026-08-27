@@ -20,6 +20,28 @@ class SyncManager extends EventEmitter {
     return SyncManager.instance
   }
 
+  private backgroundTimer: NodeJS.Timeout | null = null
+  private readonly AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
+
+  startBackgroundSync(intervalMs = this.AUTO_SYNC_INTERVAL_MS): void {
+    if (this.backgroundTimer) return
+    this.backgroundTimer = setInterval(() => {
+      void this.runPeriodicSync()
+    }, intervalMs)
+  }
+
+  stopBackgroundSync(): void {
+    if (this.backgroundTimer) {
+      clearInterval(this.backgroundTimer)
+      this.backgroundTimer = null
+    }
+  }
+
+  async runPeriodicSync(): Promise<void> {
+    await this.syncSource('stable', false)
+    await this.syncSource('lazer', false)
+  }
+
   async runStartupSync(): Promise<void> {
     startupMark('db:startupSync:begin')
 
@@ -37,26 +59,16 @@ class SyncManager extends EventEmitter {
 
     startupMark('db:startupSync:afterStable')
 
-    // Lazer startup sync: only sync if never synced before and lazer is not running
-    const db = DatabaseService.getInstance()
-    const lazerLastSyncAt = Number(db.getMeta('last_sync_lazer_at') ?? '0') || null
-    if (lazerLastSyncAt) {
+    // Lazer startup sync
+    const lazerProc = await isOsuProcessRunning('lazer')
+    if (lazerProc.running) {
       this.emitSyncEvent({
         source: 'lazer',
         phase: 'skipped',
-        message: 'Lazer startup sync skipped (already synced)'
+        message: 'osu!lazer is currently running'
       })
     } else {
-      const lazerProc = await isOsuProcessRunning('lazer')
-      if (lazerProc.running) {
-        this.emitSyncEvent({
-          source: 'lazer',
-          phase: 'skipped',
-          message: 'osu!lazer is currently running'
-        })
-      } else {
-        await this.syncSource('lazer', false)
-      }
+      await this.syncSource('lazer', false)
     }
 
     startupMark('db:startupSync:done')
@@ -175,17 +187,9 @@ class SyncManager extends EventEmitter {
 
       const currentMtime = fs.statSync(filePath).mtimeMs
       const lastMtime = Number(db.getMeta(`last_sync_${source}_mtime`) ?? '0')
-      const lastSyncAt = Number(db.getMeta(`last_sync_${source}_at`) ?? '0')
 
       if (!force) {
         if (source === 'stable' && lastMtime === currentMtime) {
-          this.emitSyncEvent({
-            source,
-            phase: 'skipped',
-            message: 'Source unchanged'
-          })
-          return
-        } else if (source === 'lazer' && lastSyncAt > 0) {
           this.emitSyncEvent({
             source,
             phase: 'skipped',

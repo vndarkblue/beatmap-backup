@@ -26,6 +26,7 @@ export function startDeferredBackgroundServices(): void {
 
     const syncManager = SyncManager.getInstance()
     void syncManager.runStartupSync()
+    syncManager.startBackgroundSync()
 
     const collectionSyncService = CollectionSyncService.getInstance()
     collectionSyncService.startBackgroundSync()
@@ -45,6 +46,9 @@ export async function stopBackgroundServices(): Promise<void> {
   try {
     const mirrorService = BeatmapMirrorService.getInstance()
     mirrorService.stopBackgroundHealthChecks()
+
+    const syncManager = SyncManager.getInstance()
+    syncManager.stopBackgroundSync()
 
     const collectionSyncService = CollectionSyncService.getInstance()
     collectionSyncService.stopBackgroundSync()

@@ -127,4 +127,60 @@ describe('SyncManager', () => {
     expect(mockImportFromLazerRealm).not.toHaveBeenCalled()
     expect(events.some((e) => e.source === 'lazer' && e.phase === 'error')).toBe(true)
   })
+
+  it('runs lazer sync during startup even if already synced before when lazer is not running', async () => {
+    mockIsOsuProcessRunning.mockResolvedValue({ running: false })
+    mockGetMeta.mockImplementation((key: string) => {
+      if (key === 'last_sync_lazer_at') return '1600000000000'
+      if (key === 'last_sync_stable_mtime') return '12345'
+      return null
+    })
+
+    const { default: SyncManager } = await import('../../../src/services/database/syncManager')
+    const syncManager = SyncManager.getInstance()
+
+    await syncManager.runStartupSync()
+
+    // Stable skipped because mtime unchanged (12345 === 12345)
+    expect(mockImportFromStableDb).not.toHaveBeenCalled()
+    // Lazer should run and not be blocked by previous sync
+    expect(mockImportFromLazerRealm).toHaveBeenCalled()
+  })
+
+  it('skips lazer startup sync when osu!lazer is currently running', async () => {
+    mockIsOsuProcessRunning.mockImplementation((source: string) => {
+      if (source === 'lazer') return Promise.resolve({ running: true, client: 'lazer' })
+      return Promise.resolve({ running: false })
+    })
+
+    const { default: SyncManager } = await import('../../../src/services/database/syncManager')
+    const syncManager = SyncManager.getInstance()
+
+    const events: Array<{ source?: string; phase?: string }> = []
+    const listener = (e: { source?: string; phase?: string }): void => {
+      events.push(e)
+    }
+    syncManager.on('sync', listener)
+
+    await syncManager.runStartupSync()
+
+    syncManager.off('sync', listener)
+    expect(mockImportFromLazerRealm).not.toHaveBeenCalled()
+    expect(events.some((e) => e.source === 'lazer' && e.phase === 'skipped')).toBe(true)
+  })
+
+  it('handles startBackgroundSync and stopBackgroundSync correctly', async () => {
+    vi.useFakeTimers()
+    const { default: SyncManager } = await import('../../../src/services/database/syncManager')
+    const syncManager = SyncManager.getInstance()
+
+    syncManager.startBackgroundSync(1000)
+    expect(mockImportFromLazerRealm).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(mockImportFromLazerRealm).toHaveBeenCalled()
+
+    syncManager.stopBackgroundSync()
+    vi.useRealTimers()
+  })
 })

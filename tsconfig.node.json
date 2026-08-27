@@ -6,7 +6,8 @@
     "src/preload/**/*",
     "src/services/**/*",
     "src/renderer/src/config/**/*",
-    "src/config/**/*"
+    "src/config/**/*",
+    "src/utils/**/*"
   ],
   "compilerOptions": {
     "ignoreDeprecations": "5.0",

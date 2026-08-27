@@ -128,7 +128,8 @@
       "downloadPathNotExist": "Download path does not exist",
       "downloadPathNotDirectory": "Download path is not a directory",
       "downloadPathNoPermission": "No write permission in download path",
-      "downloadPathInvalid": "Download path is invalid"
+      "downloadPathInvalid": "Download path is invalid",
+      "allBeatmapsExist": "All beatmaps in the backup file already exist on your system"
     },
     "cancelled": "Download cancelled"
   },

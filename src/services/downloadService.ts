@@ -316,7 +316,7 @@ class DownloadService extends EventEmitter {
       })
 
       if (filteredIds.length === 0) {
-        return
+        throw new Error('All beatmaps in the backup file already exist on your system')
       }
 
       const mirrorService = BeatmapMirrorService.getInstance()

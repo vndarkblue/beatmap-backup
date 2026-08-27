@@ -532,8 +532,12 @@ const handleDownload = async (): Promise<void> => {
   } catch (error) {
     console.error('Download failed:', error)
     isSuccess.value = false
-    statusMessage.value =
-      error instanceof Error ? error.message : t('download.errors.downloadPathInvalid')
+    const msg = error instanceof Error ? error.message : ''
+    if (msg.includes('already exist')) {
+      statusMessage.value = t('download.errors.allBeatmapsExist')
+    } else {
+      statusMessage.value = msg || t('download.errors.downloadPathInvalid')
+    }
   } finally {
     isDownloading.value = false
   }

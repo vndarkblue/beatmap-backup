@@ -128,7 +128,8 @@
       "downloadPathNotExist": "Đường dẫn tải xuống không tồn tại",
       "downloadPathNotDirectory": "Đường dẫn tải xuống không phải là thư mục",
       "downloadPathNoPermission": "Không có quyền ghi vào đường dẫn tải xuống",
-      "downloadPathInvalid": "Đường dẫn tải xuống không hợp lệ"
+      "downloadPathInvalid": "Đường dẫn tải xuống không hợp lệ",
+      "allBeatmapsExist": "Tất cả beatmap trong file sao lưu đã có sẵn trên máy của bạn"
     },
     "cancelled": "Đã huỷ tải xuống"
   },

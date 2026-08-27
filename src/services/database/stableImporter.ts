@@ -201,7 +201,12 @@ export async function importFromStableDb(
 
   const db = DatabaseService.getInstance()
   const syncedAt = Date.now()
-  db.upsertBatch(Array.from(setMap.values()), normalizedBeatmaps, syncedAt)
+  const sets = Array.from(setMap.values())
+  if (typeof db.upsertBatchAsync === 'function') {
+    await db.upsertBatchAsync(sets, normalizedBeatmaps, syncedAt)
+  } else {
+    db.upsertBatch(sets, normalizedBeatmaps, syncedAt)
+  }
 
   return { beatmapsets: setMap.size, beatmaps: normalizedBeatmaps.length }
 }

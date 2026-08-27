@@ -21,9 +21,6 @@ export function startDeferredBackgroundServices(): void {
   try {
     startupMark('backgroundServices:start')
 
-    const mirrorService = BeatmapMirrorService.getInstance()
-    mirrorService.startBackgroundHealthChecks()
-
     const downloadService = DownloadService.getInstance()
     void downloadService.preloadRecoveryState()
 

@@ -325,6 +325,92 @@ export class DatabaseService {
     tx()
   }
 
+  async upsertBatchAsync(
+    beatmapsets: NormalizedBeatmapsetRecord[],
+    beatmaps: NormalizedBeatmapRecord[],
+    syncedAt: number,
+    chunkSize = 2500
+  ): Promise<void> {
+    for (let i = 0; i < beatmapsets.length; i += chunkSize) {
+      const slice = beatmapsets.slice(i, i + chunkSize)
+      const tx = this.db.transaction((sets: NormalizedBeatmapsetRecord[]) => {
+        for (const set of sets) {
+          this.upsertBeatmapsetStmt.run(
+            set.id,
+            set.artist,
+            set.artistUnicode,
+            set.title,
+            set.titleUnicode,
+            set.creator,
+            set.source,
+            set.tags,
+            set.status,
+            set.bpm,
+            set.rankedDate,
+            set.submittedDate,
+            set.lastUpdated,
+            set.genreId,
+            set.languageId,
+            set.rating,
+            set.spotlight ? 1 : 0,
+            set.video ? 1 : 0,
+            set.storyboard ? 1 : 0,
+            set.isScoreable ? 1 : 0,
+            set.sourceOrigin,
+            syncedAt
+          )
+        }
+      })
+      tx(slice)
+      if (i + chunkSize < beatmapsets.length) {
+        await new Promise<void>((resolve) => setImmediate(resolve))
+      }
+    }
+
+    for (let i = 0; i < beatmaps.length; i += chunkSize) {
+      const slice = beatmaps.slice(i, i + chunkSize)
+      const tx = this.db.transaction((bms: NormalizedBeatmapRecord[]) => {
+        for (const beatmap of bms) {
+          this.upsertBeatmapStmt.run(
+            beatmap.id,
+            beatmap.beatmapsetId,
+            beatmap.md5,
+            beatmap.modeInt,
+            beatmap.mode,
+            beatmap.status,
+            beatmap.version,
+            beatmap.difficultyRating,
+            beatmap.totalLength,
+            beatmap.hitLength,
+            beatmap.bpm,
+            beatmap.cs,
+            beatmap.ar,
+            beatmap.hp,
+            beatmap.od,
+            beatmap.maxCombo,
+            beatmap.playcount,
+            beatmap.passcount,
+            beatmap.sourceOrigin,
+            syncedAt
+          )
+        }
+      })
+      tx(slice)
+      if (i + chunkSize < beatmaps.length) {
+        await new Promise<void>((resolve) => setImmediate(resolve))
+      }
+    }
+  }
+
+  getPendingCollectionMapCacheCount(): number {
+    const row = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM collection_map_cache WHERE resolve_status IN ('pending', 'failed')"
+      )
+      .get() as { count: number }
+    return row.count
+  }
+
   refreshSourceTag(source: SyncSource): void {
     const oppositeSource = source === 'stable' ? 'lazer' : 'stable'
     this.markBeatmapSourceStmt.run(oppositeSource, 'both')

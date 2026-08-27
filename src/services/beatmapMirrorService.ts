@@ -80,36 +80,40 @@ class BeatmapMirrorService {
     return Date.now() - status.lastChecked < this.CACHE_DURATION
   }
 
-  public async getMirrorsStatus(): Promise<MirrorStatus[]> {
-    const results: MirrorStatus[] = []
+  public async getMirrorsStatus(forceRefresh = false): Promise<MirrorStatus[]> {
+    const now = Date.now()
     const mirrors = DefaultBeatmapMirrors
-    let cacheHits = 0
-    let freshChecks = 0
 
-    for (const mirror of mirrors) {
-      const cachedStatus = this.statusCache.get(mirror.name)
+    const mirrorsToCheck = mirrors.filter((mirror) => {
+      if (forceRefresh) return true
+      const cached = this.statusCache.get(mirror.name)
+      return !cached || !this.isCacheValid(cached)
+    })
 
-      if (cachedStatus && this.isCacheValid(cachedStatus)) {
-        cacheHits++
-        if (is.dev) {
-          console.log(
-            `[MirrorHealth] cache-hit ${mirror.name}: ${cachedStatus.isOnline ? 'online' : 'offline'}` +
-              ` age=${Date.now() - cachedStatus.lastChecked}ms` +
-              (cachedStatus.error ? ` error=${cachedStatus.error}` : '')
-          )
-        }
-        results.push(cachedStatus)
-      } else {
-        freshChecks++
-        const status = await this.checkMirrorStatus(mirror)
-        this.statusCache.set(mirror.name, status)
-        results.push(status)
+    if (mirrorsToCheck.length > 0) {
+      const freshStatuses = await Promise.all(
+        mirrorsToCheck.map((mirror) => this.checkMirrorStatus(mirror))
+      )
+      for (const status of freshStatuses) {
+        this.statusCache.set(status.name, status)
       }
     }
 
+    const results = mirrors.map((m) => {
+      return (
+        this.statusCache.get(m.name) ?? {
+          name: m.name,
+          isOnline: false,
+          lastChecked: now,
+          responseTimeMs: null,
+          error: 'Unchecked'
+        }
+      )
+    })
+
     if (is.dev) {
       console.log(
-        `[MirrorHealth] getMirrorsStatus done cacheHits=${cacheHits} freshChecks=${freshChecks}` +
+        `[MirrorHealth] getMirrorsStatus checked=${mirrorsToCheck.length}/${mirrors.length}` +
           ` online=${
             results
               .filter((s) => s.isOnline)

@@ -119,7 +119,12 @@ export async function importFromLazerRealm(
 
   const db = DatabaseService.getInstance()
   const syncedAt = Date.now()
-  db.upsertBatch(Array.from(beatmapsetsById.values()), beatmaps, syncedAt)
+  const sets = Array.from(beatmapsetsById.values())
+  if (typeof db.upsertBatchAsync === 'function') {
+    await db.upsertBatchAsync(sets, beatmaps, syncedAt)
+  } else {
+    db.upsertBatch(sets, beatmaps, syncedAt)
+  }
 
   return { beatmapsets: beatmapsetsById.size, beatmaps: beatmaps.length }
 }

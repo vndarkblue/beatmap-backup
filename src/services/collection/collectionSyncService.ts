@@ -38,6 +38,18 @@ class CollectionSyncService {
 
   startBackgroundSync(): void {
     if (this.timer || this.initialTimer) return
+    const db = DatabaseService.getInstance()
+    const pendingCount =
+      typeof db.getPendingCollectionMapCacheCount === 'function'
+        ? db.getPendingCollectionMapCacheCount()
+        : db.getCollectionSyncStats().pending
+    if (pendingCount === 0) {
+      if (is.dev) {
+        console.log('[CollectionSync] No pending MD5s to resolve, idle')
+      }
+      return
+    }
+
     this.initialTimer = setTimeout(() => {
       this.initialTimer = null
       void this.syncMissingMd5s()
@@ -157,6 +169,13 @@ class CollectionSyncService {
       }
       this.lastRunSummary = runSummary
       if (is.dev) console.info('collection sync summary', runSummary)
+      const remainingPending =
+        typeof db.getPendingCollectionMapCacheCount === 'function'
+          ? db.getPendingCollectionMapCacheCount()
+          : (db.getCollectionSyncStats?.()?.pending ?? 0)
+      if (remainingPending === 0) {
+        this.stopBackgroundSync()
+      }
     } finally {
       this.isRunning = false
       db.setMeta('collection_sync_running', '0')

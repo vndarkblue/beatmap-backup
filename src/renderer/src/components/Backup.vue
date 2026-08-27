@@ -561,6 +561,27 @@ const refreshEstimate = async (): Promise<void> => {
   }
 }
 
+const updateCooldownTicker = (): void => {
+  if (syncCooldownUntil.value > Date.now()) {
+    if (!cooldownTicker) {
+      cooldownTicker = setInterval(() => {
+        nowMs.value = Date.now()
+        if (nowMs.value >= syncCooldownUntil.value) {
+          if (cooldownTicker) {
+            clearInterval(cooldownTicker)
+            cooldownTicker = null
+          }
+        }
+      }, 500)
+    }
+  } else {
+    if (cooldownTicker) {
+      clearInterval(cooldownTicker)
+      cooldownTicker = null
+    }
+  }
+}
+
 const syncMissingNow = async (): Promise<void> => {
   if (!canTriggerSync.value) return
   try {
@@ -574,6 +595,7 @@ const syncMissingNow = async (): Promise<void> => {
     } else {
       syncCooldownUntil.value = Date.now() + 5_000
     }
+    updateCooldownTicker()
     if (syncResponse.status) {
       syncStatus.value = syncResponse.status
     }
@@ -657,10 +679,7 @@ onMounted(() => {
     scheduleCollectionPreviewLoad({ immediate: true })
   }
   scheduleRefreshEstimate()
-  cooldownTicker = setInterval(() => {
-    // Triggers reactivity for canTriggerSync computed property.
-    nowMs.value = Date.now()
-  }, 500)
+  updateCooldownTicker()
 })
 
 onBeforeUnmount(() => {

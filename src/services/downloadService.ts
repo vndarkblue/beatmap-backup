@@ -608,7 +608,6 @@ class DownloadService extends EventEmitter {
 
     task.assignedMirror = undefined
     task.lastErrorAt = Date.now()
-    task.triedMirrors = Array.from(new Set([...(task.triedMirrors ?? []), mirrorName]))
 
     if (failureKind === 'cancelled') {
       task.status = 'waiting'
@@ -619,6 +618,10 @@ class DownloadService extends EventEmitter {
       this.schedulePersistCheckpoint()
       return
     }
+
+    // A cancelled request (for example, pause without waiting for active files)
+    // did not actually test the mirror, so leave the mirror rotation unchanged.
+    task.triedMirrors = Array.from(new Set([...(task.triedMirrors ?? []), mirrorName]))
 
     // Only an item-level miss consumes the item's retry budget. Mirror and
     // network failures use a separate budget so an unhealthy mirror cannot

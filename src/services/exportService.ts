@@ -5,6 +5,7 @@ import path from 'path'
 import fs from 'fs'
 import { collectionService } from './collection/collectionService'
 import { localBeatmapExport } from './localBeatmapExport'
+import { atomicWriteFile } from '../utils/fileUtils'
 import {
   buildBackupFileName,
   buildLocalOszDirectoryName,
@@ -263,8 +264,8 @@ export const exportService = {
 
       if (shouldWriteOnlineBackup) {
         if (is.dev) console.log('Saving to file:', filePath)
-        // Write to file with header and comments
-        fs.writeFileSync(filePath, buildBackupContent(uniqueIds, options))
+        // Write to file atomically with header and comments
+        await atomicWriteFile(filePath, buildBackupContent(uniqueIds, options))
         if (is.dev) console.log('File saved successfully')
       }
 

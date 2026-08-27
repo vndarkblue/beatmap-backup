@@ -4,8 +4,13 @@ const mockGetOsuStablePath = vi.fn<() => string | null>()
 const mockExistsSync = vi.fn<(path: string) => boolean>()
 const mockReaddirSync = vi.fn<(path: string) => string[]>()
 const mockWriteFileSync = vi.fn()
+const mockAtomicWriteFile = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
 const mockGetBeatmapsetIds = vi.fn<() => Promise<number[]>>()
 const mockShowSaveDialog = vi.fn()
+
+vi.mock('../../src/utils/fileUtils', () => ({
+  atomicWriteFile: (...args: unknown[]) => mockAtomicWriteFile(...args)
+}))
 
 vi.mock('../../src/services/settingsStore', () => ({
   getOsuStablePath: () => mockGetOsuStablePath()

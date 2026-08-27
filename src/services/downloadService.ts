@@ -679,22 +679,25 @@ class DownloadService extends EventEmitter {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const failureKind = this.classifyFailure(error)
 
-    const health = this.mirrorHealth.get(mirrorName) || {
-      success: 0,
-      failure: 0,
-      avgResponseTime: 0
+    if (failureKind === 'rate-limit' || failureKind === 'transient') {
+      const health = this.mirrorHealth.get(mirrorName) || {
+        success: 0,
+        failure: 0,
+        avgResponseTime: 0
+      }
+      health.failure++
+      this.mirrorHealth.set(mirrorName, health)
+      mirrorState.consecutiveFailures++
+      mirrorState.consecutiveSuccesses = 0
     }
-    health.failure++
-    this.mirrorHealth.set(mirrorName, health)
-    mirrorState.consecutiveFailures++
-    mirrorState.consecutiveSuccesses = 0
 
     if (is.dev) {
+      const health = this.mirrorHealth.get(mirrorName)
       console.log(
         `[DownloadDebug] download.fail set=${task.beatmapsetId} mirror=${mirrorName}` +
           ` itemAttempts=${task.attemptCount ?? 0} mirrorAttempts=${task.mirrorAttemptCount ?? 0}` +
           ` kind=${failureKind} error=${errorMessage}` +
-          ` mirrorHealth={ok:${health.success},fail:${health.failure}}`
+          ` mirrorHealth={ok:${health?.success ?? 0},fail:${health?.failure ?? 0}}`
       )
     }
 
@@ -763,14 +766,13 @@ class DownloadService extends EventEmitter {
       if (error.statusCode === 429) {
         return 'rate-limit'
       }
-      if (error.statusCode === 404) {
-        return 'not-found'
-      }
-      // A 4xx response (other than 404/429 above) may be specific to this mirror:
-      // e.g. a missing/DMCA'd file (410) or an IP/user-agent restriction (401/403/451).
-      // Let the scheduler try another mirror before exhausting the task's retries.
-      if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+      if (error.statusCode === 408) {
         return 'transient'
+      }
+      // 4xx status codes (404 Not Found, 410 Gone, 403 Forbidden/DMCA, 451 Unavailable, 400 Bad Request, etc.)
+      // are item-specific errors on this mirror, NOT mirror infrastructure degradation.
+      if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+        return 'not-found'
       }
       return 'transient'
     }
@@ -778,7 +780,10 @@ class DownloadService extends EventEmitter {
     if (/429|rate.?limit|too many requests/i.test(message)) {
       return 'rate-limit'
     }
-    if (/404|not found/i.test(message)) {
+    if (/408|request.?timeout/i.test(message)) {
+      return 'transient'
+    }
+    if (/404|410|403|451|not found|forbidden|gone|unavailable|dmca/i.test(message)) {
       return 'not-found'
     }
     if (/EACCES|EPERM|ENOSPC|permission|no space/i.test(message)) {

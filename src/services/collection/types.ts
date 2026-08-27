@@ -7,6 +7,16 @@ export interface CollectionEntry {
   source: CollectionSource
 }
 
+export interface CollectionReadErrors {
+  stable?: string
+  lazer?: string
+}
+
+export interface CollectionReadResult {
+  entries: CollectionEntry[]
+  errors: CollectionReadErrors
+}
+
 export interface CollectionPreviewItem {
   key: string
   name: string
@@ -23,6 +33,7 @@ export interface CollectionPreviewResult {
   collections: CollectionPreviewItem[]
   syncStatus: CollectionSyncStatus
   error?: string
+  errors?: CollectionReadErrors
 }
 
 export interface CollectionSyncStatus {

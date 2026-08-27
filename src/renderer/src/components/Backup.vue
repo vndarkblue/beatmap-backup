@@ -77,6 +77,27 @@
         </div>
 
         <div v-if="backupByCollection" class="collection-options">
+          <v-alert
+            v-if="collectionReadErrors.stable"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+            :lang="currentLocale"
+          >
+            {{ $t('backup.collection.errors.stableReadFailed', { error: collectionReadErrors.stable }) }}
+          </v-alert>
+          <v-alert
+            v-if="collectionReadErrors.lazer"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+            :lang="currentLocale"
+          >
+            {{ $t('backup.collection.errors.lazerReadFailed', { error: collectionReadErrors.lazer }) }}
+          </v-alert>
+
           <v-switch
             v-model="mergeCollectionNames"
             :label="$t('backup.collection.mergeByName')"
@@ -264,6 +285,7 @@ const statusMessage = ref('')
 const isSuccess = ref(false)
 const collections = ref<CollectionItem[]>([])
 const selectedCollectionKeys = ref<string[]>([])
+const collectionReadErrors = ref<{ stable?: string; lazer?: string }>({})
 const sortKey = ref<'name' | 'maps' | 'source'>('name')
 const sortDir = ref<'asc' | 'desc'>('asc')
 const syncStatus = ref({
@@ -451,6 +473,7 @@ const loadCollectionPreview = async (options?: { forceRefresh?: boolean }): Prom
   if (!backupByCollection.value || !isSourceSelected.value) {
     collections.value = []
     selectedCollectionKeys.value = []
+    collectionReadErrors.value = {}
     previewCache.clear()
     return
   }
@@ -479,6 +502,7 @@ const loadCollectionPreview = async (options?: { forceRefresh?: boolean }): Prom
     return
   }
   latestPreviewAppliedSeq = requestSeq
+  collectionReadErrors.value = response.errors ?? {}
   applyPreviewResult(response.collections, response.syncStatus)
   previewCache.set(cacheKey, {
     at: Date.now(),

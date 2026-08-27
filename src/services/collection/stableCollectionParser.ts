@@ -49,7 +49,22 @@ export interface StableCollectionRecord {
 }
 
 export function parseStableCollectionDb(filePath: string): StableCollectionRecord[] {
-  const buffer = fs.readFileSync(filePath)
+  let buffer: Buffer
+  try {
+    buffer = fs.readFileSync(filePath)
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      ((error as NodeJS.ErrnoException).code === 'EBUSY' ||
+        (error as NodeJS.ErrnoException).code === 'EPERM')
+    ) {
+      throw new Error(
+        'collection.db is currently locked by another process (likely osu!stable). Please close the game and try again.'
+      )
+    }
+    throw error
+  }
   const cursor: BinaryCursor = { offset: 0, buffer }
 
   // collection.db format starts with version then collection count

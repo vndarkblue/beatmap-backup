@@ -82,6 +82,10 @@
         "maps": "Beatmaps",
         "source": "Source",
         "status": "Status"
+      },
+      "errors": {
+        "stableReadFailed": "Failed to read osu!stable collections: {error}",
+        "lazerReadFailed": "Failed to read osu!lazer collections: {error}"
       }
     }
   },

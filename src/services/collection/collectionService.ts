@@ -9,6 +9,8 @@ import type {
   CollectionMergeMode,
   CollectionPreviewItem,
   CollectionPreviewResult,
+  CollectionReadErrors,
+  CollectionReadResult,
   CollectionSource
 } from './types'
 import { DatabaseService } from '../database/databaseService'
@@ -91,13 +93,16 @@ export const sanitizeFileName = (raw: string): string =>
   sanitizeBackupFileName(raw, 'collection-backup')
 
 export const collectionService = {
-  async readCollections(options: CollectionPreviewOptions): Promise<CollectionEntry[]> {
+  async readCollectionsDetailed(options: CollectionPreviewOptions): Promise<CollectionReadResult> {
     const entries: CollectionEntry[] = []
+    const errors: CollectionReadErrors = {}
 
     if (options.stable) {
       try {
         const stablePath = getOsuStablePath()
-        if (stablePath) {
+        if (!stablePath) {
+          errors.stable = 'osu!stable path is not configured in settings'
+        } else {
           const collectionDbPath = path.join(stablePath, 'collection.db')
           if (fs.existsSync(collectionDbPath)) {
             const collections = parseStableCollectionDb(collectionDbPath)
@@ -108,13 +113,14 @@ export const collectionService = {
                 source: 'stable'
               })
             }
+          } else {
+            errors.stable = 'collection.db file not found in osu!stable directory'
           }
         }
       } catch (error) {
-        console.warn(
-          'Could not read stable collections:',
-          error instanceof Error ? error.message : error
-        )
+        const message = error instanceof Error ? error.message : String(error)
+        errors.stable = message
+        console.warn('Could not read stable collections:', message)
       }
     }
 
@@ -129,19 +135,29 @@ export const collectionService = {
           })
         }
       } catch (error) {
-        console.warn(
-          'Could not read lazer collections:',
-          error instanceof Error ? error.message : error
-        )
+        const message = error instanceof Error ? error.message : String(error)
+        errors.lazer = message
+        console.warn('Could not read lazer collections:', message)
       }
     }
 
-    return options.mergeMode === 'merge' ? mergeCollections(entries) : splitCollections(entries)
+    const processedEntries =
+      options.mergeMode === 'merge' ? mergeCollections(entries) : splitCollections(entries)
+
+    return {
+      entries: processedEntries,
+      errors
+    }
+  },
+
+  async readCollections(options: CollectionPreviewOptions): Promise<CollectionEntry[]> {
+    const result = await this.readCollectionsDetailed(options)
+    return result.entries
   },
 
   async previewCollections(options: CollectionPreviewOptions): Promise<CollectionPreviewResult> {
     const db = DatabaseService.getInstance()
-    const collections = await this.readCollections(options)
+    const { entries: collections, errors } = await this.readCollectionsDetailed(options)
     const now = Date.now()
     const cacheUpserts = new Map<string, Parameters<typeof db.upsertCollectionMapCache>[0]>()
     const items: CollectionPreviewItem[] = collections.map((entry) => {
@@ -214,6 +230,8 @@ export const collectionService = {
       db.upsertCollectionMapCacheBatch(Array.from(cacheUpserts.values()))
     }
 
+    const hasErrors = Object.keys(errors).length > 0
+
     return {
       success: true,
       collections: items,
@@ -221,7 +239,8 @@ export const collectionService = {
         ...db.getCollectionSyncStats(),
         lastRunAt: Number(db.getMeta('collection_sync_last_run_at') ?? '0') || null,
         running: db.getMeta('collection_sync_running') === '1'
-      }
+      },
+      ...(hasErrors ? { errors } : {})
     }
   },
 
@@ -239,10 +258,15 @@ export const collectionService = {
     stableBeatmapMd5s: string[]
   }> {
     const db = DatabaseService.getInstance()
-    const collections = await this.readCollections(options)
+    const { entries: collections, errors } = await this.readCollectionsDetailed(options)
     const selected = selectCollections(collections, options.selectedKeys)
     const stableBeatmapMd5s = getStableCandidateMd5s(selected)
+
     if (selected.length === 0) {
+      if (options.selectedKeys.length > 0 && (errors.stable || errors.lazer)) {
+        const errorMsg = [errors.stable, errors.lazer].filter(Boolean).join('; ')
+        throw new Error(`Could not read selected collections: ${errorMsg}`)
+      }
       return {
         ids: [],
         stats: { resolved: 0, pendingSync: 0, missingLocal: 0, apiNotFound: 0 },

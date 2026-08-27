@@ -82,6 +82,10 @@
         "maps": "Số map",
         "source": "Nguồn",
         "status": "Trạng thái"
+      },
+      "errors": {
+        "stableReadFailed": "Không thể đọc collection của osu!stable: {error}",
+        "lazerReadFailed": "Không thể đọc collection của osu!lazer: {error}"
       }
     }
   },

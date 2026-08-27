@@ -11,6 +11,7 @@ import {
   startDeferredBackgroundServices,
   stopBackgroundServices
 } from './backgroundServices'
+import SyncManager from '../services/database/syncManager'
 
 let cleanupIpcHandlers: (() => void) | undefined
 
@@ -80,6 +81,10 @@ function createWindow(): BrowserWindow {
 
   // Register domain-driven IPC handlers and event dispatchers
   cleanupIpcHandlers = registerIpcHandlers(mainWindow)
+
+  mainWindow.on('focus', () => {
+    SyncManager.getInstance().handleWindowFocus()
+  })
 
   mainWindow.on('closed', () => {
     if (cleanupIpcHandlers) {

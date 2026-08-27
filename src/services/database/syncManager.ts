@@ -23,6 +23,8 @@ class SyncManager extends EventEmitter {
   private backgroundTimer: NodeJS.Timeout | null = null
   private readonly AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
 
+  private focusDebounceTimer: NodeJS.Timeout | null = null
+
   startBackgroundSync(intervalMs = this.AUTO_SYNC_INTERVAL_MS): void {
     if (this.backgroundTimer) return
     this.backgroundTimer = setInterval(() => {
@@ -35,6 +37,20 @@ class SyncManager extends EventEmitter {
       clearInterval(this.backgroundTimer)
       this.backgroundTimer = null
     }
+    if (this.focusDebounceTimer) {
+      clearTimeout(this.focusDebounceTimer)
+      this.focusDebounceTimer = null
+    }
+  }
+
+  handleWindowFocus(): void {
+    if (this.focusDebounceTimer) {
+      clearTimeout(this.focusDebounceTimer)
+    }
+    this.focusDebounceTimer = setTimeout(() => {
+      this.focusDebounceTimer = null
+      void this.runPeriodicSync()
+    }, 600)
   }
 
   async runPeriodicSync(): Promise<void> {
@@ -108,6 +124,13 @@ class SyncManager extends EventEmitter {
 
     const totals = db.getCounts()
 
+    const stableDirty = Boolean(
+      stableCurrentMtime && (!stableLastMtime || stableCurrentMtime !== stableLastMtime)
+    )
+    const lazerDirty = Boolean(
+      lazerCurrentMtime && (!lazerLastMtime || lazerCurrentMtime !== lazerLastMtime)
+    )
+
     return {
       schemaVersion: db.getSchemaVersion(),
       totals,
@@ -118,9 +141,7 @@ class SyncManager extends EventEmitter {
         lastFileMtime: stableLastMtime,
         currentFileMtime: stableCurrentMtime,
         beatmapCount: db.getBeatmapCountBySource('stable'),
-        isDirty: Boolean(
-          stableCurrentMtime && stableLastMtime && stableCurrentMtime !== stableLastMtime
-        )
+        isDirty: stableDirty
       },
       lazer: {
         configured: Boolean(lazerConfiguredPath),
@@ -129,9 +150,7 @@ class SyncManager extends EventEmitter {
         lastFileMtime: lazerLastMtime,
         currentFileMtime: lazerCurrentMtime,
         beatmapCount: db.getBeatmapCountBySource('lazer'),
-        // For lazer, do not use mtime to determine dirty state.
-        // It is considered dirty only if configured and has never been synced.
-        isDirty: Boolean(lazerConfiguredPath && !lazerLastSyncAt)
+        isDirty: lazerDirty
       }
     }
   }
@@ -193,7 +212,7 @@ class SyncManager extends EventEmitter {
       const lastMtime = Number(db.getMeta(`last_sync_${source}_mtime`) ?? '0')
 
       if (!force) {
-        if (source === 'stable' && lastMtime === currentMtime) {
+        if (lastMtime === currentMtime) {
           this.emitSyncEvent({
             source,
             phase: 'skipped',

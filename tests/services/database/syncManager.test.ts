@@ -67,7 +67,7 @@ describe('SyncManager', () => {
     mockImportFromLazerRealm.mockResolvedValue({ beatmapsets: 5, beatmaps: 10 })
   })
 
-  it('getStatus determines lazer dirty state without depending on mtime', async () => {
+  it('getStatus determines lazer dirty state based on mtime', async () => {
     mockGetMeta.mockImplementation((key: string) => {
       if (key === 'last_sync_lazer_at') return '1600000000000'
       if (key === 'last_sync_lazer_mtime') return '10000'
@@ -78,8 +78,8 @@ describe('SyncManager', () => {
     const syncManager = SyncManager.getInstance()
     const status = syncManager.getStatus()
 
-    // Even if currentMtime (12345) !== lastMtime (10000), lazer isDirty should be false because it was already synced
-    expect(status.lazer.isDirty).toBe(false)
+    // currentMtime (12345) !== lastMtime (10000), so lazer isDirty should be true
+    expect(status.lazer.isDirty).toBe(true)
   })
 
   it('skips startup sync when osu!stable process is running', async () => {
@@ -128,10 +128,11 @@ describe('SyncManager', () => {
     expect(events.some((e) => e.source === 'lazer' && e.phase === 'error')).toBe(true)
   })
 
-  it('runs lazer sync during startup even if already synced before when lazer is not running', async () => {
+  it('runs lazer sync during startup when mtime changed and lazer is not running', async () => {
     mockIsOsuProcessRunning.mockResolvedValue({ running: false })
     mockGetMeta.mockImplementation((key: string) => {
       if (key === 'last_sync_lazer_at') return '1600000000000'
+      if (key === 'last_sync_lazer_mtime') return '10000'
       if (key === 'last_sync_stable_mtime') return '12345'
       return null
     })
@@ -143,11 +144,30 @@ describe('SyncManager', () => {
 
     // Stable skipped because mtime unchanged (12345 === 12345)
     expect(mockImportFromStableDb).not.toHaveBeenCalled()
-    // Lazer should run and not be blocked by previous sync
+    // Lazer should run because mtime changed (12345 !== 10000)
     expect(mockImportFromLazerRealm).toHaveBeenCalled()
     expect(mockIsOsuProcessRunning).toHaveBeenCalledTimes(2)
     expect(mockIsOsuProcessRunning).toHaveBeenNthCalledWith(1, 'stable')
     expect(mockIsOsuProcessRunning).toHaveBeenNthCalledWith(2, 'lazer')
+  })
+
+  it('skips lazer startup sync when mtime is unchanged', async () => {
+    mockIsOsuProcessRunning.mockResolvedValue({ running: false })
+    mockGetMeta.mockImplementation((key: string) => {
+      if (key === 'last_sync_lazer_at') return '1600000000000'
+      if (key === 'last_sync_lazer_mtime') return '12345'
+      if (key === 'last_sync_stable_mtime') return '12345'
+      return null
+    })
+
+    const { default: SyncManager } = await import('../../../src/services/database/syncManager')
+    const syncManager = SyncManager.getInstance()
+
+    await syncManager.runStartupSync()
+
+    // Both skipped because mtime is unchanged (12345 === 12345)
+    expect(mockImportFromStableDb).not.toHaveBeenCalled()
+    expect(mockImportFromLazerRealm).not.toHaveBeenCalled()
   })
 
   it('skips lazer startup sync when osu!lazer is currently running', async () => {
@@ -172,8 +192,36 @@ describe('SyncManager', () => {
     expect(events.some((e) => e.source === 'lazer' && e.phase === 'skipped')).toBe(true)
   })
 
+  it('handles handleWindowFocus with debounced sync', async () => {
+    vi.useFakeTimers()
+    mockIsOsuProcessRunning.mockResolvedValue({ running: false })
+    mockGetMeta.mockImplementation((key: string) => {
+      if (key === 'last_sync_lazer_mtime') return '10000'
+      return null
+    })
+
+    const { default: SyncManager } = await import('../../../src/services/database/syncManager')
+    const syncManager = SyncManager.getInstance()
+
+    syncManager.handleWindowFocus()
+    // Should not fire immediately due to debounce
+    expect(mockImportFromLazerRealm).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(700)
+    expect(mockImportFromLazerRealm).toHaveBeenCalled()
+
+    syncManager.stopBackgroundSync()
+    vi.useRealTimers()
+  })
+
   it('handles startBackgroundSync and stopBackgroundSync correctly', async () => {
     vi.useFakeTimers()
+    mockIsOsuProcessRunning.mockResolvedValue({ running: false })
+    mockGetMeta.mockImplementation((key: string) => {
+      if (key === 'last_sync_lazer_mtime') return '10000'
+      return null
+    })
+
     const { default: SyncManager } = await import('../../../src/services/database/syncManager')
     const syncManager = SyncManager.getInstance()
 

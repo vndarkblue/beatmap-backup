@@ -263,6 +263,35 @@ export class DatabaseService {
     return row.count
   }
 
+  hasSyncedData(source: SyncSource): boolean {
+    return this.getBeatmapCountBySource(source) > 0
+  }
+
+  getExistingBeatmapsetIds(sources: { stable?: boolean; lazer?: boolean }): Set<number> {
+    const ids = new Set<number>()
+    if (sources.stable && sources.lazer) {
+      const rows = this.db.prepare('SELECT id FROM beatmapsets').all() as Array<{ id: number }>
+      for (const row of rows) {
+        ids.add(row.id)
+      }
+    } else if (sources.stable) {
+      const rows = this.db
+        .prepare("SELECT id FROM beatmapsets WHERE source_origin IN ('stable', 'both')")
+        .all() as Array<{ id: number }>
+      for (const row of rows) {
+        ids.add(row.id)
+      }
+    } else if (sources.lazer) {
+      const rows = this.db
+        .prepare("SELECT id FROM beatmapsets WHERE source_origin IN ('lazer', 'both')")
+        .all() as Array<{ id: number }>
+      for (const row of rows) {
+        ids.add(row.id)
+      }
+    }
+    return ids
+  }
+
   upsertBatch(
     beatmapsets: NormalizedBeatmapsetRecord[],
     beatmaps: NormalizedBeatmapRecord[],

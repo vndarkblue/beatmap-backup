@@ -2,8 +2,12 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import { execSync } from 'child_process'
-import { getOsuStablePath } from '../settingsStore'
+import { getOsuStablePath, getOsuLazerPath } from '../settingsStore'
 import { realmService } from '../realmService'
+import { DatabaseService } from '../database/databaseService'
+import { getStableDbPath } from '../database/stableImporter'
+import { isOsuProcessRunning } from '../processDetector'
+import { OsuDBParser } from 'osu-db-parser'
 import type { DownloadOptions } from './types'
 
 export function getDefaultDownloadPath(): string {
@@ -82,34 +86,86 @@ export function validateBackupFile(content: string): void {
 
 export async function getExistingBeatmapsetIds(options: DownloadOptions): Promise<Set<number>> {
   const existingIds = new Set<number>()
+  const db = DatabaseService.getInstance()
 
   if (options.removeFromStable) {
-    try {
-      const osuStablePath = getOsuStablePath()
-      if (osuStablePath) {
-        const songsPath = path.join(osuStablePath, 'Songs')
-        if (fs.existsSync(songsPath)) {
-          const folders = fs.readdirSync(songsPath)
-          for (const folder of folders) {
-            const match = folder.match(/^(\d+)\s/)
-            if (match) {
-              const id = parseInt(match[1])
-              if (!isNaN(id)) existingIds.add(id)
+    if (db.hasSyncedData('stable')) {
+      const stableIds = db.getExistingBeatmapsetIds({ stable: true })
+      for (const id of stableIds) {
+        existingIds.add(id)
+      }
+    } else {
+      // Fallback to direct reading if SQLite has not synced stable beatmaps yet
+      try {
+        const osuStablePath = getOsuStablePath()
+        if (!osuStablePath) {
+          throw new Error('osu!stable path is not configured in Settings.')
+        }
+        const stableDbPath = getStableDbPath()
+        if (stableDbPath && fs.existsSync(stableDbPath)) {
+          const buffer = fs.readFileSync(stableDbPath)
+          const parser = new OsuDBParser(buffer, null)
+          const data = parser.getOsuDBData() as {
+            beatmaps?: Array<{ beatmapset_id?: number }>
+          } | null
+          const beatmaps = data?.beatmaps ?? []
+          for (const bm of beatmaps) {
+            if (bm.beatmapset_id && bm.beatmapset_id > 0) {
+              existingIds.add(bm.beatmapset_id)
             }
           }
+        } else {
+          const songsPath = path.join(osuStablePath, 'Songs')
+          if (fs.existsSync(songsPath)) {
+            const folders = fs.readdirSync(songsPath)
+            for (const folder of folders) {
+              const match = folder.match(/^(\d+)\s/)
+              if (match) {
+                const id = parseInt(match[1])
+                if (!isNaN(id)) existingIds.add(id)
+              }
+            }
+          } else {
+            throw new Error('Neither osu!.db nor Songs folder was found in osu!stable path.')
+          }
         }
+      } catch (error) {
+        throw new Error(
+          `Failed to read existing maps from osu!stable: ${error instanceof Error ? error.message : String(error)}`
+        )
       }
-    } catch (error) {
-      console.warn('Failed to get stable beatmapset IDs:', error)
     }
   }
 
   if (options.removeFromLazer) {
-    try {
-      const lazerIds = await realmService.getBeatmapsetIds()
-      lazerIds.forEach((id) => existingIds.add(id))
-    } catch (error) {
-      console.warn('Failed to get lazer beatmapset IDs:', error)
+    if (db.hasSyncedData('lazer')) {
+      const lazerIds = db.getExistingBeatmapsetIds({ lazer: true })
+      for (const id of lazerIds) {
+        existingIds.add(id)
+      }
+    } else {
+      // Fallback to direct reading from Realm
+      const lazerProc = await isOsuProcessRunning('lazer')
+      if (lazerProc.running) {
+        throw new Error(
+          'Failed to read existing maps from osu!lazer: osu!lazer is currently running. Please close the game or sync database in Settings first.'
+        )
+      }
+
+      try {
+        const lazerPath = getOsuLazerPath()
+        if (!lazerPath) {
+          throw new Error('osu!lazer path is not configured in Settings.')
+        }
+        const lazerIds = await realmService.getBeatmapsetIds()
+        for (const id of lazerIds) {
+          existingIds.add(id)
+        }
+      } catch (error) {
+        throw new Error(
+          `Failed to read existing maps from osu!lazer: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
     }
   }
 

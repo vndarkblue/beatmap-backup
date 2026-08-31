@@ -24,7 +24,7 @@ export class DownloadHttpError extends Error {
   }
 }
 
-function sanitizeFileName(name: string): string {
+export function sanitizeFileName(name: string): string {
   const invalidChars = /[<>:\\"/|?*]/g
   let safe = name.replace(invalidChars, ' ').replace(/\s+/g, ' ').trim()
   // Disallow trailing periods or spaces on Windows
@@ -35,7 +35,7 @@ function sanitizeFileName(name: string): string {
   return safe
 }
 
-function parseRetryAfterMs(value: string | string[] | undefined): number | undefined {
+export function parseRetryAfterMs(value: string | string[] | undefined): number | undefined {
   const raw = Array.isArray(value) ? value[0] : value
   if (!raw) {
     return undefined
@@ -164,6 +164,17 @@ export async function downloadFile(
                 response.statusCode,
                 parseRetryAfterMs(response.headers['retry-after'])
               )
+            )
+            return
+          }
+
+          const rawContentType = response.headers['content-type'] ?? ''
+          const contentType = Array.isArray(rawContentType)
+            ? rawContentType.join(' ')
+            : rawContentType
+          if (/text\/html/i.test(contentType)) {
+            failWithCleanup(
+              new DownloadHttpError('Mirror returned HTML error page instead of .osz file', 200)
             )
             return
           }

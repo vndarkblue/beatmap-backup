@@ -20,12 +20,18 @@ describe('DownloadService failure classification', () => {
     expect(classify(new Error('HTTP 429 Too Many Requests'))).toBe('rate-limit')
   })
 
-  it('classifies 404, 410, 403, 451, 400 as not-found item-level errors', () => {
+  it('classifies 404, 410, 451, 400 as not-found item-level errors', () => {
     expect(classify(new DownloadHttpError('Not found', 404))).toBe('not-found')
     expect(classify(new DownloadHttpError('Gone', 410))).toBe('not-found')
-    expect(classify(new DownloadHttpError('Forbidden', 403))).toBe('not-found')
     expect(classify(new DownloadHttpError('Unavailable for legal reasons', 451))).toBe('not-found')
     expect(classify(new DownloadHttpError('Bad Request', 400))).toBe('not-found')
+    expect(classify(new Error('HTTP 451 Unavailable for Legal Reasons'))).toBe('not-found')
+    expect(classify(new Error('DMCA takedown notice'))).toBe('not-found')
+  })
+
+  it('classifies 403 as transient mirror-level blocks', () => {
+    expect(classify(new DownloadHttpError('Forbidden', 403))).toBe('transient')
+    expect(classify(new Error('HTTP 403 Forbidden'))).toBe('transient')
   })
 
   it('classifies 5xx and network errors as transient mirror errors', () => {

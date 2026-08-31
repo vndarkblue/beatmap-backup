@@ -167,10 +167,29 @@ class DownloadService extends EventEmitter {
   }
 
   public async flushCheckpointWithTimeout(timeoutMs = 2500): Promise<void> {
-    await Promise.race([
-      this.persistCheckpoint('shutdown'),
-      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))
-    ])
+    let timedOut = false
+    let timerHandle: NodeJS.Timeout | undefined
+    const timer = new Promise<void>((resolve) => {
+      timerHandle = setTimeout(() => {
+        timedOut = true
+        resolve()
+      }, timeoutMs)
+    })
+
+    try {
+      await Promise.race([this.persistCheckpoint('shutdown'), timer])
+    } finally {
+      if (timerHandle) {
+        clearTimeout(timerHandle)
+      }
+    }
+
+    if (timedOut) {
+      const pending = Array.from(this.tasks.values()).filter((t) => t.status !== 'completed').length
+      console.warn(
+        `[QueuePersistence] flush checkpoint timed out after ${timeoutMs}ms, ${pending} task(s) may not be saved`
+      )
+    }
   }
 
   public async preloadRecoveryState(): Promise<void> {
@@ -769,8 +788,13 @@ class DownloadService extends EventEmitter {
       if (error.statusCode === 408) {
         return 'transient'
       }
-      // 4xx status codes (404 Not Found, 410 Gone, 403 Forbidden/DMCA, 451 Unavailable, 400 Bad Request, etc.)
+      // 403 Forbidden is typically a Cloudflare / mirror-level block (transient mirror failure).
+      if (error.statusCode === 403) {
+        return 'transient'
+      }
+      // 4xx status codes (404 Not Found, 410 Gone, 451 Unavailable/DMCA, 400 Bad Request, etc.)
       // are item-specific errors on this mirror, NOT mirror infrastructure degradation.
+      // NOTE: 404, 410, 451 → not-found, item only fails after hasTriedEveryMirror.
       if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
         return 'not-found'
       }
@@ -780,10 +804,10 @@ class DownloadService extends EventEmitter {
     if (/429|rate.?limit|too many requests/i.test(message)) {
       return 'rate-limit'
     }
-    if (/408|request.?timeout/i.test(message)) {
+    if (/408|403|request.?timeout|forbidden/i.test(message)) {
       return 'transient'
     }
-    if (/404|410|403|451|not found|forbidden|gone|unavailable|dmca/i.test(message)) {
+    if (/404|410|451|not found|gone|unavailable|dmca/i.test(message)) {
       return 'not-found'
     }
     if (/EACCES|EPERM|ENOSPC|permission|no space/i.test(message)) {

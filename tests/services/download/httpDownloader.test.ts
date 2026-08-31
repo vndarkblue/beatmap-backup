@@ -162,9 +162,9 @@ describe('httpDownloader', () => {
             fakeReq.setTimeout = vi.fn().mockReturnThis()
             fakeReq.destroy = vi.fn()
 
-            const fakeRes = new Readable({
-              read() {}
-            }) as unknown as http.IncomingMessage
+            const fakeRes = Readable.from([
+              Buffer.from('PK\x03\x04')
+            ]) as unknown as http.IncomingMessage
             fakeRes.statusCode = 200
             fakeRes.headers = {
               ...(ct ? { 'content-type': ct } : {}),
@@ -175,10 +175,6 @@ describe('httpDownloader', () => {
             if (callback) {
               process.nextTick(() => {
                 callback(fakeRes)
-                process.nextTick(() => {
-                  fakeRes.push(Buffer.from('PK\x03\x04'))
-                  fakeRes.push(null)
-                })
               })
             }
 

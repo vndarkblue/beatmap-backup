@@ -59,3 +59,4 @@ feedback/
 .branch-split-temp/
 
 documentation/
+coverage/

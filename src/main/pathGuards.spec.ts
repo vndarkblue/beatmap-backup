@@ -9,6 +9,7 @@ import {
 } from './pathGuards'
 
 // Lightweight spec file for manual smoke testing.
+// NOTE: Automated test coverage has been migrated to tests/services/pathGuards.test.ts
 // Run with a TS runtime (e.g. tsx) when needed.
 export async function runPathGuardSpecs(): Promise<void> {
   assert.equal(validateRelativeSubPath('Songs').valid, true)

@@ -98,10 +98,17 @@ export class DatabaseService {
     CollectionMapCacheRow
   >
 
-  private constructor() {
-    const userDataPath = app.getPath('userData')
-    fs.mkdirSync(userDataPath, { recursive: true })
-    const dbPath = path.join(userDataPath, 'beatmaps.db')
+  private constructor(customDbPath?: string) {
+    let dbPath: string
+    if (customDbPath) {
+      const dbDir = path.dirname(customDbPath)
+      fs.mkdirSync(dbDir, { recursive: true })
+      dbPath = customDbPath
+    } else {
+      const userDataPath = app.getPath('userData')
+      fs.mkdirSync(userDataPath, { recursive: true })
+      dbPath = path.join(userDataPath, 'beatmaps.db')
+    }
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('foreign_keys = ON')
@@ -222,6 +229,11 @@ export class DatabaseService {
       DatabaseService.instance = new DatabaseService()
     }
     return DatabaseService.instance
+  }
+
+  /** Create an instance for testing with a custom DB path (no electron dependency). */
+  static createForTest(dbPath: string): DatabaseService {
+    return new DatabaseService(dbPath)
   }
 
   private migrate(): void {

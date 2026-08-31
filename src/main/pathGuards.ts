@@ -24,7 +24,11 @@ export function validateRelativeSubPath(input: string): { valid: boolean; reason
     return { valid: false, reason: 'Sub path contains invalid wildcard characters' }
   }
 
-  if (path.isAbsolute(trimmed)) {
+  if (
+    path.isAbsolute(trimmed) ||
+    path.win32.isAbsolute(trimmed) ||
+    path.posix.isAbsolute(trimmed)
+  ) {
     return { valid: false, reason: 'Sub path must be relative' }
   }
 

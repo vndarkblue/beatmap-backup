@@ -27,11 +27,11 @@ export interface RunningProcessInfo {
  */
 export function isPathInside(childPath: string, parentPath: string): boolean {
   if (!childPath || !parentPath) return false
-  const normChild = path.resolve(childPath).toLowerCase()
-  const normParent = path.resolve(parentPath).toLowerCase()
-  if (normChild === normParent) return true
-  const rel = path.relative(normParent, normChild)
-  return !rel.startsWith('..') && !path.isAbsolute(rel)
+  const c = childPath.replace(/\\/g, '/').toLowerCase()
+  const p = parentPath.replace(/\\/g, '/').toLowerCase()
+  if (c === p) return true
+  const pWithSlash = p.endsWith('/') ? p : p + '/'
+  return c.startsWith(pWithSlash)
 }
 
 /**

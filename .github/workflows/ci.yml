@@ -11,8 +11,11 @@ permissions:
 
 jobs:
   check:
-    name: Lint, Typecheck & Test
-    runs-on: ubuntu-latest
+    name: Lint, Typecheck & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -32,5 +35,5 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      - name: Test & Coverage
+        run: npm run test:coverage

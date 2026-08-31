@@ -88,6 +88,8 @@
       ;(() => {
         try {
           document.documentElement.classList.add('booting')
+          const locale = localStorage.getItem('locale') || 'en'
+          document.documentElement.lang = locale
           const raw = localStorage.getItem('theme.preference.v1')
           if (raw === 'dark') {
             document.documentElement.classList.add('theme-dark')

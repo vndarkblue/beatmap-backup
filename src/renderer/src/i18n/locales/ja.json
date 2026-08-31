@@ -1,0 +1,312 @@
+{
+  "settings": {
+    "general": "一般",
+    "download": "ダウンロード",
+    "title": "設定",
+    "osuStablePath": "osu!stableディレクトリ",
+    "osuLazerPath": "osu!lazerディレクトリ",
+    "selectFolder": "フォルダー選択",
+    "reset": {
+      "all": "設定リセット",
+      "general": "デフォルトリセット",
+      "download": "デフォルトリセット",
+      "warning": "保存された全設定のリセット",
+      "confirmWarning": "警告: この操作は元に戻せません",
+      "holdHint": "確認ボタンを長押しして続けてください",
+      "confirmAction": "長押ししてリセットします",
+      "cancel": "キャンセル",
+      "success": "設定リセット完了。アプリはリロードします",
+      "failed": "設定リセット失敗"
+    },
+    "error": {
+      "songsNotFound": "Songsフォルダーが見つかりません",
+      "realmNotFound": "client.realmファイルが見つかりません"
+    },
+    "database": {
+      "title": "譜面データベース",
+      "stable": "osu!stable",
+      "lazer": "osu!lazer",
+      "lastSync": "最終同期",
+      "never": "未同期",
+      "syncNow": "今すぐ同期",
+      "syncing": "同期中",
+      "upToDate": "更新済み",
+      "outOfDate": "未更新",
+      "totalBeatmapsets": "譜面セット：{count}",
+      "totalBeatmaps": "譜面：{count}",
+      "error": "不明なエラーが発生しました"
+    }
+  },
+  "backup": {
+    "title": "譜面リストバックアップ",
+    "backupBeatmapTitle": "譜面バックアップ",
+    "button": "バックアップ",
+    "sources": {
+      "title": "ソース"
+    },
+    "content": {
+      "title": "バックアップコンテンツ",
+      "onlineIds": "譜面ＩＤ",
+      "localBeatmaps": "未定譜面",
+      "localBeatmapsPending": "未定譜面が.oszフィアルとしてエクスポートされます。コレクションは対応しません",
+      "onlineIdsPending": "譜面ＩＤでダウンロードページから譜面がダウンロードできます"
+    },
+    "success": "{count} 譜面がバックアップ済み",
+    "localSuccess": "{count} 譜面は{source}から.oszフィアルにエクスポート済み",
+    "combinedLocalSuccess": "{stable} stableと{lazer} lazer譜面は.oszフィアルにエクスポート済み",
+    "error": "バックアップ失敗",
+    "cancelled": "バックアップキャンセル",
+    "estimate": "推定出力 {count} 譜面セットID (~{size})",
+    "localEstimate": "{count}未定譜面",
+    "localProgress": "未定譜面エクスポート中: {current}/{total} ({percent}%)",
+    "estimateUnavailable": "現在の設定ではバックアップサイズが推定できません",
+    "collection": {
+      "enabled": "コレクションバックアップ",
+      "mergeByName": "同名のコレクションを統合",
+      "syncNow": "不足譜面を同期",
+      "secondsShort": "秒",
+      "empty": "コレクションが見つかりません",
+      "successStats": "{count} 譜面をバックアップ（同期待ち: {pending}、ローカルのみ: {missing}、API未検出: {notFound}）",
+      "status": {
+        "resolved": "available",
+        "pending": "pending",
+        "notFound": "not found",
+        "failed": "failed",
+        "missingLocal": "offline"
+      },
+      "sources": {
+        "stable": "stable",
+        "lazer": "lazer",
+        "both": "両方"
+      },
+      "table": {
+        "name": "コレクション",
+        "maps": "譜面数",
+        "source": "ソース",
+        "status": "ステータス"
+      },
+      "errors": {
+        "stableReadFailed": "osu!stableコレクション読込失敗: {error}",
+        "lazerReadFailed": "osu!lazerコレクション読込失敗: {error}"
+      }
+    }
+  },
+  "download": {
+    "title": "譜面ダウンロード",
+    "selectFile": "ファイル選択 (.bbak)",
+    "path": "...に保存",
+    "fileRequired": "このファイルが必要",
+    "options": {
+      "ignoreExisting": "既存譜面を無視",
+      "ignoreStable": "osu!stableから",
+      "ignoreLazer": "osu!lazerから",
+      "threadCount": "ダウンロード数",
+      "other": "他の選択",
+      "noVideo": "ビデオ無しに",
+      "waitForDownloads": "ダウンロード中の譜面が完了してまで待つ",
+      "waitForDownloadsHelpOn": "休止前にダウンロード中の譜面を完了させます",
+      "waitForDownloadsHelpOff": "休止時にダウンロード中の譜面は即座に中断されることがあります",
+      "threadCountHelp": "同時にダウンロードする譜面数です。値が大きいほど高速ですが、不安定になる場合があります"
+    },
+    "button": "ダウンロード",
+    "started": "ダウンロード開始",
+    "finished": "{success}譜面ダウンロード済み",
+    "finishedWithErrors": "{success}/{total}譜面ダウンロード済み・{failed}ダウンロード失敗",
+    "recovery": {
+      "title": "前のダウンロードキュー復元",
+      "description": "{total} 譜面が前のダウンロードキューで見つかりました",
+      "hint": "保存状態から継続できます、あるいは、破棄してリスタートします",
+      "stats": "待機中: {waiting} · ダウンロード中: {downloading}",
+      "resume": "継続",
+      "discard": "破棄",
+      "discardConfirm": "破棄する場合、保存されたステータスは無くなります",
+      "discardConfirmButton": "破棄確定",
+      "resumeFailed": "保存されたキューは継続失敗",
+      "discardFailed": "保存されたキューは破棄失敗"
+    },
+    "errors": {
+      "invalidFile": "無効ファイルタイプ。.bbakファイルのみ",
+      "getFilePath": "ファイルパッツは見つかりません",
+      "downloadPathNotExist": "ダウンロードパッツは見つかりません",
+      "downloadPathNotDirectory": "ダウンロードパッツは無効",
+      "downloadPathNoPermission": "ダウンロードパッツに書き込みの権利はありません",
+      "downloadPathInvalid": "ダウンロードパッツは無効",
+      "allBeatmapsExist": "ダウンロードする譜面はありません"
+    },
+    "cancelled": "ダウンロードキャンセル"
+  },
+  "filter": {
+    "title": "譜面フィルター",
+    "gameMode": "ゲームモード",
+    "difficulty": "難易度",
+    "status": "ステータス",
+    "statusOptions": {
+      "any": "全て",
+      "ranked": "Ranked",
+      "loved": "お気に入り",
+      "hasLeaderboard": "リーダボード",
+      "approved": "Approved",
+      "qualified": "Qualified",
+      "unranked": "Unranked",
+      "wip": "WIP",
+      "pending": "Pending",
+      "graveyard": "Graveyard"
+    },
+    "stars": "星",
+    "bpm": "BPM",
+    "cs": "サークルサイズ",
+    "keys": "キー",
+    "ar": "アプローチ速度",
+    "hp": "HPの厳しさ",
+    "od": "精度",
+    "beatmapInfo": "ビートマップ情報",
+    "generalSearch": "検索",
+    "generalSearchHint": "キーワード",
+    "artist": "アーティスト",
+    "mapTitle": "タイトル",
+    "mapper": "作者",
+    "length": "長さ",
+    "drainLength": "Drainの長さ",
+    "maxCombo": "最大コンボ",
+    "metadata": "メタデータ",
+    "genre": "ジャンル",
+    "language": "言語",
+    "source": "ソース",
+    "tags": "タグ",
+    "genreOptions": {
+      "any": "全て",
+      "unspecified": "未分類",
+      "videoGame": "ゲーム",
+      "anime": "アニメ",
+      "rock": "ロック",
+      "pop": "ポップ",
+      "other": "その他",
+      "novelty": "ノベルティ",
+      "hipHop": "ヒップホップ",
+      "electronic": "エレクトロニック",
+      "metal": "メタル",
+      "classical": "クラシカル",
+      "folk": "フォーク",
+      "jazz": "ジャズ"
+    },
+    "languageOptions": {
+      "any": "全て",
+      "english": "英語",
+      "japanese": "日本語",
+      "chinese": "中国語",
+      "instrumental": "楽器",
+      "korean": "韓国語",
+      "french": "フランス語",
+      "german": "ドイツ語",
+      "swedish": "スウェーデン語",
+      "spanish": "スペイン語",
+      "italian": "イタリア語",
+      "russian": "ロシア語",
+      "polish": "ポーランド語",
+      "other": "その他"
+    },
+    "resetAll": "全てリセット",
+    "applyFilter": "フィルター応用",
+    "modeLabels": {
+      "osu": "osu!",
+      "taiko": "Taiko",
+      "fruits": "Catch",
+      "mania": "Mania"
+    },
+    "results": {
+      "title": "結果",
+      "summary": "{beatmaps} 譜面 · {sets} 譜面セット · {ms} ms",
+      "empty": "譜面は見つかりません",
+      "error": "フィルター実行できません",
+      "loading": "検索中",
+      "pageSize": "1ページあたり",
+      "columns": {
+        "artist": "アーティスト",
+        "title": "タイトル",
+        "creator": "作者",
+        "version": "難易度",
+        "mode": "モード",
+        "stars": "★",
+        "bpm": "BPM",
+        "length": "長さ",
+        "status": "ステータス",
+        "source": "ソース"
+      }
+    },
+    "min": "Min",
+    "max": "Max",
+    "seconds": "秒",
+    "addTag": "...タグ追加",
+    "addTagHint": "Enterを押して、タグを追加"
+  },
+  "downloadManager": {
+    "title": "ダウンロード管理",
+    "emptyState": {
+      "title": "実行中のダウンロードはありません",
+      "description": "ダウンロードページに移動して、譜面ダウンロードを開始します",
+      "action": "ダウンロードに移動"
+    },
+    "queueOverview": "ダウンロードキュー",
+    "progress": "進歩",
+    "files": "ファイル",
+    "activeDownloads": "ダウンロード中のファイル",
+    "completedDownloads": "ダウンロード済み",
+    "noActiveDownloads": "ダウンロード中のファイルはありません",
+    "noCompletedDownloads": "ダウンロード済みのファイルはありません",
+    "pause": "休止",
+    "resume": "継続",
+    "stop": "ストップ",
+    "stopConfirmYes": "ストップ確認",
+    "stopConfirmNo": "キャンセル",
+    "table": {
+      "status": "ステータス",
+      "filename": "ファイル名",
+      "speed": "速度",
+      "progress": "進歩",
+      "remaining": "残り"
+    },
+    "status": {
+      "waiting": "待機中",
+      "downloading": "ダウンロード中",
+      "completed": "ダウンロード済み",
+      "error": "エラー",
+      "unknown": "未定"
+    },
+    "preview": {
+      "show": "プレビュー表示",
+      "hide": "プレビュー非表示"
+    }
+  },
+  "language": {
+    "title": "言語",
+    "flagCode": "jp"
+  },
+  "navigation": {
+    "settings": "設定",
+    "backup": "バックアップ",
+    "download": "ダウンロード",
+    "beatmapFilter": "譜面フィルター"
+  },
+  "theme": {
+    "dark": "ダークモード",
+    "light": "ライトモード"
+  },
+  "notifications": {
+    "paths": {
+      "autoDetectFailed": "1つ以上のosuディレクトリを自動検出できませんでした。設定で指定してください。"
+    },
+    "download": {
+      "completed": {
+        "title": "ダウンロード済み"
+      }
+    },
+    "actions": {
+      "openFolder": "フォルダーを開く",
+      "dismiss": "閉じる"
+    }
+  },
+  "syncToast": {
+    "error": "データベース同期失敗: {error}",
+    "viewSettings": "設定の表示"
+  }
+}

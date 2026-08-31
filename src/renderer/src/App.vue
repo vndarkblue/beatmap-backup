@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted, computed } from 'vue'
+import { ref, onBeforeUnmount, onMounted, computed, watch } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useRouter, type NavigationFailure } from 'vue-router'
@@ -94,6 +94,16 @@ const toastColor = ref('info')
 const toastTimeout = ref(4000)
 const toastAction = ref<{ label: string; onClick: () => void } | null>(null)
 let unsubscribeDatabaseSync: (() => void) | null = null
+
+watch(
+  () => locale.value,
+  (newLocale) => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = newLocale
+    }
+  },
+  { immediate: true }
+)
 
 const showToast = (
   message: string,
@@ -280,12 +290,8 @@ onBeforeUnmount(() => {
 .v-navigation-drawer {
   transition: width 0.2s ease-in-out !important;
   background: var(--v-theme-background) !important;
-  font-family: var(--font-default) !important;
+  font-family: var(--font-family) !important;
   font-weight: 900 !important;
-}
-
-.v-navigation-drawer[lang='vi'] {
-  font-family: var(--font-default-vi) !important;
 }
 
 .v-navigation-drawer:not(.v-navigation-drawer--rail) {
@@ -314,13 +320,13 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-logo-item .v-list-item-title {
-  font-family: 'Torus Notched', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-family: var(--font-family) !important;
   font-weight: 600 !important;
   font-size: 1.1rem !important;
 }
 
 .v-list-item-title {
-  font-family: var(--font-default) !important;
+  font-family: var(--font-family) !important;
   font-weight: 600 !important;
   font-size: 1rem !important;
   white-space: normal !important;
@@ -336,20 +342,12 @@ onBeforeUnmount(() => {
   -webkit-box-align: center !important;
 }
 
-.v-list-item-title[lang='vi'] {
-  font-family: var(--font-default-vi) !important;
-}
-
 .v-list-item {
-  font-family: var(--font-default) !important;
+  font-family: var(--font-family) !important;
   min-height: 56px !important;
   height: 56px !important;
   display: flex !important;
   align-items: center !important;
-}
-
-.v-list-item[lang='vi'] {
-  font-family: var(--font-default-vi) !important;
 }
 
 .v-navigation-drawer .sidebar-theme-item .v-list-item__prepend .v-icon {
@@ -379,11 +377,7 @@ onBeforeUnmount(() => {
 }
 
 .v-btn .v-btn__content {
-  font-family: var(--font-default) !important;
-}
-
-.v-btn[lang='vi'] .v-btn__content {
-  font-family: var(--font-default-vi) !important;
+  font-family: var(--font-family) !important;
 }
 
 /* SimpleBar custom styles */

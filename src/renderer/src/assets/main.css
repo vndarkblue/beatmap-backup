@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&family=Noto+Sans+JP:wght@300..700&display=swap');
 *,
 *::before,
 *::after {
@@ -70,11 +70,16 @@
 :root {
   /* Font variables */
   --font-default:
-    'Torus Notched', 'Quicksand', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    'Torus Notched', 'Torus', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-default-vi:
-    'Quicksand', 'Torus Notched', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    'Quicksand', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-default-ja:
+    'Torus Notched', 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI',
+    'Yu Gothic', Meiryo, 'MS PGothic', sans-serif;
 
-  font-family: var(--font-default) !important;
+  --font-family: var(--font-default);
+
+  font-family: var(--font-family) !important;
   line-height: 1.5;
   font-weight: 400;
 
@@ -88,35 +93,45 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-:root[lang='vi'] {
-  font-family: var(--font-default-vi) !important;
+:root[lang='vi'],
+html[lang='vi'],
+body[lang='vi'],
+.v-application[lang='vi'] {
+  --font-family: var(--font-default-vi) !important;
 }
 
-/* Font settings for different languages */
-h1[lang='vi'] {
-  font-family: var(--font-default-vi) !important;
-  font-weight: 700;
+:root[lang='ja'],
+html[lang='ja'],
+body[lang='ja'],
+.v-application[lang='ja'] {
+  --font-family: var(--font-default-ja) !important;
 }
 
-h1[lang='en'] {
-  font-family: var(--font-default) !important;
-  font-weight: 600;
-}
-
-.text-subtitle-1[lang='vi'],
-.text-subtitle-2[lang='vi'],
-.text-body-1[lang='vi'],
-.text-body-2[lang='vi'],
-.text-caption[lang='vi'] {
-  font-family: var(--font-default-vi) !important;
-}
-
-.text-subtitle-1[lang='en'],
-.text-subtitle-2[lang='en'],
-.text-body-1[lang='en'],
-.text-body-2[lang='en'],
-.text-caption[lang='en'] {
-  font-family: var(--font-default) !important;
+/* Universal typography */
+html,
+body,
+#app,
+.v-application,
+.v-application [class*='text-'],
+.v-typography,
+button,
+input,
+select,
+textarea,
+.v-btn,
+.v-btn__content,
+.v-list-item,
+.v-list-item-title,
+.v-list-item-subtitle,
+.v-card-title,
+.v-card-subtitle,
+.v-card-text,
+.v-field,
+.v-field__input,
+.v-label,
+.v-expansion-panel-title,
+.v-expansion-panel-text {
+  font-family: var(--font-family) !important;
 }
 
 a {
@@ -304,5 +319,5 @@ body,
 }
 
 .text-h6 {
-  font-family: var(--font-default) !important;
+  font-family: var(--font-family) !important;
 }

@@ -1,12 +1,14 @@
 export const languageNames = {
   en: 'English',
-  vi: 'Tiếng Việt'
+  vi: 'Tiếng Việt',
+  ja: '日本語'
   // Add new languages here
 } as const
 
 export const languageFlags = {
   en: 'gb',
-  vi: 'vn'
+  vi: 'vn',
+  ja: 'jp'
   // Add new language flags here
 } as const
 

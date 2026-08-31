@@ -4,7 +4,14 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
-import { THEME_PREF_KEY } from '../../config/frontendConstants'
+import { FRONTEND_DEFAULTS, STORAGE_KEYS, THEME_PREF_KEY } from '../../config/frontendConstants'
+
+try {
+  const savedLocale = localStorage.getItem(STORAGE_KEYS.LOCALE) || FRONTEND_DEFAULTS.LOCALE
+  document.documentElement.lang = savedLocale
+} catch {
+  // Ignore storage errors on startup
+}
 
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'

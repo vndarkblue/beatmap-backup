@@ -35,5 +35,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Rebuild native modules for Node test runner
+        run: npm rebuild better-sqlite3
+
       - name: Test & Coverage
         run: npm run test:coverage

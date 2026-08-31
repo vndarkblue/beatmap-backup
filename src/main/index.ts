@@ -115,9 +115,22 @@ app.whenReady().then(() => {
   })
 })
 
+let shutdownPromise: Promise<void> | null = null
+
+function ensureShutdownServices(): Promise<void> {
+  if (!shutdownPromise) {
+    shutdownPromise = stopBackgroundServices()
+  }
+  return shutdownPromise
+}
+
+app.on('before-quit', () => {
+  void ensureShutdownServices()
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    void stopBackgroundServices().finally(() => {
+    void ensureShutdownServices().finally(() => {
       app.quit()
     })
   }

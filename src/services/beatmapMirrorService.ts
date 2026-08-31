@@ -14,8 +14,6 @@ class BeatmapMirrorService {
   private statusCache: Map<string, MirrorStatus>
   private readonly CACHE_DURATION = 5 * 60 * 1000
   private readonly REQUEST_TIMEOUT = 3000
-  private readonly BACKGROUND_REFRESH_INTERVAL = 5 * 60 * 1000
-  private backgroundRefreshTimer?: NodeJS.Timeout
 
   private constructor() {
     this.statusCache = new Map()
@@ -132,33 +130,6 @@ class BeatmapMirrorService {
     return results
   }
 
-  public async refreshStatusCache(): Promise<void> {
-    if (is.dev) console.log('[MirrorHealth] background refresh start')
-    const checks = await Promise.all(
-      DefaultBeatmapMirrors.map((mirror) => this.checkMirrorStatus(mirror))
-    )
-    for (const status of checks) {
-      this.statusCache.set(status.name, status)
-    }
-    if (is.dev) {
-      console.log(
-        `[MirrorHealth] background refresh done` +
-          ` online=${
-            checks
-              .filter((s) => s.isOnline)
-              .map((s) => s.name)
-              .join(',') || '(none)'
-          }` +
-          ` offline=${
-            checks
-              .filter((s) => !s.isOnline)
-              .map((s) => `${s.name}(${s.error ?? '?'})`)
-              .join(',') || '(none)'
-          }`
-      )
-    }
-  }
-
   public async getHealthyMirrorNames(forceRefresh = false): Promise<Set<string>> {
     const statuses = await this.getMirrorsStatus(forceRefresh)
     const healthy = new Set(statuses.filter((s) => s.isOnline).map((s) => s.name))
@@ -171,26 +142,9 @@ class BeatmapMirrorService {
     return healthy
   }
 
-  public startBackgroundHealthChecks(): void {
-    if (this.backgroundRefreshTimer) {
-      return
-    }
-    void this.refreshStatusCache()
-    this.backgroundRefreshTimer = setInterval(() => {
-      void this.refreshStatusCache()
-    }, this.BACKGROUND_REFRESH_INTERVAL)
-  }
-
-  public stopBackgroundHealthChecks(): void {
-    if (!this.backgroundRefreshTimer) {
-      return
-    }
-    clearInterval(this.backgroundRefreshTimer)
-    this.backgroundRefreshTimer = undefined
-  }
-
-  public clearCache(): void {
-    this.statusCache.clear()
+  /** Reset internal singleton for isolated test runs. */
+  public static resetInstanceForTest(): void {
+    BeatmapMirrorService.instance = new BeatmapMirrorService()
   }
 }
 

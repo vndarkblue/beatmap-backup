@@ -27,7 +27,7 @@ export const DefaultBeatmapMirrors: BeatmapMirror[] = [
       `https://api.nerinyan.moe/d/${beatmapsetId}${noVideo ? '?noVideo=true' : ''}`
   },
   {
-    name: 'Mino (chimu)',
+    name: 'catboy.best',
     baseUrl: 'https://catboy.best/d/',
     webUrl: 'https://catboy.best/',
     healthUrl: 'https://catboy.best/api/',
@@ -40,11 +40,11 @@ export const DefaultBeatmapMirrors: BeatmapMirror[] = [
     baseUrl: 'https://mirror.nekoha.moe/api/download/',
     webUrl: 'https://mirror.nekoha.moe/',
     healthUrl: 'https://mirror.nekoha.moe/',
-    supportsNoVideo: false,
-    getDownloadUrl: (beatmapsetId: string, noVideo: boolean) => {
-      void noVideo
-      return `https://mirror.nekoha.moe/api/${beatmapsetId}`
-    }
+    // F3: Nekoha supports ?noVideo=1 query param
+    supportsNoVideo: true,
+    // F3: Include download/ segment matching baseUrl (/api/download/:id)
+    getDownloadUrl: (beatmapsetId: string, noVideo: boolean) =>
+      `https://mirror.nekoha.moe/api/download/${beatmapsetId}${noVideo ? '?noVideo=1' : ''}`
   },
   {
     name: 'BeatConnect',

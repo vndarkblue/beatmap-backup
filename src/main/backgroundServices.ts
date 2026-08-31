@@ -1,4 +1,3 @@
-import BeatmapMirrorService from '../services/beatmapMirrorService'
 import DownloadService from '../services/downloadService'
 import SyncManager from '../services/database/syncManager'
 import CollectionSyncService from '../services/collection/collectionSyncService'
@@ -44,9 +43,6 @@ export function startBackgroundServices(): void {
 
 export async function stopBackgroundServices(): Promise<void> {
   try {
-    const mirrorService = BeatmapMirrorService.getInstance()
-    mirrorService.stopBackgroundHealthChecks()
-
     const syncManager = SyncManager.getInstance()
     syncManager.stopBackgroundSync()
 

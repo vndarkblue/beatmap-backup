@@ -21,15 +21,46 @@ Beatmap Backup
 
 ## ℹ️ About
 
-A desktop application that helps osu! players back up and share their beatmapsets. Built with Electron, Vue 3, and TypeScript.
+A desktop app for osu! players to back up and share their beatmap collection. Instead of copying hundreds of gigabytes of beatmap files, Beatmap Backup saves a list of your beatmapset IDs — usually a few hundred kilobytes — and re-downloads the beatmaps from public mirrors when you restore.
+
+Typical uses:
+
+- Reinstalling Windows, moving to a new machine, or recovering from a dead drive
+- Sending your collection to a friend as one small file
+
+## How it works
+
+A backup file is a plain text file: one beatmapset ID per line, with a few comment lines at the top. You can open it in any text editor.
+
+```
+# Beatmap Backup File
+# Format: One beatmapset ID per line
+# Created: 2026-08-28T09:00:00.000Z
+# Total beatmaps: 4213
+# Source: Stable + Lazer
+
+12345
+67890
+```
+
+Restoring reads that list and downloads each beatmapset as an `.osz` file into a folder you choose. **Beatmap Backup does not import the files into osu! for you** - you drag them into the game yourself.
+
+Because restoring depends on public mirrors, beatmapsets that are no longer available online cannot be recovered from an ID list. For those, see _Local beatmaps_ below.
 
 ## ✨ Features
 
-- **Create backups** — Export a list of your installed beatmapset IDs to a backup file
-- **Download** — Load a backup file and download beatmaps from multiple mirror sources
-- **Multi-language support** (English & Vietnamese for now)
-- **Modern, intuitive UI**
-- **Supports both osu! stable and osu!lazer**
+- **Backup** - Export the beatmapset IDs of your installed beatmaps to a file
+- **Restore** - Load a backup file and download the beatmaps from mirror sites
+- **Resume** - An interrupted download queue can be continued in a later session
+- **Both clients** - Reads osu!stable (`osu!.db`) and osu!lazer (`client.realm`)
+- **Collection filter** - Narrow a backup down to specific collections
+- **Local beatmaps** - Beatmapsets with no online ID are exported as `.osz` files, since those cannot be re-downloaded from anywhere
+
+## Requirements
+
+- Windows 10/11, or Linux
+- osu!stable and/or osu!lazer installed
+- **osu! must be closed when the app reads your beatmap library.** osu!stable locks `osu!.db` while running, and osu!lazer writes to `client.realm` continuously during play, which would produce an inconsistent snapshot. The app detects a running client and skips the sync instead of reading bad data. Downloading is unaffected - you can restore while osu! is open.
 
 ## 🖥️ Platform Support
 
@@ -44,46 +75,49 @@ A desktop application that helps osu! players back up and share their beatmapset
 
 ![Settings UI](doc/screenshots/settings.png)
 
-Main configuration screen for app preferences, osu! path selection, and download behavior.
+App preferences, osu! path selection, database sync, and download behavior.
 
 ### Backup
 
 ![Backup UI](doc/screenshots/backup.png)
 
-Create a backup file from your installed beatmapsets to restore or share later.
+Create a backup file from your installed beatmapsets.
 
 ### Download
 
 ![Download UI](doc/screenshots/download_1.png)
 
-Load a backup file and start downloading beatmaps.
+Load a backup file and start downloading.
 
 ### Download Queue
 
 ![Download Queue UI](doc/screenshots/download_2.png)
 
-Track queue progress in real time, including running tasks and completed downloads.
+Queue progress, running tasks, and completed downloads.
 
 ### Resume Download
 
 ![Resume Download UI](doc/screenshots/download_resume.png)
 
-Continue unfinished downloads from the previous session without restarting from scratch.
+Continue an unfinished queue from a previous session.
 
 ## 🚀 Quick Start (For Users)
 
-1. Go to the [Releases](https://github.com/vndarkblue/beatmap-backup/releases) page
-2. Download the latest installer for your operating system, install and launch **Beatmap Backup**.
-3. If you do not want to install, you can also download and extract the zip file, then run `beatmap-backup.exe`.
-4. Make sure **osu!** (stable or lazer) is installed on your system
+1. Make sure osu! (stable or lazer) is installed.
+2. Download the latest installer from the [Releases](https://github.com/vndarkblue/beatmap-backup/releases) page.
+3. Install and launch **Beatmap Backup**.
+4. In **Settings**, check that your osu! folder was detected correctly.
+5. Close osu! before running a library sync.
 
 ## 🛠️ Development Setup
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [npm](https://www.npmjs.com/) (v8 or higher)
+- [Node.js](https://nodejs.org/) (v20 or higher)
+- [npm](https://www.npmjs.com/) (v10 or higher)
 - [osu!](https://osu.ppy.sh/) installed (stable and/or lazer)
+
+Native modules (`better-sqlite3`, `realm`) are rebuilt for Electron on install, so a C++ toolchain is required: Visual Studio Build Tools on Windows, or `build-essential` and `python3` on Linux.
 
 ### Installation
 
@@ -92,38 +126,20 @@ Continue unfinished downloads from the previous session without restarting from 
 ```bash
 git clone https://github.com/vndarkblue/beatmap-backup.git
 cd beatmap-backup
-```
-
-2. Install dependencies:
-
-```bash
 npm install
-```
-
-3. Start the development server:
-
-```bash
 npm run dev
 ```
 
 ### Available Scripts
 
 ```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Build for specific platform
-npm run build:win    # Windows
-npm run build:linux  # Linux
-
-# Run linter
-npm run lint
-
-# Run type checking
-npm run typecheck
+npm run dev          # Start development server
+npm run build        # Type-check, then build for production
+npm run build:win    # Build for Windows
+npm run build:linux  # Build for Linux
+npm test             # Run the vitest suite
+npm run lint         # Run ESLint
+npm run typecheck    # Type-check main, preload, and renderer
 ```
 
 ### Project Structure
@@ -131,20 +147,22 @@ npm run typecheck
 ```
 beatmap-backup/
 ├── src/
-│   ├── main/               # Electron main process
-│   ├── preload/            # Preload scripts (context bridge)
-│   ├── renderer/           # Vue application
+│   ├── main/                # Electron main process, window lifecycle, IPC routing
+│   ├── preload/             # Context bridge and the exposed API surface
+│   ├── renderer/            # Vue 3 application
 │   │   └── src/
-│   │       ├── assets/     # Global CSS and static assets
-│   │       ├── components/ # Vue components
-│   │       ├── composables/# Reusable Vue composables
-│   │       ├── i18n/       # Translations
-│   │       └── router/     # Vue router config
-│   ├── services/           # Backend logic
-│   │   └── download/       # Download service modules
-│   └── config/             # Shared constants and configuration
-├── resources/              # Static resources
-└── build/                  # Build configuration (electron-builder)
+│   │       ├── assets/      # Global CSS and static assets
+│   │       ├── components/  # Vue components (Settings, Backup, Download)
+│   │       ├── composables/ # Reusable Vue composables
+│   │       ├── i18n/        # Translations
+│   │       └── router/      # Vue Router config
+│   ├── services/            # Application logic (main process)
+│   │   ├── collection/      # collection.db and lazer collection reading
+│   │   ├── database/        # SQLite schema, importers, sync manager
+│   │   └── download/        # Download queue internals
+│   ├── config/              # Shared constants, mirror definitions
+│   └── utils/               # Small shared helpers
+└── tests/                   # Vitest suite
 ```
 
 ## 🤝 Contributing
@@ -171,6 +189,10 @@ To reduce pressure on beatmap mirrors, download behavior is conservative by defa
 - Download flow avoids unnecessary repeated API calls for the same task
 
 If you run one of the beatmap mirrors above and notice any problematic traffic pattern, please open an issue so we can adjust quickly.
+
+## ❗ Disclaimer
+
+This is an unofficial tool and is not affiliated with or endorsed by osu! or ppy Pty Ltd.
 
 ## 📄 License
 

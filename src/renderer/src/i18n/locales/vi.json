@@ -1,26 +1,30 @@
 {
   "settings": {
     "general": "Tổng quan",
+    "downloadTab": "Tải xuống",
     "title": "Thiết lập",
-    "download": "Tải xuống",
-    "osuStablePath": "Đường dẫn osu!stable",
-    "osuLazerPath": "Đường dẫn osu!lazer",
-    "selectFolder": "Chọn thư mục",
-    "reset": {
-      "all": "Đặt lại toàn bộ",
-      "general": "Khôi phục mặc định",
-      "download": "Khôi phục mặc định",
-      "warning": "Đặt lại toàn bộ cài đặt đã lưu về trạng thái mặc định.",
-      "confirmWarning": "Cảnh báo: thao tác này không thể hoàn tác.",
-      "holdHint": "Nhấn giữ nút xác nhận để tiếp tục.",
-      "confirmAction": "Nhấn giữ để xác nhận",
-      "cancel": "Hủy",
-      "success": "Đã khôi phục cài đặt. Ứng dụng sẽ tải lại.",
-      "failed": "Không thể khôi phục cài đặt."
+    "paths": {
+      "osuStable": "Đường dẫn osu!stable",
+      "osuLazer": "Đường dẫn osu!lazer",
+      "selectFolder": "Chọn thư mục",
+      "lazerRedirected": "Dữ liệu được trỏ sang: {path}",
+      "autoDetectFailed": "Không thể tự tìm một hoặc nhiều thư mục osu. Vui lòng thiết lập trong mục Thiết lập."
     },
-    "error": {
-      "songsNotFound": "Không tìm thấy thư mục Songs!",
+    "errors": {
+      "invalidStablePath": "Thư mục osu!stable không hợp lệ!",
       "realmNotFound": "Không tìm thấy file client.realm!"
+    },
+    "downloadOptions": {
+      "threadCount": "Số lượng luồng tải xuống",
+      "threadCountHelp": "Số lượng beatmap được tải cùng lúc. Nhiều hơn thì nhanh hơn nhưng kém ổn định hơn",
+      "ignoreExisting": "Bỏ qua beatmap trùng lặp",
+      "ignoreStable": "Từ osu!stable",
+      "ignoreLazer": "Từ osu!lazer",
+      "other": "Tuỳ chọn khác",
+      "noVideo": "Không tải xuống video",
+      "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng",
+      "waitForDownloadsHelpOn": "Khi tạm dừng, các beatmap đang tải sẽ hoàn tất rồi mới dừng hẳn.",
+      "waitForDownloadsHelpOff": "Khi tạm dừng, các beatmap đang tải có thể bị dừng ngay."
     },
     "database": {
       "title": "Cơ sở dữ liệu Beatmap",
@@ -35,6 +39,18 @@
       "totalBeatmapsets": "Beatmapset: {count}",
       "totalBeatmaps": "Beatmap: {count}",
       "error": "Đã xảy ra lỗi không xác định."
+    },
+    "reset": {
+      "all": "Đặt lại toàn bộ",
+      "general": "Khôi phục mặc định",
+      "download": "Khôi phục mặc định",
+      "warning": "Đặt lại toàn bộ cài đặt đã lưu về trạng thái mặc định.",
+      "confirmWarning": "Cảnh báo: thao tác này không thể hoàn tác.",
+      "holdHint": "Nhấn giữ nút xác nhận để tiếp tục.",
+      "confirmAction": "Nhấn giữ để xác nhận",
+      "cancel": "Hủy",
+      "success": "Đã khôi phục cài đặt. Ứng dụng sẽ tải lại.",
+      "failed": "Không thể khôi phục cài đặt."
     }
   },
   "backup": {
@@ -96,22 +112,11 @@
     "selectFile": "Chọn một file (.bbak)",
     "path": "Lưu vào...",
     "fileRequired": "File là bắt buộc",
-    "options": {
-      "ignoreExisting": "Bỏ qua beatmap trùng lặp",
-      "ignoreStable": "Từ osu!stable",
-      "ignoreLazer": "Từ osu!lazer",
-      "threadCount": "Số lượng luồng tải xuống",
-      "other": "Tuỳ chọn khác",
-      "noVideo": "Không tải xuống video",
-      "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng",
-      "waitForDownloadsHelpOn": "Khi tạm dừng, các beatmap đang tải sẽ hoàn tất rồi mới dừng hẳn.",
-      "waitForDownloadsHelpOff": "Khi tạm dừng, các beatmap đang tải có thể bị dừng ngay.",
-      "threadCountHelp": "Số lượng beatmap được tải cùng lúc. Nhiều hơn thì nhanh hơn nhưng kém ổn định hơn"
-    },
     "button": "Tải xuống",
     "started": "Bắt đầu tải xuống",
     "finished": "Đã tải {success} beatmap",
     "finishedWithErrors": "Đã tải {success}/{total} beatmap · {failed} thất bại",
+    "cancelled": "Đã huỷ tải xuống",
     "recovery": {
       "title": "Khôi phục tải xuống",
       "description": "Phát hiện phiên tải xuống trước đó với {total} beatmap.",
@@ -133,7 +138,44 @@
       "downloadPathInvalid": "Đường dẫn tải xuống không hợp lệ",
       "allBeatmapsExist": "Tất cả beatmap trong file sao lưu đã có sẵn trên máy của bạn"
     },
-    "cancelled": "Đã huỷ tải xuống"
+    "manager": {
+      "title": "Quản lý Tải xuống",
+      "emptyState": {
+        "title": "Không có Tải xuống nào",
+        "description": "Đi đến trang Tải xuống để bắt đầu tải beatmap",
+        "action": "Đi đến Tải xuống"
+      },
+      "queueOverview": "Hàng đợi Tải xuống",
+      "progress": "Tiến độ Tổng thể",
+      "files": "tệp",
+      "activeDownloads": "Đang tải",
+      "completedDownloads": "Đã tải xong",
+      "noActiveDownloads": "Hiện không có tệp nào đang tải",
+      "noCompletedDownloads": "Chưa có tệp nào tải xong",
+      "pause": "Tạm dừng",
+      "resume": "Tiếp tục",
+      "stop": "Dừng Tải xuống",
+      "stopConfirmYes": "Xác nhận dừng",
+      "stopConfirmNo": "Huỷ",
+      "table": {
+        "status": "Trạng thái",
+        "filename": "Tên tệp",
+        "speed": "Tốc độ",
+        "progress": "Tiến độ",
+        "remaining": "Còn lại"
+      },
+      "status": {
+        "waiting": "Đang chờ",
+        "downloading": "Đang tải",
+        "completed": "Hoàn thành",
+        "error": "Lỗi",
+        "unknown": "Không xác định"
+      },
+      "preview": {
+        "show": "Hiện Xem trước",
+        "hide": "Ẩn Xem trước"
+      }
+    }
   },
   "filter": {
     "title": "Lọc Beatmap",
@@ -239,62 +281,19 @@
     "addTag": "Thêm thẻ...",
     "addTagHint": "Nhấn Enter để thêm thẻ"
   },
-  "downloadManager": {
-    "title": "Quản lý Tải xuống",
-    "emptyState": {
-      "title": "Không có Tải xuống nào",
-      "description": "Đi đến trang Tải xuống để bắt đầu tải beatmap",
-      "action": "Đi đến Tải xuống"
-    },
-    "queueOverview": "Hàng đợi Tải xuống",
-    "progress": "Tiến độ Tổng thể",
-    "files": "tệp",
-    "activeDownloads": "Đang tải",
-    "completedDownloads": "Đã tải xong",
-    "noActiveDownloads": "Hiện không có tệp nào đang tải",
-    "noCompletedDownloads": "Chưa có tệp nào tải xong",
-    "pause": "Tạm dừng",
-    "resume": "Tiếp tục",
-    "stop": "Dừng Tải xuống",
-    "stopConfirmYes": "Xác nhận dừng",
-    "stopConfirmNo": "Huỷ",
-    "table": {
-      "status": "Trạng thái",
-      "filename": "Tên tệp",
-      "speed": "Tốc độ",
-      "progress": "Tiến độ",
-      "remaining": "Còn lại"
-    },
-    "status": {
-      "waiting": "Đang chờ",
-      "downloading": "Đang tải",
-      "completed": "Hoàn thành",
-      "error": "Lỗi",
-      "unknown": "Không xác định"
-    },
-    "preview": {
-      "show": "Hiện Xem trước",
-      "hide": "Ẩn Xem trước"
-    }
-  },
   "language": {
-    "title": "Ngôn ngữ",
-    "flagCode": "vn"
+    "title": "Ngôn ngữ"
   },
   "navigation": {
     "settings": "Thiết lập",
     "backup": "Sao lưu",
-    "download": "Tải xuống",
-    "beatmapFilter": "Lọc Beatmap"
+    "download": "Tải xuống"
   },
   "theme": {
     "dark": "Chế độ tối",
     "light": "Chế độ sáng"
   },
   "notifications": {
-    "paths": {
-      "autoDetectFailed": "Không thể tự tìm một hoặc nhiều thư mục osu. Vui lòng thiết lập trong mục Thiết lập."
-    },
     "download": {
       "completed": {
         "title": "Hoàn tất tải xuống"
@@ -303,10 +302,10 @@
     "actions": {
       "openFolder": "Mở thư mục",
       "dismiss": "Đóng"
+    },
+    "syncError": {
+      "message": "Đồng bộ cơ sở dữ liệu thất bại: {error}",
+      "viewSettings": "Xem Thiết lập"
     }
-  },
-  "syncToast": {
-    "error": "Đồng bộ cơ sở dữ liệu thất bại: {error}",
-    "viewSettings": "Xem Thiết lập"
   }
 }

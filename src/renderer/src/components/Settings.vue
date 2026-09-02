@@ -20,8 +20,8 @@
         <PathField
           v-model="osuStablePath"
           mode="directory"
-          :label="$t('settings.osuStablePath')"
-          :browse-title="$t('settings.selectFolder')"
+          :label="$t('settings.paths.osuStable')"
+          :browse-title="$t('settings.paths.selectFolder')"
           :placeholder="osuStablePlaceholder"
           @browse="selectOsuStablePath"
         />
@@ -29,18 +29,25 @@
         <PathField
           v-model="osuLazerPath"
           mode="directory"
-          :label="$t('settings.osuLazerPath')"
-          :browse-title="$t('settings.selectFolder')"
+          :label="$t('settings.paths.osuLazer')"
+          :browse-title="$t('settings.paths.selectFolder')"
           :placeholder="osuLazerPlaceholder"
           @browse="selectOsuLazerPath"
         />
+        <div
+          v-if="osuLazerResolvedDataPath && osuLazerResolvedDataPath !== osuLazerPath"
+          class="text-caption text-medium-emphasis mt-n2 mb-2 ml-1"
+          :lang="currentLocale"
+        >
+          {{ $t('settings.paths.lazerRedirected', { path: osuLazerResolvedDataPath }) }}
+        </div>
         <v-alert
           v-if="showAutoDetectWarningInline"
           type="warning"
           variant="tonal"
           density="compact"
           class="mt-n2 mb-2"
-          :text="$t('notifications.paths.autoDetectFailed')"
+          :text="$t('settings.paths.autoDetectFailed')"
         />
       </AppForm>
       <v-divider></v-divider>
@@ -74,7 +81,7 @@
     <AppIsland card-class="mb-4" icon="$downloadOutline">
       <template #title>
         <div class="d-flex align-center justify-space-between w-100">
-          <span>{{ $t('settings.download') }}</span>
+          <span>{{ $t('settings.downloadTab') }}</span>
           <v-btn
             icon="$restore"
             variant="text"
@@ -94,7 +101,7 @@
             <template #activator="{ props }">
               <v-icon v-bind="props" icon="$helpCircleOutline" size="18" color="medium-emphasis" />
             </template>
-            <span :lang="currentLocale">{{ $t('download.options.threadCountHelp') }}</span>
+            <span :lang="currentLocale">{{ $t('settings.downloadOptions.threadCountHelp') }}</span>
           </v-tooltip>
         </div>
         <v-slider
@@ -114,11 +121,11 @@
         <!-- Ignore Existing Beatmaps Column -->
         <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0">
           <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-            {{ $t('download.options.ignoreExisting') }}
+            {{ $t('settings.downloadOptions.ignoreExisting') }}
           </div>
           <v-checkbox
             v-model="removeFromStable"
-            :label="$t('download.options.ignoreStable')"
+            :label="$t('settings.downloadOptions.ignoreStable')"
             color="primary"
             hide-details
             class="view-field"
@@ -126,7 +133,7 @@
           ></v-checkbox>
           <v-checkbox
             v-model="removeFromLazer"
-            :label="$t('download.options.ignoreLazer')"
+            :label="$t('settings.downloadOptions.ignoreLazer')"
             color="primary"
             hide-details
             class="view-field"
@@ -139,18 +146,18 @@
         <!-- Other Options Column -->
         <div class="flex-grow-1">
           <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-            {{ $t('download.options.other') }}
+            {{ $t('settings.downloadOptions.other') }}
           </div>
           <v-switch
             v-model="noVideo"
-            :label="$t('download.options.noVideo')"
+            :label="$t('settings.downloadOptions.noVideo')"
             color="primary"
             hide-details
             class="view-field pl-2"
           ></v-switch>
           <v-switch
             v-model="waitForDownloadsOnPause"
-            :label="$t('download.options.waitForDownloads')"
+            :label="$t('settings.downloadOptions.waitForDownloads')"
             color="primary"
             hide-details
             class="view-field pl-2"
@@ -298,6 +305,7 @@ const { t, locale } = useI18n()
 // General Settings
 const osuStablePath = ref('')
 const osuLazerPath = ref('')
+const osuLazerResolvedDataPath = ref('')
 
 // Download settings from composable
 const {
@@ -328,12 +336,12 @@ const currentLocale = computed({
 })
 
 const threadCountLabel = computed(() => {
-  return `${t('download.options.threadCount')}: ${threadCount.value}`
+  return `${t('settings.downloadOptions.threadCount')}: ${threadCount.value}`
 })
 const waitForDownloadsHelpText = computed(() =>
   waitForDownloadsOnPause.value
-    ? t('download.options.waitForDownloadsHelpOn')
-    : t('download.options.waitForDownloadsHelpOff')
+    ? t('settings.downloadOptions.waitForDownloadsHelpOn')
+    : t('settings.downloadOptions.waitForDownloadsHelpOff')
 )
 
 const isStablePathValid = computed(() => !!osuStablePath.value)
@@ -367,6 +375,7 @@ const loadSettings = async (): Promise<void> => {
     const data = await window.electronAPI.settings.get()
     osuStablePath.value = data.osuStablePath || ''
     osuLazerPath.value = data.osuLazerPath || ''
+    osuLazerResolvedDataPath.value = data.osuLazerResolvedDataPath || ''
     loadDownloadSettings()
   } catch (error) {
     console.error('Failed to load settings:', error)
@@ -414,9 +423,10 @@ const selectOsuStablePath = async (): Promise<void> => {
   if (validation.valid) {
     osuStablePath.value = dir
     await saveOsuStablePath(dir)
+    await loadSettings()
     await loadDatabaseStatus()
   } else {
-    alert(t('settings.error.songsNotFound'))
+    alert(t('settings.errors.invalidStablePath'))
   }
 }
 
@@ -427,9 +437,10 @@ const selectOsuLazerPath = async (): Promise<void> => {
   if (validation.valid) {
     osuLazerPath.value = dir
     await saveOsuLazerPath(dir)
+    await loadSettings()
     await loadDatabaseStatus()
   } else {
-    alert(t('settings.error.realmNotFound'))
+    alert(t('settings.errors.realmNotFound'))
   }
 }
 

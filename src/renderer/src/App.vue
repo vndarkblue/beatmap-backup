@@ -123,11 +123,13 @@ const setupGlobalDatabaseSyncListener = (): void => {
   unsubscribeDatabaseSync = window.electronAPI.database.onSyncProgress((progress) => {
     if (progress.phase === 'error') {
       showToast(
-        t('syncToast.error', { error: progress.error || t('settings.database.error') }),
+        t('notifications.syncError.message', {
+          error: progress.error || t('settings.database.error')
+        }),
         'error',
         6000,
         {
-          label: t('syncToast.viewSettings'),
+          label: t('notifications.syncError.viewSettings'),
           onClick: () => {
             toastVisible.value = false
             void router.push('/settings')

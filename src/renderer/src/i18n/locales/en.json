@@ -1,26 +1,30 @@
 {
   "settings": {
     "general": "General",
-    "download": "Download",
+    "downloadTab": "Download",
     "title": "Settings",
-    "osuStablePath": "osu!stable directory",
-    "osuLazerPath": "osu!lazer directory",
-    "selectFolder": "Select Folder",
-    "reset": {
-      "all": "Reset settings",
-      "general": "Reset to defaults",
-      "download": "Reset to defaults",
-      "warning": "This resets saved app settings and local preferences.",
-      "confirmWarning": "Warning: this action cannot be undone.",
-      "holdHint": "Press and hold the confirm button to continue.",
-      "confirmAction": "Hold to confirm reset",
-      "cancel": "Cancel",
-      "success": "Settings reset complete. The app will reload.",
-      "failed": "Failed to reset settings."
+    "paths": {
+      "osuStable": "osu!stable directory",
+      "osuLazer": "osu!lazer directory",
+      "selectFolder": "Select Folder",
+      "lazerRedirected": "Data redirected to: {path}",
+      "autoDetectFailed": "Could not auto-detect one or more osu directories. Please set them in Settings."
     },
-    "error": {
-      "songsNotFound": "The Songs folder is not found in the directory",
+    "errors": {
+      "invalidStablePath": "Not a valid osu!stable directory",
       "realmNotFound": "The client.realm database is not found in the directory"
+    },
+    "downloadOptions": {
+      "threadCount": "Download threads",
+      "threadCountHelp": "Number of beatmaps downloaded at the same time. Higher values are faster but less stable.",
+      "ignoreExisting": "Ignore existing beatmaps",
+      "ignoreStable": "From osu!stable",
+      "ignoreLazer": "From osu!lazer",
+      "other": "Other options",
+      "noVideo": "Download without videos",
+      "waitForDownloads": "Wait for downloads to complete when pausing",
+      "waitForDownloadsHelpOn": "When pausing, in-progress beatmaps are allowed to finish before the queue pauses.",
+      "waitForDownloadsHelpOff": "When pausing, in-progress beatmaps may stop immediately."
     },
     "database": {
       "title": "Beatmap Database",
@@ -35,6 +39,18 @@
       "totalBeatmapsets": "Beatmapsets: {count}",
       "totalBeatmaps": "Beatmaps: {count}",
       "error": "An unknown error occurred."
+    },
+    "reset": {
+      "all": "Reset settings",
+      "general": "Reset to defaults",
+      "download": "Reset to defaults",
+      "warning": "This resets saved app settings and local preferences.",
+      "confirmWarning": "Warning: this action cannot be undone.",
+      "holdHint": "Press and hold the confirm button to continue.",
+      "confirmAction": "Hold to confirm reset",
+      "cancel": "Cancel",
+      "success": "Settings reset complete. The app will reload.",
+      "failed": "Failed to reset settings."
     }
   },
   "backup": {
@@ -96,22 +112,11 @@
     "selectFile": "Select a file (.bbak)",
     "path": "Save to...",
     "fileRequired": "File is required",
-    "options": {
-      "ignoreExisting": "Ignore existing beatmaps",
-      "ignoreStable": "From osu!stable",
-      "ignoreLazer": "From osu!lazer",
-      "threadCount": "Download threads",
-      "other": "Other options",
-      "noVideo": "Download without videos",
-      "waitForDownloads": "Wait for downloads to complete when pausing",
-      "waitForDownloadsHelpOn": "When pausing, in-progress beatmaps are allowed to finish before the queue pauses.",
-      "waitForDownloadsHelpOff": "When pausing, in-progress beatmaps may stop immediately.",
-      "threadCountHelp": "Number of beatmaps downloaded at the same time. Higher values are faster but less stable."
-    },
     "button": "Download",
     "started": "Download started",
     "finished": "Downloaded {success} beatmaps",
     "finishedWithErrors": "Downloaded {success}/{total} beatmaps · {failed} failed",
+    "cancelled": "Download cancelled",
     "recovery": {
       "title": "Recover previous download queue",
       "description": "A previous download queue with {total} beatmaps was found.",
@@ -133,7 +138,44 @@
       "downloadPathInvalid": "Download path is invalid",
       "allBeatmapsExist": "All beatmaps in the backup file already exist on your system"
     },
-    "cancelled": "Download cancelled"
+    "manager": {
+      "title": "Download Manager",
+      "emptyState": {
+        "title": "No Active Downloads",
+        "description": "Go to the Download page to start downloading beatmaps",
+        "action": "Go to Download"
+      },
+      "queueOverview": "Download Queue",
+      "progress": "Overall Progress",
+      "files": "files",
+      "activeDownloads": "Currently downloading files",
+      "completedDownloads": "Completed files",
+      "noActiveDownloads": "No files are downloading right now",
+      "noCompletedDownloads": "No completed files yet",
+      "pause": "Pause Queue",
+      "resume": "Resume Queue",
+      "stop": "Stop Download",
+      "stopConfirmYes": "Confirm stop",
+      "stopConfirmNo": "Cancel",
+      "table": {
+        "status": "Status",
+        "filename": "Filename",
+        "speed": "Speed",
+        "progress": "Progress",
+        "remaining": "Remaining"
+      },
+      "status": {
+        "waiting": "Waiting",
+        "downloading": "Downloading",
+        "completed": "Completed",
+        "error": "Error",
+        "unknown": "Unknown"
+      },
+      "preview": {
+        "show": "Show Preview",
+        "hide": "Hide Preview"
+      }
+    }
   },
   "filter": {
     "title": "Beatmap Filter",
@@ -239,62 +281,19 @@
     "addTag": "Add tags...",
     "addTagHint": "Press Enter, Space or Comma to add a tag"
   },
-  "downloadManager": {
-    "title": "Download Manager",
-    "emptyState": {
-      "title": "No Active Downloads",
-      "description": "Go to the Download page to start downloading beatmaps",
-      "action": "Go to Download"
-    },
-    "queueOverview": "Download Queue",
-    "progress": "Overall Progress",
-    "files": "files",
-    "activeDownloads": "Currently downloading files",
-    "completedDownloads": "Completed files",
-    "noActiveDownloads": "No files are downloading right now",
-    "noCompletedDownloads": "No completed files yet",
-    "pause": "Pause Queue",
-    "resume": "Resume Queue",
-    "stop": "Stop Download",
-    "stopConfirmYes": "Confirm stop",
-    "stopConfirmNo": "Cancel",
-    "table": {
-      "status": "Status",
-      "filename": "Filename",
-      "speed": "Speed",
-      "progress": "Progress",
-      "remaining": "Remaining"
-    },
-    "status": {
-      "waiting": "Waiting",
-      "downloading": "Downloading",
-      "completed": "Completed",
-      "error": "Error",
-      "unknown": "Unknown"
-    },
-    "preview": {
-      "show": "Show Preview",
-      "hide": "Hide Preview"
-    }
-  },
   "language": {
-    "title": "Language",
-    "flagCode": "gb"
+    "title": "Language"
   },
   "navigation": {
     "settings": "Settings",
     "backup": "Backup",
-    "download": "Download",
-    "beatmapFilter": "Beatmap Filter"
+    "download": "Download"
   },
   "theme": {
     "dark": "Dark Mode",
     "light": "Light Mode"
   },
   "notifications": {
-    "paths": {
-      "autoDetectFailed": "Could not auto-detect one or more osu directories. Please set them in Settings."
-    },
     "download": {
       "completed": {
         "title": "Download completed"
@@ -303,10 +302,10 @@
     "actions": {
       "openFolder": "Open Folder",
       "dismiss": "Dismiss"
+    },
+    "syncError": {
+      "message": "Database sync failed: {error}",
+      "viewSettings": "View Settings"
     }
-  },
-  "syncToast": {
-    "error": "Database sync failed: {error}",
-    "viewSettings": "View Settings"
   }
 }

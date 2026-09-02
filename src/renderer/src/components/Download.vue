@@ -56,12 +56,12 @@
       <div v-else>
         <!-- Queue Overview -->
         <div class="d-flex align-center justify-space-between mb-4">
-          <div class="text-h6">{{ $t('downloadManager.queueOverview') }}</div>
+          <div class="text-h6">{{ $t('download.manager.queueOverview') }}</div>
           <div class="d-flex">
             <v-btn
               :icon="isPaused ? '$play' : '$pause'"
               variant="text"
-              :title="isPaused ? $t('downloadManager.resume') : $t('downloadManager.pause')"
+              :title="isPaused ? $t('download.manager.resume') : $t('download.manager.pause')"
               :lang="currentLocale"
               :disabled="confirmingStop"
               @click="togglePause"
@@ -71,14 +71,14 @@
                 icon="$check"
                 variant="text"
                 color="error"
-                :title="$t('downloadManager.stopConfirmYes')"
+                :title="$t('download.manager.stopConfirmYes')"
                 :lang="currentLocale"
                 @click="confirmStopDownload"
               ></v-btn>
               <v-btn
                 icon="$close"
                 variant="text"
-                :title="$t('downloadManager.stopConfirmNo')"
+                :title="$t('download.manager.stopConfirmNo')"
                 :lang="currentLocale"
                 @click="cancelStopDownload"
               ></v-btn>
@@ -87,7 +87,7 @@
               v-else
               icon="$stop"
               variant="text"
-              :title="$t('downloadManager.stop')"
+              :title="$t('download.manager.stop')"
               :lang="currentLocale"
               @click="requestStopDownload"
             ></v-btn>
@@ -97,8 +97,8 @@
         <!-- Progress Bar -->
         <div class="mb-4">
           <div class="d-flex justify-space-between mb-2">
-            <div>{{ $t('downloadManager.progress') }}</div>
-            <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('downloadManager.files') }}</div>
+            <div>{{ $t('download.manager.progress') }}</div>
+            <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('download.manager.files') }}</div>
           </div>
           <v-progress-linear
             :model-value="queueProgress"
@@ -109,15 +109,15 @@
         </div>
 
         <!-- Downloading Files Table -->
-        <div class="text-subtitle-1 mb-2">{{ $t('downloadManager.activeDownloads') }}</div>
+        <div class="text-subtitle-1 mb-2">{{ $t('download.manager.activeDownloads') }}</div>
         <v-table>
           <thead>
             <tr>
-              <th>{{ $t('downloadManager.table.status') }}</th>
-              <th>{{ $t('downloadManager.table.filename') }}</th>
-              <th>{{ $t('downloadManager.table.speed') }}</th>
-              <th>{{ $t('downloadManager.table.progress') }}</th>
-              <th>{{ $t('downloadManager.table.remaining') }}</th>
+              <th>{{ $t('download.manager.table.status') }}</th>
+              <th>{{ $t('download.manager.table.filename') }}</th>
+              <th>{{ $t('download.manager.table.speed') }}</th>
+              <th>{{ $t('download.manager.table.progress') }}</th>
+              <th>{{ $t('download.manager.table.remaining') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -147,7 +147,7 @@
             </tr>
             <tr v-if="visibleDownloadingFiles.length === 0">
               <td colspan="5" class="text-center text-medium-emphasis py-4">
-                {{ $t('downloadManager.noActiveDownloads') }}
+                {{ $t('download.manager.noActiveDownloads') }}
               </td>
             </tr>
           </tbody>
@@ -163,7 +163,7 @@
           >
             <span class="d-flex align-center ga-2">
               <v-icon icon="$checkCircle" color="success" size="20" />
-              <span>{{ $t('downloadManager.completedDownloads') }}</span>
+              <span>{{ $t('download.manager.completedDownloads') }}</span>
               <span class="text-medium-emphasis">({{ completedDownloadFiles.length }})</span>
             </span>
             <v-icon :icon="showCompletedDownloads ? '$chevronUp' : '$chevronDown'" />
@@ -173,9 +173,9 @@
               <v-table>
                 <thead>
                   <tr>
-                    <th>{{ $t('downloadManager.table.status') }}</th>
-                    <th>{{ $t('downloadManager.table.filename') }}</th>
-                    <th>{{ $t('downloadManager.table.progress') }}</th>
+                    <th>{{ $t('download.manager.table.status') }}</th>
+                    <th>{{ $t('download.manager.table.filename') }}</th>
+                    <th>{{ $t('download.manager.table.progress') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,7 +203,7 @@
                   </tr>
                   <tr v-if="visibleCompletedDownloadFiles.length === 0">
                     <td colspan="3" class="text-center text-medium-emphasis py-4">
-                      {{ $t('downloadManager.noCompletedDownloads') }}
+                      {{ $t('download.manager.noCompletedDownloads') }}
                     </td>
                   </tr>
                 </tbody>
@@ -648,13 +648,13 @@ const getStatusColor = (status: string): string => {
 const getStatusText = (status: string): string => {
   switch (status) {
     case 'waiting':
-      return t('download.status.waiting')
+      return t('download.manager.status.waiting')
     case 'downloading':
-      return t('download.status.downloading')
+      return t('download.manager.status.downloading')
     case 'completed':
-      return t('download.status.completed')
+      return t('download.manager.status.completed')
     case 'error':
-      return t('download.status.error')
+      return t('download.manager.status.error')
     default:
       return status
   }

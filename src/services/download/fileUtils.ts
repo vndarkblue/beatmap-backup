@@ -3,6 +3,7 @@ import fs from 'fs'
 import os from 'os'
 import { execSync } from 'child_process'
 import { getOsuStablePath, getOsuLazerPath } from '../settingsStore'
+import { getStableSongsPath } from '../pathAutoDetect'
 import { realmService } from '../realmService'
 import { DatabaseService } from '../database/databaseService'
 import { getStableDbPath } from '../database/stableImporter'
@@ -115,7 +116,7 @@ export async function getExistingBeatmapsetIds(options: DownloadOptions): Promis
             }
           }
         } else {
-          const songsPath = path.join(osuStablePath, 'Songs')
+          const songsPath = getStableSongsPath(osuStablePath)
           if (fs.existsSync(songsPath)) {
             const folders = fs.readdirSync(songsPath)
             for (const folder of folders) {

@@ -1,4 +1,5 @@
 import { getOsuStablePath, getOsuLazerPath } from './settingsStore'
+import { getStableSongsPath } from './pathAutoDetect'
 import { realmService } from './realmService'
 import { is } from '../utils/env'
 import path from 'path'
@@ -135,7 +136,7 @@ export const exportService = {
         if (!osuStablePath) {
           throw new Error('Osu stable path not set')
         }
-        const songsPath = path.join(osuStablePath, 'Songs')
+        const songsPath = getStableSongsPath(osuStablePath)
         if (!fs.existsSync(songsPath)) {
           throw new Error('Songs directory not found')
         }
@@ -205,7 +206,7 @@ export const exportService = {
           throw new Error('Osu stable path not set')
         }
 
-        const songsPath = path.join(osuStablePath, 'Songs')
+        const songsPath = getStableSongsPath(osuStablePath)
         if (is.dev) console.log('Songs path:', songsPath)
         if (!fs.existsSync(songsPath)) {
           throw new Error('Songs directory not found')

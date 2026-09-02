@@ -23,15 +23,16 @@ export interface RunningProcessInfo {
 
 /**
  * Checks whether childPath is equal to or resides inside parentPath.
- * Avoids simple string prefix bugs (e.g., C:\osu vs C:\osulazer).
+ * Normalizes '..' traversal segments and handles cross-platform path flavors.
  */
 export function isPathInside(childPath: string, parentPath: string): boolean {
   if (!childPath || !parentPath) return false
-  const c = childPath.replace(/\\/g, '/').toLowerCase()
-  const p = parentPath.replace(/\\/g, '/').toLowerCase()
+  const flavor = /^[a-z]:|\\/i.test(childPath + parentPath) ? path.win32 : path.posix
+  const c = flavor.resolve(childPath.replace(/\\/g, '/')).toLowerCase()
+  const p = flavor.resolve(parentPath.replace(/\\/g, '/')).toLowerCase()
   if (c === p) return true
-  const pWithSlash = p.endsWith('/') ? p : p + '/'
-  return c.startsWith(pWithSlash)
+  const rel = flavor.relative(p, c)
+  return !rel.startsWith('..') && !flavor.isAbsolute(rel)
 }
 
 /**

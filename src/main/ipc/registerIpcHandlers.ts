@@ -1,12 +1,14 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import fs from 'fs'
-import path from 'path'
 import {
   getSettings,
   updateSettings,
   resetSettings,
+  setOsuStableSongsPath,
+  setOsuLazerResolvedDataPath,
   type Settings as AppSettings
 } from '../../services/settingsStore'
+import { probeStablePath, probeLazerPath } from '../../services/pathAutoDetect'
 import { validateDownloadPath } from '../../services/download/fileUtils'
 import type { StartupAutoDetectResult } from '../../services/startupAutoDetect'
 import DownloadService, { DownloadEvent, DownloadTask } from '../../services/downloadService'
@@ -115,10 +117,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
       if (target === 'stable') {
         const checkPath = customPath ?? settings.osuStablePath
         if (!checkPath) return { valid: false, error: 'No path set' }
-        const songsTarget = path.join(checkPath, 'Songs')
         try {
-          const exists = fs.existsSync(songsTarget) && fs.lstatSync(songsTarget).isDirectory()
-          return { valid: exists, error: exists ? null : 'Songs directory not found' }
+          const probe = probeStablePath(checkPath)
+          if (probe.valid) {
+            if (probe.songsPath) {
+              setOsuStableSongsPath(probe.songsPath)
+            }
+            return { valid: true, error: null }
+          }
+          return { valid: false, error: 'Invalid osu!stable directory' }
         } catch {
           return { valid: false, error: 'Path validation failed' }
         }
@@ -127,13 +134,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
       if (target === 'lazer') {
         const checkPath = customPath ?? settings.osuLazerPath
         if (!checkPath) return { valid: false, error: 'No path set' }
-        const primaryTarget = path.join(checkPath, 'client.realm')
-        const fallbackTarget = path.join(checkPath, 'files', 'client.realm')
         try {
-          const exists =
-            (fs.existsSync(primaryTarget) && fs.lstatSync(primaryTarget).isFile()) ||
-            (fs.existsSync(fallbackTarget) && fs.lstatSync(fallbackTarget).isFile())
-          return { valid: exists, error: exists ? null : 'client.realm file not found' }
+          const probe = probeLazerPath(checkPath)
+          if (probe.valid) {
+            if (probe.resolvedDataPath) {
+              setOsuLazerResolvedDataPath(probe.resolvedDataPath)
+            }
+            return { valid: true, error: null }
+          }
+          return { valid: false, error: 'client.realm database not found' }
         } catch {
           return { valid: false, error: 'Path validation failed' }
         }

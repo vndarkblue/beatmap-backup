@@ -12,6 +12,8 @@ const createSettings = (
   getOsuLazerPath: () => string
   setOsuStablePath: ReturnType<typeof vi.fn<(next: string) => void>>
   setOsuLazerPath: ReturnType<typeof vi.fn<(next: string) => void>>
+  setOsuStableSongsPath: ReturnType<typeof vi.fn<(next: string) => void>>
+  setOsuLazerResolvedDataPath: ReturnType<typeof vi.fn<(next: string) => void>>
   getAutoDetectWarningDismissed: () => boolean
   setAutoDetectWarningDismissed: ReturnType<typeof vi.fn<(next: boolean) => void>>
 } => {
@@ -28,6 +30,8 @@ const createSettings = (
     setOsuLazerPath: vi.fn((next: string) => {
       lazer = next
     }),
+    setOsuStableSongsPath: vi.fn(),
+    setOsuLazerResolvedDataPath: vi.fn(),
     getAutoDetectWarningDismissed: () => dismissed,
     setAutoDetectWarningDismissed: vi.fn((next: boolean) => {
       dismissed = next
@@ -46,12 +50,20 @@ describe('runStartupAutoDetect', () => {
       detectStablePath,
       detectLazerPath,
       isStablePathValid: (value) => value === 'stable-valid',
-      isLazerPathValid: (value) => value === '/detected/lazer'
+      isLazerPathValid: (value) => value === '/detected/lazer',
+      probeStablePath: (value) => ({ valid: value === 'stable-valid', songsPath: '/songs' }),
+      probeLazerPath: (value) => ({
+        valid: value === '/detected/lazer',
+        resolvedDataPath: '/resolved/lazer/data',
+        isRedirected: true
+      })
     })
 
     expect(detectStablePath).not.toHaveBeenCalled()
     expect(detectLazerPath).toHaveBeenCalledOnce()
     expect(settings.setOsuLazerPath).toHaveBeenCalledWith('/detected/lazer')
+    expect(settings.setOsuStableSongsPath).toHaveBeenCalledWith('/songs')
+    expect(settings.setOsuLazerResolvedDataPath).toHaveBeenCalledWith('/resolved/lazer/data')
     expect(result).toEqual({
       didUpdateStablePath: false,
       didUpdateLazerPath: true,

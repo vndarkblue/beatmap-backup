@@ -11,7 +11,9 @@ vi.mock('fs', () => ({
 }))
 
 vi.mock('../../src/services/settingsStore', () => ({
-  getOsuLazerPath: () => 'C:/osu'
+  getOsuLazerPath: () => 'C:/osu',
+  getOsuLazerResolvedDataPath: () => null,
+  setOsuLazerResolvedDataPath: () => {}
 }))
 
 vi.mock('realm', () => ({

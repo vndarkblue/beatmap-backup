@@ -1,4 +1,5 @@
 import { getOsuStablePath } from './settingsStore'
+import { getStableSongsPath } from './pathAutoDetect'
 import type { LazerLocalBeatmapset } from './realmService'
 import { buildLocalOszDirectoryName, sanitizeBackupFileName } from './backupNaming'
 import crypto from 'crypto'
@@ -377,7 +378,7 @@ export const localBeatmapExport = {
       throw new Error('Osu stable path not set')
     }
 
-    const songsPath = path.join(osuStablePath, 'Songs')
+    const songsPath = getStableSongsPath(osuStablePath)
     if (!fs.existsSync(songsPath)) {
       throw new Error('Songs directory not found')
     }
@@ -408,7 +409,7 @@ export const localBeatmapExport = {
       throw new Error('Osu stable path not set')
     }
 
-    const songsPath = path.join(osuStablePath, 'Songs')
+    const songsPath = getStableSongsPath(osuStablePath)
     if (!fs.existsSync(songsPath)) {
       throw new Error('Songs directory not found')
     }

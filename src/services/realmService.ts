@@ -1,5 +1,6 @@
 import Realm from 'realm'
-import { getOsuLazerPath } from './settingsStore'
+import { getOsuLazerPath, getOsuLazerResolvedDataPath, setOsuLazerResolvedDataPath } from './settingsStore'
+import { probeLazerPath } from './pathAutoDetect'
 import { is } from '../utils/env'
 import path from 'path'
 import fs from 'fs'
@@ -36,12 +37,31 @@ function getResolvedRealmPath(): string {
     throw new Error('Osu lazer path not set. Please set it in Settings.')
   }
 
-  let realmPath = path.join(osuLazerPath, 'client.realm')
+  // Check if we have a cached resolved data path that is still valid
+  const cachedResolvedPath = getOsuLazerResolvedDataPath()
+  const candidateDataDir = cachedResolvedPath || osuLazerPath
+
+  let probe = probeLazerPath(candidateDataDir)
+  let effectiveDataDir = probe.valid && probe.resolvedDataPath ? probe.resolvedDataPath : null
+
+  if (!effectiveDataDir && candidateDataDir !== osuLazerPath) {
+    probe = probeLazerPath(osuLazerPath)
+    if (probe.valid && probe.resolvedDataPath) {
+      effectiveDataDir = probe.resolvedDataPath
+      setOsuLazerResolvedDataPath(effectiveDataDir)
+    }
+  } else if (effectiveDataDir && effectiveDataDir !== cachedResolvedPath) {
+    setOsuLazerResolvedDataPath(effectiveDataDir)
+  }
+
+  const searchDir = effectiveDataDir || osuLazerPath
+
+  let realmPath = path.join(searchDir, 'client.realm')
   if (!fs.existsSync(realmPath)) {
-    realmPath = path.join(osuLazerPath, 'files', 'client.realm')
+    realmPath = path.join(searchDir, 'files', 'client.realm')
     if (!fs.existsSync(realmPath)) {
       throw new Error(
-        `client.realm file not found in '${osuLazerPath}' or in its 'files' subdirectory. Please ensure the path is correct or the file exists.`
+        `client.realm file not found in '${searchDir}' or in its 'files' subdirectory. Please ensure the path is correct or the file exists.`
       )
     }
   }

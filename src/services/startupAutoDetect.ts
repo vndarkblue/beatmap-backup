@@ -3,6 +3,10 @@ import {
   detectStablePath,
   isLazerPathValid,
   isStablePathValid,
+  probeLazerPath,
+  probeStablePath,
+  type LazerProbeResult,
+  type StableProbeResult,
   type OsPlatform
 } from './pathAutoDetect'
 import * as settingsStore from './settingsStore'
@@ -12,6 +16,8 @@ type SettingsAccessor = {
   getOsuLazerPath(): string
   setOsuStablePath(path: string): void
   setOsuLazerPath(path: string): void
+  setOsuStableSongsPath?(path: string): void
+  setOsuLazerResolvedDataPath?(path: string): void
   getAutoDetectWarningDismissed(): boolean
   setAutoDetectWarningDismissed(dismissed: boolean): void
 }
@@ -22,6 +28,8 @@ type AutoDetectDeps = {
   detectLazerPath: () => string | null
   isStablePathValid: (value: string) => boolean
   isLazerPathValid: (value: string) => boolean
+  probeStablePath?: (value: string) => StableProbeResult
+  probeLazerPath?: (value: string) => LazerProbeResult
 }
 
 export type StartupAutoDetectResult = {
@@ -36,7 +44,9 @@ const createDefaultDeps = (platform: OsPlatform = process.platform): AutoDetectD
     detectStablePath: () => detectStablePath(platform),
     detectLazerPath: () => detectLazerPath(platform),
     isStablePathValid,
-    isLazerPathValid
+    isLazerPathValid,
+    probeStablePath,
+    probeLazerPath
   }
 }
 
@@ -51,10 +61,14 @@ export function runStartupAutoDetect(depsArg?: AutoDetectDeps): StartupAutoDetec
   let didUpdateStablePath = false
   let didUpdateLazerPath = false
 
+  let effectiveStablePath = stablePath
+  let effectiveLazerPath = lazerPath
+
   if (!stableValid) {
     const detectedStablePath = deps.detectStablePath()
     if (detectedStablePath) {
       deps.settings.setOsuStablePath(detectedStablePath)
+      effectiveStablePath = detectedStablePath
       didUpdateStablePath = true
     }
   }
@@ -63,7 +77,27 @@ export function runStartupAutoDetect(depsArg?: AutoDetectDeps): StartupAutoDetec
     const detectedLazerPath = deps.detectLazerPath()
     if (detectedLazerPath) {
       deps.settings.setOsuLazerPath(detectedLazerPath)
+      effectiveLazerPath = detectedLazerPath
       didUpdateLazerPath = true
+    }
+  }
+
+  // Update resolved paths in settings store if valid
+  if (deps.probeStablePath && (stableValid || didUpdateStablePath) && effectiveStablePath) {
+    const stableProbe = deps.probeStablePath(effectiveStablePath)
+    if (stableProbe.valid && stableProbe.songsPath && deps.settings.setOsuStableSongsPath) {
+      deps.settings.setOsuStableSongsPath(stableProbe.songsPath)
+    }
+  }
+
+  if (deps.probeLazerPath && (lazerValid || didUpdateLazerPath) && effectiveLazerPath) {
+    const lazerProbe = deps.probeLazerPath(effectiveLazerPath)
+    if (
+      lazerProbe.valid &&
+      lazerProbe.resolvedDataPath &&
+      deps.settings.setOsuLazerResolvedDataPath
+    ) {
+      deps.settings.setOsuLazerResolvedDataPath(lazerProbe.resolvedDataPath)
     }
   }
 

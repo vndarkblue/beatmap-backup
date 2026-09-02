@@ -2,7 +2,9 @@ import Store from 'electron-store'
 
 export interface Settings {
   osuStablePath: string
+  osuStableSongsPath: string
   osuLazerPath: string
+  osuLazerResolvedDataPath: string
   autoDetectWarningDismissed: boolean
   downloadThreadCount: number
   selectedMirrors: string[]
@@ -15,7 +17,9 @@ export interface Settings {
 
 const defaultSettings: Settings = {
   osuStablePath: '',
+  osuStableSongsPath: '',
   osuLazerPath: '',
+  osuLazerResolvedDataPath: '',
   autoDetectWarningDismissed: false,
   downloadThreadCount: 5,
   selectedMirrors: [],
@@ -35,7 +39,9 @@ const settingsStore = new Store<Settings>({
 export const getSettings = (): Settings => {
   return {
     osuStablePath: settingsStore.get('osuStablePath', ''),
+    osuStableSongsPath: settingsStore.get('osuStableSongsPath', ''),
     osuLazerPath: settingsStore.get('osuLazerPath', ''),
+    osuLazerResolvedDataPath: settingsStore.get('osuLazerResolvedDataPath', ''),
     autoDetectWarningDismissed: settingsStore.get('autoDetectWarningDismissed', false),
     downloadThreadCount: settingsStore.get('downloadThreadCount', 5),
     selectedMirrors: settingsStore.get('selectedMirrors', []),
@@ -59,16 +65,32 @@ export const setOsuStablePath = (path: string): void => {
   settingsStore.set('osuStablePath', path)
 }
 
+export const setOsuStableSongsPath = (path: string): void => {
+  settingsStore.set('osuStableSongsPath', path)
+}
+
 export const setOsuLazerPath = (path: string): void => {
   settingsStore.set('osuLazerPath', path)
+}
+
+export const setOsuLazerResolvedDataPath = (path: string): void => {
+  settingsStore.set('osuLazerResolvedDataPath', path)
 }
 
 export const getOsuStablePath = (): string => {
   return settingsStore.get('osuStablePath', '')
 }
 
+export const getOsuStableSongsPath = (): string => {
+  return settingsStore.get('osuStableSongsPath', '')
+}
+
 export const getOsuLazerPath = (): string => {
   return settingsStore.get('osuLazerPath', '')
+}
+
+export const getOsuLazerResolvedDataPath = (): string => {
+  return settingsStore.get('osuLazerResolvedDataPath', '')
 }
 
 export const getAutoDetectWarningDismissed = (): boolean => {

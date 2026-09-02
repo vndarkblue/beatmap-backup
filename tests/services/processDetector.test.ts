@@ -49,6 +49,26 @@ describe('processDetector', () => {
       expect(isPathInside('', 'C:/osu')).toBe(false)
       expect(isPathInside('C:/osu', '')).toBe(false)
     })
+
+    it('normalizes .. traversal segments correctly on Windows and POSIX', () => {
+      // Parent path with '..'
+      expect(isPathInside('C:/osu/osu!.exe', 'C:/something/../osu')).toBe(true)
+      expect(isPathInside('C:\\osu\\osu!.exe', 'C:\\Program Files\\..\\osu')).toBe(true)
+
+      // Child path with '..' inside parent
+      expect(isPathInside('C:/osu/Songs/../osu!.exe', 'C:/osu')).toBe(true)
+
+      // Child path that escapes parent via '..'
+      expect(isPathInside('C:/osu/../other/app.exe', 'C:/osu')).toBe(false)
+
+      // POSIX flavor with '..'
+      expect(
+        isPathInside('/home/user/games/osu/osu.AppImage', '/home/user/games/../games/osu')
+      ).toBe(true)
+      expect(
+        isPathInside('/home/user/games/osu/../../other/app', '/home/user/games/osu')
+      ).toBe(false)
+    })
   })
 
   describe('classifyProcess', () => {

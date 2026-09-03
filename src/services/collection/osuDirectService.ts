@@ -1,5 +1,3 @@
-import fetch from 'node-fetch'
-
 export interface OsuDirectMd5Response {
   ParentSetID?: number
   BeatmapID?: number

@@ -183,12 +183,8 @@
       <div class="mb-4">
         <div class="text-subtitle-2 mb-1" :lang="currentLocale">
           {{ $t('settings.database.stable') }}:
-          <span :class="databaseStatus?.stable.isDirty ? 'text-warning' : 'text-success'">
-            {{
-              databaseStatus?.stable.isDirty
-                ? $t('settings.database.outOfDate')
-                : $t('settings.database.upToDate')
-            }}
+          <span :class="stableStatus.colorClass">
+            {{ $t(stableStatus.key) }}
           </span>
         </div>
         <div class="text-caption" :lang="currentLocale">
@@ -199,12 +195,8 @@
       <div class="mb-4">
         <div class="text-subtitle-2 mb-1" :lang="currentLocale">
           {{ $t('settings.database.lazer') }}:
-          <span :class="databaseStatus?.lazer.isDirty ? 'text-warning' : 'text-success'">
-            {{
-              databaseStatus?.lazer.isDirty
-                ? $t('settings.database.outOfDate')
-                : $t('settings.database.upToDate')
-            }}
+          <span :class="lazerStatus.colorClass">
+            {{ $t(lazerStatus.key) }}
           </span>
         </div>
         <div class="text-caption" :lang="currentLocale">
@@ -227,6 +219,7 @@
       <v-btn
         color="primary"
         :loading="isSyncing"
+        :disabled="isSyncing || !canSyncDatabase"
         :lang="currentLocale"
         @click="triggerDatabaseSync"
       >
@@ -299,6 +292,7 @@ import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
 import PathField from './common/PathField.vue'
 import type { DatabaseStatus } from '../../../services/database/types'
+import { getDatabaseSourceStatus, canSyncDatabaseSource } from '../utils/databaseStatus'
 
 const { t, locale } = useI18n()
 
@@ -357,6 +351,17 @@ const showAutoDetectWarningInline = ref(false)
 let autoDetectWarningTimer: number | null = null
 
 const databaseStatus = ref<DatabaseStatus | null>(null)
+const stableStatus = computed(() =>
+  getDatabaseSourceStatus(databaseStatus.value?.stable, osuStablePath.value)
+)
+const lazerStatus = computed(() =>
+  getDatabaseSourceStatus(databaseStatus.value?.lazer, osuLazerPath.value)
+)
+const canSyncDatabase = computed(
+  () =>
+    canSyncDatabaseSource(databaseStatus.value?.stable, osuStablePath.value) ||
+    canSyncDatabaseSource(databaseStatus.value?.lazer, osuLazerPath.value)
+)
 const isSyncing = ref(false)
 const syncMessage = ref('')
 const isResetting = ref(false)

@@ -36,6 +36,8 @@
       "syncing": "Syncing database...",
       "upToDate": "Up to date",
       "outOfDate": "Out of date",
+      "notConfigured": "Not configured",
+      "notFound": "Database not found",
       "totalBeatmapsets": "Beatmapsets: {count}",
       "totalBeatmaps": "Beatmaps: {count}",
       "error": "An unknown error occurred."

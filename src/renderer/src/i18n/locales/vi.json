@@ -36,6 +36,8 @@
       "syncing": "Đang đồng bộ cơ sở dữ liệu...",
       "upToDate": "Đã cập nhật",
       "outOfDate": "Cần đồng bộ",
+      "notConfigured": "Chưa thiết lập",
+      "notFound": "Không tìm thấy cơ sở dữ liệu",
       "totalBeatmapsets": "Beatmapset: {count}",
       "totalBeatmaps": "Beatmap: {count}",
       "error": "Đã xảy ra lỗi không xác định."

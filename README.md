@@ -17,9 +17,16 @@ Beatmap Backup
 [![vue](https://img.shields.io/badge/Vue.js-4FC08D?logo=vuedotjs&logoColor=fff)](https://github.com/vuejs/)
 [![Vuetify](https://img.shields.io/badge/Vuetify-1867C0?logo=vuetify&logoColor=fff)](https://github.com/vuetifyjs/vuetify)
 
+<p align="center">
+  <a href="#quick-start"><b>Install</b></a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#development-setup">Development Setup</a> •
+  <a href="#contributing">Contributing</a>
+</p>
+
 </div>
 
-## ℹ️ About
+## ℹ️ About <a id="about"></a>
 
 A desktop app for osu! players to back up and share their beatmap collection. Instead of copying hundreds of gigabytes of beatmap files, Beatmap Backup saves a list of your beatmapset IDs — usually a few hundred kilobytes — and re-downloads the beatmaps from public mirrors when you restore.
 
@@ -28,7 +35,31 @@ Typical uses:
 - Reinstalling Windows, moving to a new machine, or recovering from a dead drive
 - Sending your collection to a friend as one small file
 
-## How it works
+## 🚀 Quick Start (For Users) <a id="quick-start"></a>
+
+1. **Download:** Head over to [Releases](https://github.com/vndarkblue/beatmap-backup/releases/latest) and download the installer (`.exe` for Windows, `.AppImage` or `.deb` for Linux).
+2. **Install & Launch:** Run the installer and open **Beatmap Backup**.
+3. **Verify osu! Path:** In **Settings**, check that your osu! folder was detected correctly.
+4. **Sync Library:** Ensure osu! is closed, then run a library sync to index your beatmaps.
+
+## Requirements <a id="requirements"></a>
+
+- Windows 10/11 or Linux
+- osu!stable and/or osu!lazer installed
+- **osu! must be closed when the app reads your beatmap library.** osu!stable locks `osu!.db` while running, and osu!lazer writes to `client.realm` continuously during play, which would produce an inconsistent snapshot. The app detects a running client and skips the sync instead of reading bad data. Downloading is unaffected - you can restore while osu! is open.
+
+---
+
+## ✨ Features <a id="features"></a>
+
+- **Backup** - Export the beatmapset IDs of your installed beatmaps to a file
+- **Restore** - Load a backup file and download the beatmaps from mirror sites
+- **Resume** - An interrupted download queue can be continued in a later session
+- **Both clients** - Reads osu!stable (`osu!.db`) and osu!lazer (`client.realm`)
+- **Collection filter** - Narrow a backup down to specific collections
+- **Local beatmaps** - Beatmapsets with no online ID are exported as `.osz` files, since those cannot be re-downloaded from anywhere
+
+## ❓How it works <a id="how-it-works"></a>
 
 A backup file is a plain text file: one beatmapset ID per line, with a few comment lines at the top. You can open it in any text editor.
 
@@ -45,71 +76,36 @@ A backup file is a plain text file: one beatmapset ID per line, with a few comme
 
 Restoring reads that list and downloads each beatmapset as an `.osz` file into a folder you choose. **Beatmap Backup does not import the files into osu! for you** - you drag them into the game yourself.
 
-Because restoring depends on public mirrors, beatmapsets that are no longer available online cannot be recovered from an ID list. For those, see _Local beatmaps_ below.
-
-## ✨ Features
-
-- **Backup** - Export the beatmapset IDs of your installed beatmaps to a file
-- **Restore** - Load a backup file and download the beatmaps from mirror sites
-- **Resume** - An interrupted download queue can be continued in a later session
-- **Both clients** - Reads osu!stable (`osu!.db`) and osu!lazer (`client.realm`)
-- **Collection filter** - Narrow a backup down to specific collections
-- **Local beatmaps** - Beatmapsets with no online ID are exported as `.osz` files, since those cannot be re-downloaded from anywhere
-
-## Requirements
-
-- Windows 10/11, or Linux
-- osu!stable and/or osu!lazer installed
-- **osu! must be closed when the app reads your beatmap library.** osu!stable locks `osu!.db` while running, and osu!lazer writes to `client.realm` continuously during play, which would produce an inconsistent snapshot. The app detects a running client and skips the sync instead of reading bad data. Downloading is unaffected - you can restore while osu! is open.
-
-## 🖥️ Platform Support
+## 🖥️ Platform Support <a id="platform-support"></a>
 
 | Platform      | Status                                                 |
 | ------------- | ------------------------------------------------------ |
 | Windows 10/11 | ✅ Tested                                              |
 | Linux         | ⚠️ Builds available (AppImage, deb, snap) — not tested |
 
-## 🖼️ Screenshots
+## 🖼️ Screenshots <a id="screenshots"></a>
 
 ### Settings
 
 ![Settings UI](doc/screenshots/settings.png)
 
-App preferences, osu! path selection, database sync, and download behavior.
-
 ### Backup
 
 ![Backup UI](doc/screenshots/backup.png)
-
-Create a backup file from your installed beatmapsets.
 
 ### Download
 
 ![Download UI](doc/screenshots/download_1.png)
 
-Load a backup file and start downloading.
-
 ### Download Queue
 
 ![Download Queue UI](doc/screenshots/download_2.png)
-
-Queue progress, running tasks, and completed downloads.
 
 ### Resume Download
 
 ![Resume Download UI](doc/screenshots/download_resume.png)
 
-Continue an unfinished queue from a previous session.
-
-## 🚀 Quick Start (For Users)
-
-1. Make sure osu! (stable or lazer) is installed.
-2. Download the latest installer from the [Releases](https://github.com/vndarkblue/beatmap-backup/releases) page.
-3. Install and launch **Beatmap Backup**.
-4. In **Settings**, check that your osu! folder was detected correctly.
-5. Close osu! before running a library sync.
-
-## 🛠️ Development Setup
+## 🛠️ Development Setup (Contributors) <a id="development-setup"></a>
 
 ### Prerequisites
 
@@ -119,7 +115,7 @@ Continue an unfinished queue from a previous session.
 
 Native modules (`better-sqlite3`, `realm`) are rebuilt for Electron on install, so a C++ toolchain is required: Visual Studio Build Tools on Windows, or `build-essential` and `python3` on Linux.
 
-### Installation
+### Building from Source (Clone & Run Locally)
 
 1. Clone the repository:
 
@@ -165,7 +161,7 @@ beatmap-backup/
 └── tests/                   # Vitest suite
 ```
 
-## 🤝 Contributing
+## 🤝 Contributing <a id="contributing"></a>
 
 Contributions are welcome!
 

@@ -661,10 +661,11 @@ const getStatusText = (status: string): string => {
 }
 
 // Format helpers
-const formatSpeed = (speed: number): string => {
-  if (!speed || speed <= 0) return '0 KB/s'
-  if (speed < 1024) return `${Math.round(speed)} KB/s`
-  return `${(speed / 1024).toFixed(1)} MB/s`
+const formatSpeed = (bytesPerSec: number): string => {
+  if (!bytesPerSec || bytesPerSec <= 0) return '0 KB/s'
+  const kbps = bytesPerSec / 1024
+  if (kbps < 1024) return `${kbps.toFixed(1)} KB/s`
+  return `${(kbps / 1024).toFixed(1)} MB/s`
 }
 
 const formatTime = (seconds: number): string => {

@@ -10,7 +10,8 @@ import {
   sanitizeFileName,
   parseRetryAfterMs,
   DownloadHttpError,
-  downloadFile
+  downloadFile,
+  SpeedTracker
 } from '../../../src/services/download/httpDownloader'
 import { DefaultBeatmapMirrors } from '../../../src/config/beatmapMirrors'
 import type { DownloadTask } from '../../../src/services/download/types'
@@ -187,6 +188,83 @@ describe('httpDownloader', () => {
         expect(task.filePath).toContain('.osz')
         expect(fs.existsSync(task.filePath!)).toBe(true)
       }
+    })
+  })
+
+  describe('SpeedTracker', () => {
+    it('applies EMA smoothing across multiple ticks', () => {
+      const tracker = new SpeedTracker(0.3, 1000)
+
+      // First tick: 500,000 bytes in 0.5s -> instant = 1,000,000 B/s
+      tracker.recordBytes(500000)
+      const tick1 = tracker.tick(5000000, 1500)
+      expect(tick1.speed).toBe(1000000)
+      expect(tick1.progress).toBe(10)
+
+      // Second tick: 250,000 bytes in 0.5s -> instant = 500,000 B/s
+      // smoothed = 0.3 * 500,000 + 0.7 * 1,000,000 = 150,000 + 700,000 = 850,000 B/s
+      tracker.recordBytes(250000)
+      const tick2 = tracker.tick(5000000, 2000)
+      expect(tick2.speed).toBe(850000)
+      expect(tick2.progress).toBe(15)
+    })
+
+    it('gradually decays speed toward 0 on stall without bytes', () => {
+      const tracker = new SpeedTracker(0.3, 1000)
+
+      // Initial speed established
+      tracker.recordBytes(1000000)
+      const tick1 = tracker.tick(10000000, 2000)
+      expect(tick1.speed).toBe(1000000)
+
+      // Stall 1: 0 bytes over 1 second -> instant = 0
+      // smoothed = 0.3 * 0 + 0.7 * 1,000,000 = 700,000
+      const tick2 = tracker.tick(10000000, 3000)
+      expect(tick2.speed).toBe(700000)
+
+      // Stall 2: 0 bytes over 1 second -> 0.7 * 700,000 = 490,000
+      const tick3 = tracker.tick(10000000, 4000)
+      expect(tick3.speed).toBe(490000)
+
+      // Many ticks without bytes -> eventually snaps to 0
+      let lastTick = tick3
+      for (let i = 5; i <= 50; i++) {
+        lastTick = tracker.tick(10000000, 1000 + i * 1000)
+      }
+      expect(lastTick.speed).toBe(0)
+    })
+
+    it('computes accurate overall average speed fallback', () => {
+      const tracker = new SpeedTracker(0.3, 1000)
+      tracker.recordBytes(2000000)
+
+      expect(tracker.getTotalBytes()).toBe(2000000)
+      expect(tracker.getAverageSpeed(3000)).toBe(1000000) // 2MB in 2s
+      expect(tracker.getAverageSpeed(1000)).toBe(0) // 0s elapsed
+    })
+
+    it('handles zero or missing totalSize for progress and ETA', () => {
+      const tracker = new SpeedTracker(0.3, 1000)
+      tracker.recordBytes(100000)
+
+      const statsNoTotal = tracker.tick(0, 2000)
+      expect(statsNoTotal.progress).toBe(0)
+      expect(statsNoTotal.remainingTime).toBe(0)
+
+      const statsWithTotal = tracker.tick(500000, 2000)
+      expect(statsWithTotal.progress).toBe(20)
+      // Remaining bytes: 400,000, speed: 100,000 B/s -> remainingTime: 4s
+      expect(statsWithTotal.remainingTime).toBe(4)
+    })
+
+    it('handles zero time difference gracefully', () => {
+      const tracker = new SpeedTracker(0.3, 1000)
+      tracker.recordBytes(100000)
+      const tick1 = tracker.tick(1000000, 2000)
+      // Call immediately at same timestamp
+      const tickSame = tracker.tick(1000000, 2000)
+      expect(tickSame.speed).toBe(tick1.speed)
+      expect(tickSame.progress).toBe(tick1.progress)
     })
   })
 })

@@ -51,6 +51,87 @@ export function parseRetryAfterMs(value: string | string[] | undefined): number 
   return undefined
 }
 
+export interface SpeedStats {
+  speed: number
+  progress: number
+  remainingTime: number
+}
+
+export class SpeedTracker {
+  private smoothedSpeed = 0
+  private totalBytes = 0
+  private lastTickBytes = 0
+  private lastTickTime: number
+  private readonly startTime: number
+  private readonly alpha: number
+
+  constructor(alpha = 0.3, startTime: number = Date.now()) {
+    this.alpha = alpha
+    this.startTime = startTime
+    this.lastTickTime = startTime
+  }
+
+  recordBytes(byteCount: number): void {
+    if (byteCount > 0) {
+      this.totalBytes += byteCount
+    }
+  }
+
+  getTotalBytes(): number {
+    return this.totalBytes
+  }
+
+  getAverageSpeed(currentTime: number = Date.now()): number {
+    const elapsedSeconds = (currentTime - this.startTime) / 1000
+    if (elapsedSeconds <= 0) return 0
+    return this.totalBytes / elapsedSeconds
+  }
+
+  tick(totalSize: number, currentTime: number = Date.now()): SpeedStats {
+    const timeDiff = (currentTime - this.lastTickTime) / 1000
+    if (timeDiff <= 0) {
+      return {
+        speed: Math.round(this.smoothedSpeed),
+        progress:
+          totalSize > 0 ? Math.min(100, Math.round((this.totalBytes / totalSize) * 100)) : 0,
+        remainingTime:
+          totalSize > 0 && this.smoothedSpeed > 0
+            ? Math.max(0, Math.round((totalSize - this.totalBytes) / this.smoothedSpeed))
+            : 0
+      }
+    }
+
+    const bytesDiff = this.totalBytes - this.lastTickBytes
+    const instantSpeed = bytesDiff / timeDiff
+
+    if (this.smoothedSpeed === 0) {
+      this.smoothedSpeed = instantSpeed
+    } else {
+      this.smoothedSpeed = this.alpha * instantSpeed + (1 - this.alpha) * this.smoothedSpeed
+    }
+
+    if (this.smoothedSpeed < 1) {
+      this.smoothedSpeed = 0
+    }
+
+    this.lastTickTime = currentTime
+    this.lastTickBytes = this.totalBytes
+
+    const progress =
+      totalSize > 0 ? Math.min(100, Math.round((this.totalBytes / totalSize) * 100)) : 0
+    const remainingTime =
+      totalSize > 0 && this.smoothedSpeed > 0
+        ? Math.max(0, Math.round((totalSize - this.totalBytes) / this.smoothedSpeed))
+        : 0
+
+    return {
+      speed: Math.round(this.smoothedSpeed),
+      progress,
+      remainingTime
+    }
+  }
+}
+
 export async function downloadFile(
   task: DownloadTask,
   downloadPath: string,
@@ -85,8 +166,17 @@ export async function downloadFile(
     let tempFilePath: string | undefined
     let currentResponse: http.IncomingMessage | undefined
     let requestSettled = false
+    let tickInterval: NodeJS.Timeout | undefined
+
+    const cleanupTimer = (): void => {
+      if (tickInterval) {
+        clearInterval(tickInterval)
+        tickInterval = undefined
+      }
+    }
 
     const failWithCleanup = (error: Error): void => {
+      cleanupTimer()
       if (requestSettled) return
       requestSettled = true
       currentResponse?.destroy()
@@ -198,26 +288,19 @@ export async function downloadFile(
           onProgress(task)
 
           writer = fs.createWriteStream(tempFilePath)
-          let downloadedBytes = 0
-          let lastUpdate = startTime
-          let lastBytes = 0
+          const tracker = new SpeedTracker(0.3, startTime)
+
+          tickInterval = setInterval(() => {
+            const stats = tracker.tick(totalSize)
+            task.speed = stats.speed
+            task.progress = stats.progress
+            task.remainingTime = stats.remainingTime
+            onProgress(task)
+          }, 500)
+          tickInterval.unref?.()
 
           response.on('data', (chunk) => {
-            downloadedBytes += chunk.length
-            const currentTime = Date.now()
-            const timeDiff = (currentTime - lastUpdate) / 1000
-            const bytesDiff = downloadedBytes - lastBytes
-
-            if (timeDiff >= 1) {
-              task.speed = bytesDiff / timeDiff
-              task.progress = totalSize ? Math.round((downloadedBytes / totalSize) * 100) : 0
-              task.remainingTime = totalSize
-                ? Math.round((totalSize - downloadedBytes) / task.speed)
-                : 0
-              onProgress(task)
-              lastUpdate = currentTime
-              lastBytes = downloadedBytes
-            }
+            tracker.recordBytes(chunk.length)
           })
 
           response.on('error', (err) => failWithCleanup(err))
@@ -226,6 +309,8 @@ export async function downloadFile(
           response.pipe(writer)
 
           writer.on('finish', () => {
+            cleanupTimer()
+            const downloadedBytes = tracker.getTotalBytes()
             if (!finalFilePath || !tempFilePath) {
               failWithCleanup(new Error('Download finalize failed: missing target path'))
               return

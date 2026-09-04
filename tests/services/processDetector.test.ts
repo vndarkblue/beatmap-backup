@@ -65,9 +65,9 @@ describe('processDetector', () => {
       expect(
         isPathInside('/home/user/games/osu/osu.AppImage', '/home/user/games/../games/osu')
       ).toBe(true)
-      expect(
-        isPathInside('/home/user/games/osu/../../other/app', '/home/user/games/osu')
-      ).toBe(false)
+      expect(isPathInside('/home/user/games/osu/../../other/app', '/home/user/games/osu')).toBe(
+        false
+      )
     })
   })
 

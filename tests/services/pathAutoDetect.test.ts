@@ -7,7 +7,8 @@ import {
   isStablePathValid,
   probeLazerPath,
   probeStablePath,
-  getStableSongsPath
+  getStableSongsPath,
+  type FsProbe
 } from '../../src/services/pathAutoDetect'
 
 type Kind = 'file' | 'dir'
@@ -18,7 +19,7 @@ interface ProbeOptions {
   fileMtimes?: Record<string, number>
 }
 
-const createFsProbe = ({ entries, fileContents = {}, fileMtimes = {} }: ProbeOptions) => ({
+const createFsProbe = ({ entries, fileContents = {}, fileMtimes = {} }: ProbeOptions): FsProbe => ({
   existsSync: (target: string): boolean => target in entries,
   lstatSync: (target: string): { isDirectory: () => boolean; isFile: () => boolean } => ({
     isDirectory: (): boolean => entries[target] === 'dir',

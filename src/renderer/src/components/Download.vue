@@ -1,8 +1,13 @@
 <template>
   <AppViewShell :title="$t('download.title')" :lang="currentLocale">
     <AppIsland :card-class="{ 'recovery-blur': showRecoveryDialog }">
+      <!-- Initializing State - prevents layout flash on tab switch -->
+      <div v-if="isInitializing" class="download-loading-state">
+        <v-progress-circular indeterminate color="primary" />
+      </div>
+
       <!-- Download Form - shown when not downloading -->
-      <AppForm v-if="!showDownloadManager">
+      <AppForm v-else-if="!showDownloadManager">
         <!-- File Selection -->
         <PathField
           :model-value="selectedFileName"
@@ -110,19 +115,19 @@
 
         <!-- Downloading Files Table -->
         <div class="text-subtitle-1 mb-2">{{ $t('download.manager.activeDownloads') }}</div>
-        <v-table>
+        <v-table class="active-downloads-table">
           <thead>
             <tr>
-              <th>{{ $t('download.manager.table.status') }}</th>
-              <th>{{ $t('download.manager.table.filename') }}</th>
-              <th>{{ $t('download.manager.table.speed') }}</th>
-              <th>{{ $t('download.manager.table.progress') }}</th>
-              <th>{{ $t('download.manager.table.remaining') }}</th>
+              <th class="active-col-status">{{ $t('download.manager.table.status') }}</th>
+              <th class="active-col-filename">{{ $t('download.manager.table.filename') }}</th>
+              <th class="active-col-speed">{{ $t('download.manager.table.speed') }}</th>
+              <th class="active-col-progress">{{ $t('download.manager.table.progress') }}</th>
+              <th class="active-col-remaining">{{ $t('download.manager.table.remaining') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="file in visibleDownloadingFiles" :key="file.id">
-              <td>
+              <td class="active-col-status">
                 <v-tooltip :text="getStatusText(file.status)" location="top">
                   <template #activator="{ props }">
                     <v-icon
@@ -133,9 +138,9 @@
                   </template>
                 </v-tooltip>
               </td>
-              <td>{{ getDownloadFileName(file) }}</td>
-              <td>{{ formatSpeed(file.speed) }}</td>
-              <td>
+              <td class="active-col-filename">{{ getDownloadFileName(file) }}</td>
+              <td class="active-col-speed">{{ formatSpeed(file.speed) }}</td>
+              <td class="active-col-progress">
                 <v-progress-linear
                   :model-value="file.progress"
                   color="primary"
@@ -143,7 +148,7 @@
                   rounded
                 ></v-progress-linear>
               </td>
-              <td>{{ formatTime(file.remainingTime) }}</td>
+              <td class="active-col-remaining">{{ formatTime(file.remainingTime) }}</td>
             </tr>
             <tr v-if="visibleDownloadingFiles.length === 0">
               <td colspan="5" class="text-center text-medium-emphasis py-4">
@@ -170,44 +175,50 @@
           </button>
           <v-expand-transition>
             <div v-show="showCompletedDownloads" class="completed-downloads-content">
-              <v-table>
-                <thead>
-                  <tr>
-                    <th>{{ $t('download.manager.table.status') }}</th>
-                    <th>{{ $t('download.manager.table.filename') }}</th>
-                    <th>{{ $t('download.manager.table.progress') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="file in visibleCompletedDownloadFiles" :key="file.id">
-                    <td>
-                      <v-tooltip :text="getStatusText(file.status)" location="top">
-                        <template #activator="{ props }">
-                          <v-icon
-                            v-bind="props"
-                            :color="getStatusColor(file.status)"
-                            :icon="getStatusIcon(file.status)"
-                          ></v-icon>
-                        </template>
-                      </v-tooltip>
-                    </td>
-                    <td>{{ getDownloadFileName(file) }}</td>
-                    <td>
-                      <v-progress-linear
-                        :model-value="file.progress"
-                        color="success"
-                        height="4"
-                        rounded
-                      ></v-progress-linear>
-                    </td>
-                  </tr>
-                  <tr v-if="visibleCompletedDownloadFiles.length === 0">
-                    <td colspan="3" class="text-center text-medium-emphasis py-4">
-                      {{ $t('download.manager.noCompletedDownloads') }}
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
+              <div v-if="completedDownloadFiles.length > 0" class="completed-table-wrapper">
+                <div class="completed-table-header">
+                  <span class="col-status">{{ $t('download.manager.table.status') }}</span>
+                  <span class="col-filename">{{ $t('download.manager.table.filename') }}</span>
+                  <span class="col-progress">{{ $t('download.manager.table.progress') }}</span>
+                </div>
+                <v-virtual-scroll
+                  :items="completedDownloadFiles"
+                  item-key="id"
+                  :item-height="48"
+                  max-height="360"
+                  class="completed-virtual-scroll"
+                >
+                  <template #default="{ item }">
+                    <div class="completed-row">
+                      <div class="col-status">
+                        <v-tooltip :text="getStatusText(item.status)" location="top">
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              :color="getStatusColor(item.status)"
+                              :icon="getStatusIcon(item.status)"
+                            ></v-icon>
+                          </template>
+                        </v-tooltip>
+                      </div>
+                      <div class="col-filename text-truncate" :title="getDownloadFileName(item)">
+                        {{ getDownloadFileName(item) }}
+                      </div>
+                      <div class="col-progress">
+                        <v-progress-linear
+                          :model-value="item.progress"
+                          color="success"
+                          height="4"
+                          rounded
+                        ></v-progress-linear>
+                      </div>
+                    </div>
+                  </template>
+                </v-virtual-scroll>
+              </div>
+              <div v-else class="text-center text-medium-emphasis py-4">
+                {{ $t('download.manager.noCompletedDownloads') }}
+              </div>
             </div>
           </v-expand-transition>
         </div>
@@ -345,6 +356,7 @@ const isSuccess = ref(false)
 
 // Download Manager State
 const showDownloadManager = ref(false)
+const isInitializing = ref(true)
 const isPaused = ref(false)
 const confirmingStop = ref(false)
 const completedFiles = ref(0)
@@ -417,10 +429,6 @@ const completedDownloadFiles = computed(() =>
 
 const visibleDownloadingFiles = computed(() =>
   downloadingFiles.value.slice(0, MAX_RENDERED_DOWNLOAD_ROWS)
-)
-
-const visibleCompletedDownloadFiles = computed(() =>
-  completedDownloadFiles.value.slice(0, MAX_RENDERED_DOWNLOAD_ROWS)
 )
 
 // Handle file selection
@@ -662,10 +670,10 @@ const getStatusText = (status: string): string => {
 
 // Format helpers
 const formatSpeed = (bytesPerSec: number): string => {
-  if (!bytesPerSec || bytesPerSec <= 0) return '0 KB/s'
+  if (!bytesPerSec || bytesPerSec <= 0) return '0\u00A0KB/s'
   const kbps = bytesPerSec / 1024
-  if (kbps < 1024) return `${kbps.toFixed(1)} KB/s`
-  return `${(kbps / 1024).toFixed(1)} MB/s`
+  if (kbps < 1024) return `${kbps.toFixed(1)}\u00A0KB/s`
+  return `${(kbps / 1024).toFixed(1)}\u00A0MB/s`
 }
 
 const formatTime = (seconds: number): string => {
@@ -673,10 +681,10 @@ const formatTime = (seconds: number): string => {
   if (seconds < 60) return `${Math.round(seconds)}s`
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = Math.round(seconds % 60)
-  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`
+  if (minutes < 60) return `${minutes}m\u00A0${remainingSeconds}s`
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
-  return `${hours}h ${remainingMinutes}m`
+  return `${hours}h\u00A0${remainingMinutes}m`
 }
 
 const getDownloadFileName = (file: DownloadTask): string => {
@@ -803,7 +811,10 @@ const openFolder = async (): Promise<void> => {
 
 // Event Dispatcher setup
 const connectDownloadEvents = async (): Promise<void> => {
-  if (unsubscribeDownloadEvents) return
+  if (unsubscribeDownloadEvents) {
+    isInitializing.value = false
+    return
+  }
 
   try {
     const initialTasks = await window.electronAPI.download.getTasks()
@@ -813,6 +824,8 @@ const connectDownloadEvents = async (): Promise<void> => {
     }
   } catch (err) {
     console.error('Failed to get initial tasks:', err)
+  } finally {
+    isInitializing.value = false
   }
 
   unsubscribeDownloadEvents = window.electronAPI.download.onEvent((payload) => {
@@ -924,5 +937,112 @@ const disconnectDownloadEvents = (): void => {
 
 .completed-downloads-content {
   padding-bottom: 4px;
+}
+
+.active-downloads-table :deep(.active-col-status),
+.active-downloads-table :deep(.active-col-speed),
+.active-downloads-table :deep(.active-col-progress),
+.active-downloads-table :deep(.active-col-remaining) {
+  white-space: nowrap;
+}
+
+.active-downloads-table :deep(.active-col-filename) {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.download-loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 220px;
+}
+
+.completed-table-wrapper {
+  border: 1px solid rgba(127, 127, 127, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.completed-table-header {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 140px;
+  align-items: center;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity, 0.7));
+  border-bottom: 1px solid rgba(127, 127, 127, 0.15);
+  background-color: rgba(var(--v-theme-on-surface), 0.02);
+}
+
+.completed-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 140px;
+  align-items: center;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 0.875rem;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.08);
+  transition: background-color 0.15s ease;
+}
+
+.completed-row:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.completed-table-header .col-status,
+.completed-row .col-status {
+  display: flex;
+  align-items: center;
+}
+
+.completed-table-header .col-filename,
+.completed-row .col-filename {
+  padding-right: 16px;
+}
+
+.completed-table-header .col-progress,
+.completed-row .col-progress {
+  display: flex;
+  align-items: center;
+}
+
+/* Custom scrollbar matching app's SimpleBar style */
+.completed-virtual-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(136, 136, 136, 0.5) transparent;
+}
+
+.completed-virtual-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.completed-virtual-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.completed-virtual-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 6px;
+}
+
+.completed-table-wrapper:hover .completed-virtual-scroll::-webkit-scrollbar-thumb,
+.completed-virtual-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(136, 136, 136, 0.5);
+}
+
+.completed-virtual-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #888;
+}
+
+.completed-virtual-scroll::-webkit-scrollbar-corner {
+  background: transparent;
 }
 </style>

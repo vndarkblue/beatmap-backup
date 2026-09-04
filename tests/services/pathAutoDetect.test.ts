@@ -19,7 +19,11 @@ interface ProbeOptions {
   fileMtimes?: Record<string, number>
 }
 
-const createFsProbe = ({ entries, fileContents = {}, fileMtimes = {} }: ProbeOptions): FsProbe => ({
+const createFsProbe = ({
+  entries,
+  fileContents = {},
+  fileMtimes = {}
+}: ProbeOptions): Required<FsProbe> => ({
   existsSync: (target: string): boolean => target in entries,
   lstatSync: (target: string): { isDirectory: () => boolean; isFile: () => boolean } => ({
     isDirectory: (): boolean => entries[target] === 'dir',

@@ -1,5 +1,9 @@
 import Realm from 'realm'
-import { getOsuLazerPath, getOsuLazerResolvedDataPath, setOsuLazerResolvedDataPath } from './settingsStore'
+import {
+  getOsuLazerPath,
+  getOsuLazerResolvedDataPath,
+  setOsuLazerResolvedDataPath
+} from './settingsStore'
 import { probeLazerPath } from './pathAutoDetect'
 import { is } from '../utils/env'
 import path from 'path'

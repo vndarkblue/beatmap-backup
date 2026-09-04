@@ -4,27 +4,27 @@
     "downloadTab": "ダウンロード",
     "title": "設定",
     "paths": {
-      "osuStable": "osu!stableディレクトリ",
-      "osuLazer": "osu!lazerディレクトリ",
+      "osuStable": "osu!stableフォルダー",
+      "osuLazer": "osu!lazerフォルダー",
       "selectFolder": "フォルダー選択",
       "lazerRedirected": "データ移行先：{path}",
-      "autoDetectFailed": "1つ以上のosuディレクトリを自動検出できませんでした。設定で指定してください。"
+      "autoDetectFailed": "1つ以上のosu!フォルダーを自動検出できませんでした。設定で指定してください。"
     },
     "errors": {
       "invalidStablePath": "有効なosu!stableフォルダーではありません",
       "realmNotFound": "client.realmファイルが見つかりません"
     },
     "downloadOptions": {
-      "threadCount": "ダウンロード数",
+      "threadCount": "同時ダウンロード数",
       "threadCountHelp": "同時にダウンロードする譜面数です。値が大きいほど高速ですが、不安定になる場合があります",
       "ignoreExisting": "既存譜面を無視",
       "ignoreStable": "osu!stableから",
       "ignoreLazer": "osu!lazerから",
-      "other": "他の選択",
-      "noVideo": "ビデオ無しに",
-      "waitForDownloads": "ダウンロード中の譜面が完了してまで待つ",
-      "waitForDownloadsHelpOn": "休止前にダウンロード中の譜面を完了させます",
-      "waitForDownloadsHelpOff": "休止時にダウンロード中の譜面は即座に中断されることがあります"
+      "other": "その他の設定",
+      "noVideo": "動画を含めない",
+      "waitForDownloads": "一時停止時にダウンロード完了を待つ",
+      "waitForDownloadsHelpOn": "一時停止前にダウンロード中の譜面を完了させます",
+      "waitForDownloadsHelpOff": "一時停止時にダウンロード中の譜面は即座に中断されることがあります"
     },
     "database": {
       "title": "譜面データベース",
@@ -36,21 +36,23 @@
       "syncing": "同期中",
       "upToDate": "更新済み",
       "outOfDate": "未更新",
+      "notConfigured": "未設定",
+      "notFound": "データベースが見つかりません",
       "totalBeatmapsets": "譜面セット：{count}",
       "totalBeatmaps": "譜面：{count}",
       "error": "不明なエラーが発生しました"
     },
     "reset": {
       "all": "設定リセット",
-      "general": "デフォルトリセット",
-      "download": "デフォルトリセット",
+      "general": "デフォルトに戻す",
+      "download": "デフォルトに戻す",
       "warning": "保存された全設定のリセット",
       "confirmWarning": "警告: この操作は元に戻せません",
       "holdHint": "確認ボタンを長押しして続けてください",
       "confirmAction": "長押ししてリセットします",
       "cancel": "キャンセル",
-      "success": "設定リセット完了。アプリはリロードします",
-      "failed": "設定リセット失敗"
+      "success": "設定をリセットしました。アプリを再読み込みします。",
+      "failed": "設定のリセットに失敗しました"
     }
   },
   "backup": {
@@ -61,20 +63,20 @@
       "title": "ソース"
     },
     "content": {
-      "title": "バックアップコンテンツ",
-      "onlineIds": "譜面ＩＤ",
-      "localBeatmaps": "未定譜面",
-      "localBeatmapsPending": "未定譜面が.oszフィアルとしてエクスポートされます。コレクションは対応しません",
-      "onlineIdsPending": "譜面ＩＤでダウンロードページから譜面がダウンロードできます"
+      "title": "バックアップ対象",
+      "onlineIds": "譜面ID",
+      "localBeatmaps": "オフライン譜面",
+      "localBeatmapsPending": "オフライン譜面が.oszファイルとしてエクスポートされます。コレクションは対応しません",
+      "onlineIdsPending": "譜面IDでダウンロードページから譜面がダウンロードできます"
     },
     "success": "{count} 譜面がバックアップ済み",
-    "localSuccess": "{count} 譜面は{source}から.oszフィアルにエクスポート済み",
-    "combinedLocalSuccess": "{stable} stableと{lazer} lazer譜面は.oszフィアルにエクスポート済み",
-    "error": "バックアップ失敗",
-    "cancelled": "バックアップキャンセル",
+    "localSuccess": "{count} 譜面は{source}から.oszファイルにエクスポート済み",
+    "combinedLocalSuccess": "{stable} stableと{lazer} lazer譜面は.oszファイルにエクスポート済み",
+    "error": "バックアップに失敗しました",
+    "cancelled": "バックアップをキャンセルしました",
     "estimate": "推定出力 {count} 譜面セットID (~{size})",
-    "localEstimate": "{count}未定譜面",
-    "localProgress": "未定譜面エクスポート中: {current}/{total} ({percent}%)",
+    "localEstimate": "{count}オフライン譜面",
+    "localProgress": "オフライン譜面エクスポート中: {current}/{total} ({percent}%)",
     "estimateUnavailable": "現在の設定ではバックアップサイズが推定できません",
     "collection": {
       "enabled": "コレクションバックアップ",
@@ -84,11 +86,11 @@
       "empty": "コレクションが見つかりません",
       "successStats": "{count} 譜面をバックアップ（同期待ち: {pending}、ローカルのみ: {missing}、API未検出: {notFound}）",
       "status": {
-        "resolved": "available",
-        "pending": "pending",
-        "notFound": "not found",
-        "failed": "failed",
-        "missingLocal": "offline"
+        "resolved": "利用可能",
+        "pending": "同期待ち",
+        "notFound": "未検出",
+        "failed": "失敗",
+        "missingLocal": "ローカルなし"
       },
       "sources": {
         "stable": "stable",
@@ -102,66 +104,66 @@
         "status": "ステータス"
       },
       "errors": {
-        "stableReadFailed": "osu!stableコレクション読込失敗: {error}",
-        "lazerReadFailed": "osu!lazerコレクション読込失敗: {error}"
+        "stableReadFailed": "osu!stableコレクションの読み込みに失敗しました: {error}",
+        "lazerReadFailed": "osu!lazerコレクションの読み込みに失敗しました: {error}"
       }
     }
   },
   "download": {
     "title": "譜面ダウンロード",
     "selectFile": "ファイル選択 (.bbak)",
-    "path": "...に保存",
-    "fileRequired": "このファイルが必要",
+    "path": "保存先...",
+    "fileRequired": "ファイルを選択してください",
     "button": "ダウンロード",
     "started": "ダウンロード開始",
     "finished": "{success}譜面ダウンロード済み",
     "finishedWithErrors": "{success}/{total}譜面ダウンロード済み・{failed}ダウンロード失敗",
-    "cancelled": "ダウンロードキャンセル",
+    "cancelled": "ダウンロードをキャンセルしました",
     "recovery": {
       "title": "前のダウンロードキュー復元",
       "description": "{total} 譜面が前のダウンロードキューで見つかりました",
-      "hint": "保存状態から継続できます、あるいは、破棄してリスタートします",
+      "hint": "保存された状態から再開するか、破棄して最初からやり直すことができます。",
       "stats": "待機中: {waiting} · ダウンロード中: {downloading}",
-      "resume": "継続",
+      "resume": "再開",
       "discard": "破棄",
       "discardConfirm": "破棄する場合、保存されたステータスは無くなります",
       "discardConfirmButton": "破棄確定",
-      "resumeFailed": "保存されたキューは継続失敗",
-      "discardFailed": "保存されたキューは破棄失敗"
+      "resumeFailed": "保存されたキューの再開に失敗しました",
+      "discardFailed": "保存されたキューの破棄に失敗しました"
     },
     "errors": {
-      "invalidFile": "無効ファイルタイプ。.bbakファイルのみ",
-      "getFilePath": "ファイルパッツは見つかりません",
-      "downloadPathNotExist": "ダウンロードパッツは見つかりません",
-      "downloadPathNotDirectory": "ダウンロードパッツは無効",
-      "downloadPathNoPermission": "ダウンロードパッツに書き込みの権利はありません",
-      "downloadPathInvalid": "ダウンロードパッツは無効",
-      "allBeatmapsExist": "ダウンロードする譜面はありません"
+      "invalidFile": "無効なファイル形式です。.bbak ファイルのみ対応しています。",
+      "getFilePath": "ファイルパスは見つかりません",
+      "downloadPathNotExist": "ダウンロードパスは見つかりません",
+      "downloadPathNotDirectory": "ダウンロードパスは無効",
+      "downloadPathNoPermission": "ダウンロードパスに書き込み権限がありません",
+      "downloadPathInvalid": "ダウンロードパスは無効",
+      "allBeatmapsExist": "ダウンロード対象の譜面が既に存在します"
     },
     "manager": {
       "title": "ダウンロード管理",
       "emptyState": {
         "title": "実行中のダウンロードはありません",
         "description": "ダウンロードページに移動して、譜面ダウンロードを開始します",
-        "action": "ダウンロードに移動"
+        "action": "ダウンロード画面へ"
       },
       "queueOverview": "ダウンロードキュー",
-      "progress": "進歩",
+      "progress": "進捗",
       "files": "ファイル",
       "activeDownloads": "ダウンロード中のファイル",
       "completedDownloads": "ダウンロード済み",
       "noActiveDownloads": "ダウンロード中のファイルはありません",
       "noCompletedDownloads": "ダウンロード済みのファイルはありません",
-      "pause": "休止",
-      "resume": "継続",
-      "stop": "ストップ",
-      "stopConfirmYes": "ストップ確認",
+      "pause": "一時停止",
+      "resume": "再開",
+      "stop": "停止",
+      "stopConfirmYes": "停止確認",
       "stopConfirmNo": "キャンセル",
       "table": {
         "status": "ステータス",
         "filename": "ファイル名",
         "speed": "速度",
-        "progress": "進歩",
+        "progress": "進捗",
         "remaining": "残り"
       },
       "status": {
@@ -169,7 +171,7 @@
         "downloading": "ダウンロード中",
         "completed": "ダウンロード済み",
         "error": "エラー",
-        "unknown": "未定"
+        "unknown": "不明"
       },
       "preview": {
         "show": "プレビュー表示",
@@ -296,7 +298,7 @@
   "notifications": {
     "download": {
       "completed": {
-        "title": "ダウンロード済み"
+        "title": "ダウンロード完了"
       }
     },
     "actions": {
@@ -304,8 +306,8 @@
       "dismiss": "閉じる"
     },
     "syncError": {
-      "message": "データベース同期失敗: {error}",
-      "viewSettings": "設定の表示"
+      "message": "データベースの同期に失敗しました: {error}",
+      "viewSettings": "設定を表示"
     }
   }
 }

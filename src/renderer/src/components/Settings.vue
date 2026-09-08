@@ -212,7 +212,12 @@
         class="mb-3"
       ></v-progress-linear>
 
-      <div v-if="syncMessage" class="text-caption mb-3" :lang="currentLocale">
+      <div
+        v-if="syncMessage"
+        class="text-caption mb-3"
+        :class="syncMessageIsError ? 'text-error' : 'text-medium-emphasis'"
+        :lang="currentLocale"
+      >
         {{ syncMessage }}
       </div>
 
@@ -364,6 +369,7 @@ const canSyncDatabase = computed(
 )
 const isSyncing = ref(false)
 const syncMessage = ref('')
+const syncMessageIsError = ref(false)
 const isResetting = ref(false)
 const showResetAllConfirm = ref(false)
 const resetHoldProgress = ref(0)
@@ -459,15 +465,19 @@ const ensureDatabaseEvents = (): void => {
   unsubscribeDatabaseSync = window.electronAPI.database.onSyncProgress((progress) => {
     if (progress.phase === 'started') {
       isSyncing.value = true
+      syncMessageIsError.value = false
     } else if (progress.phase === 'progress') {
       syncMessage.value = progress.error || progress.message || ''
       void loadDatabaseStatus()
     } else if (progress.phase === 'completed' || progress.phase === 'skipped') {
       isSyncing.value = false
+      syncMessage.value = ''
+      syncMessageIsError.value = false
       void loadDatabaseStatus()
     } else if (progress.phase === 'error') {
       isSyncing.value = false
       syncMessage.value = progress.error || progress.message || ''
+      syncMessageIsError.value = true
       void loadDatabaseStatus()
     }
   })
@@ -475,6 +485,7 @@ const ensureDatabaseEvents = (): void => {
 
 const triggerDatabaseSync = async (): Promise<void> => {
   isSyncing.value = true
+  syncMessageIsError.value = false
   syncMessage.value = t('settings.database.syncing')
   await window.electronAPI.database.sync({ source: 'all', force: true })
 }

@@ -10,8 +10,10 @@ vi.mock('fs', () => ({
   }
 }))
 
+const mockGetOsuLazerPath = vi.fn(() => 'C:/osu')
+
 vi.mock('../../src/services/settingsStore', () => ({
-  getOsuLazerPath: () => 'C:/osu',
+  getOsuLazerPath: () => mockGetOsuLazerPath(),
   getOsuLazerResolvedDataPath: () => null,
   setOsuLazerResolvedDataPath: () => {}
 }))
@@ -26,6 +28,7 @@ vi.mock('realm', () => ({
 describe('realmService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetOsuLazerPath.mockReturnValue('C:/osu')
     mockExistsSync.mockImplementation((target) => target.endsWith('client.realm'))
     mockSchemaVersion.mockReturnValue(1)
   })
@@ -69,5 +72,26 @@ describe('realmService', () => {
       accepted: 1,
       skippedMissingMd5: 1
     })
+  })
+
+  it('getRealmPath returns file path when client.realm exists', async () => {
+    const { realmService } = await import('../../src/services/realmService')
+    const realmPath = realmService.getRealmPath()
+    expect(realmPath).toBeTruthy()
+    expect(realmPath).toContain('client.realm')
+  })
+
+  it('getRealmPath returns null when osuLazerPath is not configured', async () => {
+    mockGetOsuLazerPath.mockReturnValue('')
+    const { realmService } = await import('../../src/services/realmService')
+    const realmPath = realmService.getRealmPath()
+    expect(realmPath).toBeNull()
+  })
+
+  it('getRealmPath returns null when client.realm file does not exist', async () => {
+    mockExistsSync.mockReturnValue(false)
+    const { realmService } = await import('../../src/services/realmService')
+    const realmPath = realmService.getRealmPath()
+    expect(realmPath).toBeNull()
   })
 })

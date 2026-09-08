@@ -39,9 +39,11 @@ vi.mock('../../../src/services/database/lazerImporter', () => ({
   importFromLazerRealm: () => mockImportFromLazerRealm()
 }))
 
+const mockGetRealmPath = vi.fn<() => string | null>(() => 'C:/osu-lazer/client.realm')
+
 vi.mock('../../../src/services/realmService', () => ({
   realmService: {
-    getRealmPath: () => 'C:/osu-lazer/client.realm'
+    getRealmPath: () => mockGetRealmPath()
   }
 }))
 
@@ -57,6 +59,7 @@ vi.mock('../../../src/services/processDetector', () => ({
 describe('SyncManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetRealmPath.mockReturnValue('C:/osu-lazer/client.realm')
     mockExistsSync.mockReturnValue(true)
     mockStatSync.mockReturnValue({ mtimeMs: 12345 })
     mockGetCounts.mockReturnValue({ beatmapsets: 10, beatmaps: 20 })
@@ -233,5 +236,30 @@ describe('SyncManager', () => {
 
     syncManager.stopBackgroundSync()
     vi.useRealTimers()
+  })
+
+  it('skips lazer sync cleanly when lazer path is not configured (getRealmPath returns null)', async () => {
+    mockGetRealmPath.mockReturnValue(null)
+
+    const { default: SyncManager } = await import('../../../src/services/database/syncManager')
+    const syncManager = SyncManager.getInstance()
+
+    const events: Array<{ source?: string; phase?: string; error?: string }> = []
+    const listener = (e: { source?: string; phase?: string; error?: string }): void => {
+      events.push(e)
+    }
+    syncManager.on('sync', listener)
+
+    await syncManager.runStartupSync()
+    syncManager.off('sync', listener)
+
+    // Verify lazer was skipped and no error event was emitted
+    const lazerEvents = events.filter((e) => e.source === 'lazer')
+    expect(lazerEvents.some((e) => e.phase === 'error')).toBe(false)
+    expect(lazerEvents.some((e) => e.phase === 'skipped')).toBe(true)
+
+    // Verify getStatus reports fileExists as false
+    const status = syncManager.getStatus()
+    expect(status.lazer.fileExists).toBe(false)
   })
 })

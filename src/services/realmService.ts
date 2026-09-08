@@ -38,7 +38,7 @@ function isErrorWithMessage(error: unknown): error is { message: string } {
 function getResolvedRealmPath(): string {
   const osuLazerPath = getOsuLazerPath()
   if (!osuLazerPath) {
-    throw new Error('Osu lazer path not set. Please set it in Settings.')
+    throw new Error('Osu lazer path not set')
   }
 
   // Check if we have a cached resolved data path that is still valid
@@ -203,8 +203,15 @@ export const realmService = {
     return { ...this._lastBeatmapDatabaseScanSummary }
   },
 
-  getRealmPath(): string {
-    return getResolvedRealmPath()
+  getRealmPath(): string | null {
+    const osuLazerPath = getOsuLazerPath()
+    if (!osuLazerPath) return null
+    try {
+      const realmPath = getResolvedRealmPath()
+      return fs.existsSync(realmPath) ? realmPath : null
+    } catch {
+      return null
+    }
   },
 
   getRealmSchemaVersion(): number {

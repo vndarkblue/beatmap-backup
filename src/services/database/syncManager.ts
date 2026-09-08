@@ -102,15 +102,7 @@ class SyncManager extends EventEmitter {
   getStatus(): DatabaseStatus {
     const db = DatabaseService.getInstance()
     const stablePath = getStableDbPath()
-    const lazerConfiguredPath = getOsuLazerPath()
-    let lazerPath: string | null = null
-    if (lazerConfiguredPath) {
-      try {
-        lazerPath = realmService.getRealmPath()
-      } catch {
-        lazerPath = null
-      }
-    }
+    const lazerPath = realmService.getRealmPath()
 
     const stableCurrentMtime =
       stablePath && fs.existsSync(stablePath) ? fs.statSync(stablePath).mtimeMs : null
@@ -144,8 +136,8 @@ class SyncManager extends EventEmitter {
         isDirty: stableDirty
       },
       lazer: {
-        configured: Boolean(lazerConfiguredPath),
-        fileExists: Boolean(lazerPath && fs.existsSync(lazerPath)),
+        configured: Boolean(getOsuLazerPath()),
+        fileExists: Boolean(lazerPath),
         lastSyncAt: lazerLastSyncAt,
         lastFileMtime: lazerLastMtime,
         currentFileMtime: lazerCurrentMtime,

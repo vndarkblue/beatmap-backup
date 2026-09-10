@@ -614,13 +614,16 @@ const refreshEstimate = async (): Promise<void> => {
     const estimateParts: string[] = []
     if (backupOnlineIds.value) {
       estimateParts.push(
-        t('backup.estimate', { count: payload.count, size: formatBytes(payload.estimatedBytes) })
+        t('backup.onlineEstimate', { count: payload.count, size: formatBytes(payload.estimatedBytes) })
       )
     }
     if (backupLocalBeatmaps.value && payload.localCount != null) {
       estimateParts.push(t('backup.localEstimate', { count: payload.localCount }))
     }
-    estimateMessage.value = estimateParts.join(' · ')
+    estimateMessage.value =
+      estimateParts.length > 0
+        ? t('backup.estimatePrefix', { details: estimateParts.join(' · ') })
+        : ''
   } catch (error) {
     estimateError.value = true
     estimateMessage.value = error instanceof Error ? error.message : t('backup.estimateUnavailable')

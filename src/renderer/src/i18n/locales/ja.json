@@ -75,6 +75,8 @@
     "error": "バックアップに失敗しました",
     "cancelled": "バックアップをキャンセルしました",
     "estimate": "推定出力 {count} 譜面セットID (~{size})",
+    "estimatePrefix": "推定出力: {details}",
+    "onlineEstimate": "{count} 譜面セットID (~{size})",
     "localEstimate": "{count}オフライン譜面",
     "localProgress": "オフライン譜面エクスポート中: {current}/{total} ({percent}%)",
     "estimateUnavailable": "現在の設定ではバックアップサイズが推定できません",

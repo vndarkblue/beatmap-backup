@@ -45,7 +45,6 @@ linux:
   icon: renderer/src/assets/logo.ico
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: true
-buildDependenciesFromSource: true
+npmRebuild: false
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

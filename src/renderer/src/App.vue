@@ -1,54 +1,28 @@
 <template>
-  <v-app :theme="theme.global.name.value" :lang="currentLocale">
-    <v-navigation-drawer
-      v-model="drawer"
-      :rail="rail"
-      permanent
-      @mouseenter="rail = false"
-      @mouseleave="rail = true"
-    >
-      <v-list-item
-        class="sidebar-logo-item"
-        :prepend-avatar="logoUrl"
-        :title="rail ? '' : 'Beatmap Backup'"
-      >
-      </v-list-item>
+  <v-app :theme="theme.global.name.value" :lang="currentLocale" class="app-root-shell">
+    <AppTitlebar
+      :has-update-available="hasUpdateAvailable"
+      :update-status="updateStatus"
+      :error-context="errorContext"
+      :distribution-type="distributionType"
+      :latest-version="latestVersion"
+      :update-progress="updateProgress"
+      @check-updates="() => checkForUpdates(true)"
+      @do-update="doUpdate"
+      @install-update="installUpdate"
+    />
 
-      <v-divider></v-divider>
+    <v-layout class="app-layout-body">
+      <AppSidebar :theme-icon="themeIcon" :theme-label="themeLabel" @toggle-theme="toggleTheme" />
 
-      <v-list density="compact" nav>
-        <v-list-item
-          v-for="item in items"
-          :key="item.title"
-          :value="item.title"
-          :title="rail ? '' : item.title"
-          :prepend-icon="item.icon"
-          :active="router.currentRoute.value.path === item.to"
-          :lang="currentLocale"
-          @click="handleNavigation(item.to)"
-        ></v-list-item>
-      </v-list>
-
-      <template #append>
-        <v-list density="compact" nav>
-          <v-list-item
-            class="sidebar-theme-item"
-            :prepend-icon="themeIcon"
-            :title="rail ? '' : themeLabel"
-            :lang="currentLocale"
-            @click="toggleTheme"
-          />
-        </v-list>
-      </template>
-    </v-navigation-drawer>
-
-    <v-main class="main-bg">
-      <SimpleBar ref="scrollHostRef" class="simplebar-container">
-        <v-container fluid class="container-bg">
-          <router-view></router-view>
-        </v-container>
-      </SimpleBar>
-    </v-main>
+      <v-main class="main-bg">
+        <SimpleBar ref="scrollHostRef" class="simplebar-container">
+          <v-container fluid class="container-bg">
+            <router-view></router-view>
+          </v-container>
+        </SimpleBar>
+      </v-main>
+    </v-layout>
 
     <v-snackbar
       v-model="toastVisible"
@@ -71,22 +45,35 @@
 import { ref, onBeforeUnmount, onMounted, computed, watch } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { useRouter, type NavigationFailure } from 'vue-router'
-import { routes } from './router'
-import { STORAGE_KEYS, THEME_PREF_KEY } from '../../config/frontendConstants'
-import logoUrl from './assets/logo.png'
+import { useRouter } from 'vue-router'
+import { THEME_PREF_KEY } from '../../config/frontendConstants'
 import SimpleBar from 'simplebar-vue'
 import 'simplebar-vue/dist/simplebar.min.css'
+import AppTitlebar from './components/layout/AppTitlebar.vue'
+import AppSidebar from './components/layout/AppSidebar.vue'
+import { useUpdater } from './composables/useUpdater'
 
 const theme = useTheme()
 const { t, locale } = useI18n()
 const router = useRouter()
-const drawer = ref(true)
-const rail = ref(true)
 const scrollHostRef = ref<InstanceType<typeof SimpleBar> | null>(null)
 const routeScrollPositions = new Map<string, number>()
 let removeBeforeEachGuard: (() => void) | null = null
 let removeAfterEachHook: (() => void) | null = null
+
+const {
+  hasUpdateAvailable,
+  updateStatus,
+  errorContext,
+  latestVersion,
+  updateProgress,
+  distributionType,
+  checkForUpdates,
+  doUpdate,
+  installUpdate,
+  initialize: initializeUpdater,
+  teardown: teardownUpdater
+} = useUpdater()
 
 const toastVisible = ref(false)
 const toastMessage = ref('')
@@ -147,16 +134,6 @@ const themeIcon = computed(() =>
 const themeLabel = computed(() =>
   theme.global.name.value === 'light' ? t('theme.dark') : t('theme.light')
 )
-const items = computed(() =>
-  routes.map((route) => ({
-    ...route,
-    title: t(route.title)
-  }))
-)
-
-const handleNavigation = (to: string): Promise<void | NavigationFailure | undefined> => {
-  return router.push(to)
-}
 
 const syncThemeFromLocalPreference = (): void => {
   const nextTheme = localStorage.getItem(THEME_PREF_KEY) === 'dark' ? 'dark' : 'light'
@@ -166,13 +143,10 @@ const syncThemeFromLocalPreference = (): void => {
 
 const validateOsuPaths = async (): Promise<void> => {
   try {
-    // Check osu!stable path
     const stableData = await window.electronAPI.settings.validatePath('stable')
     if (!stableData.valid) {
       console.warn('Invalid osu!stable path:', stableData.error)
     }
-
-    // Check osu!lazer path
     const lazerData = await window.electronAPI.settings.validatePath('lazer')
     if (!lazerData.valid) {
       console.warn('Invalid osu!lazer path:', lazerData.error)
@@ -182,60 +156,49 @@ const validateOsuPaths = async (): Promise<void> => {
   }
 }
 
+const runIdleTask = (task: () => void): void => {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(task, { timeout: 3000 })
+  } else {
+    setTimeout(task, 1500)
+  }
+}
+
 const prefetchSecondaryViews = (): void => {
-  // Warm secondary route chunks after first paint to keep initial tab responsive.
-  setTimeout(() => {
+  runIdleTask(() => {
     void import('./components/Backup.vue')
     void import('./components/Download.vue')
-  }, 0)
+  })
 }
 
-type BackupToggleState = {
-  stableBackup: boolean
-  lazerBackup: boolean
-  backupOnlineIds: boolean
-  backupLocalBeatmaps: boolean
-  backupByCollection: boolean
-  mergeCollectionNames: boolean
-}
+const getScrollElement = (): HTMLElement | null => {
+  const simpleBarInstance = scrollHostRef.value as {
+    getScrollElement?: () => HTMLElement | null
+    scrollElement?: HTMLElement | null
+    $el?: HTMLElement
+  } | null
 
-const prewarmBackupCollectionPreview = (): void => {
-  // Warm preview data in background so first Backup tab open feels instant.
-  setTimeout(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.BACKUP_TOGGLE_STATE)
-      if (!raw) return
-      const state = JSON.parse(raw) as Partial<BackupToggleState>
-      const stable = Boolean(state.stableBackup)
-      const lazer = Boolean(state.lazerBackup)
-      const backupOnlineIds = state.backupOnlineIds !== false
-      const backupByCollection = Boolean(state.backupByCollection)
-      if (!backupOnlineIds || !backupByCollection || (!stable && !lazer)) return
-      const mergeMode: 'merge' | 'split' = state.mergeCollectionNames === false ? 'split' : 'merge'
-      void window.electronAPI.backup.previewCollections({ stable, lazer, mergeMode })
-    } catch {
-      // Ignore invalid persisted state.
-    }
-  }, 1_000)
-}
-
-const getRouteScrollElement = (): HTMLElement | null => {
-  const rootEl = scrollHostRef.value?.$el as HTMLElement | undefined
-  if (!rootEl) return null
-  return rootEl.querySelector('.simplebar-content-wrapper')
+  if (!simpleBarInstance) return null
+  if (typeof simpleBarInstance.getScrollElement === 'function') {
+    return simpleBarInstance.getScrollElement()
+  }
+  if (simpleBarInstance.scrollElement instanceof HTMLElement) {
+    return simpleBarInstance.scrollElement
+  }
+  return simpleBarInstance.$el?.querySelector('.simplebar-content-wrapper') ?? null
 }
 
 const saveRouteScrollPosition = (path: string): void => {
-  const scrollEl = getRouteScrollElement()
-  if (!scrollEl) return
-  routeScrollPositions.set(path, scrollEl.scrollTop)
+  const scrollElement = getScrollElement()
+  if (!scrollElement) return
+  routeScrollPositions.set(path, scrollElement.scrollTop)
 }
 
 const restoreRouteScrollPosition = (path: string): void => {
-  const scrollEl = getRouteScrollElement()
-  if (!scrollEl) return
-  const nextScrollTop = routeScrollPositions.get(path) ?? 0
-  scrollEl.scrollTop = nextScrollTop
+  const targetTop = routeScrollPositions.get(path) ?? 0
+  const scrollElement = getScrollElement()
+  if (!scrollElement) return
+  scrollElement.scrollTop = targetTop
 }
 
 const setupRouteScrollMemory = (): void => {
@@ -250,7 +213,6 @@ const setupRouteScrollMemory = (): void => {
     }, 0)
   })
 
-  // Ensure current route also starts from remembered position.
   setTimeout(() => {
     restoreRouteScrollPosition(router.currentRoute.value.fullPath)
   }, 0)
@@ -270,11 +232,14 @@ const toggleTheme = (): void => {
 
 onMounted(() => {
   syncThemeFromLocalPreference()
-  validateOsuPaths()
-  prefetchSecondaryViews()
-  prewarmBackupCollectionPreview()
   setupRouteScrollMemory()
   setupGlobalDatabaseSyncListener()
+  void initializeUpdater()
+
+  runIdleTask(() => {
+    void validateOsuPaths()
+    prefetchSecondaryViews()
+  })
 })
 
 onBeforeUnmount(() => {
@@ -285,147 +250,51 @@ onBeforeUnmount(() => {
   removeAfterEachHook = null
   unsubscribeDatabaseSync?.()
   unsubscribeDatabaseSync = null
+  teardownUpdater()
 })
 </script>
 
 <style>
-.v-navigation-drawer {
-  transition: width 0.2s ease-in-out !important;
-  background: var(--v-theme-background) !important;
-  font-family: var(--font-family) !important;
-  font-weight: 900 !important;
+.app-root-shell {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  background-color: var(--main-bg-color) !important;
 }
 
-.v-navigation-drawer:not(.v-navigation-drawer--rail) {
-  width: 220px !important;
+.app-root-shell > .v-application__wrap {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  min-height: 100vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
-/* Handle main content layout when sidebar is expanded */
-.v-navigation-drawer:not(.v-navigation-drawer--rail) ~ .v-main {
-  --v-layout-left: 220px !important;
+.app-layout-body {
+  flex: 1 1 auto !important;
+  height: calc(100vh - 38px) !important;
+  max-height: calc(100vh - 38px) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  position: relative !important;
 }
 
 .main-bg {
-  background: var(--v-theme-background) !important;
+  background: var(--main-bg-color) !important;
+  height: 100% !important;
+}
+
+.simplebar-container {
+  height: 100% !important;
+  width: 100% !important;
 }
 
 .container-bg {
-  background: var(--v-theme-background) !important;
-  min-height: 100vh;
-}
-
-.sidebar-logo-item {
-  min-height: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-}
-
-.sidebar-logo-item .v-list-item-title {
-  font-family: var(--font-family) !important;
-  font-weight: 600 !important;
-  font-size: 1.1rem !important;
-}
-
-.v-list-item-title {
-  font-family: var(--font-family) !important;
-  font-weight: 600 !important;
-  font-size: 1rem !important;
-  white-space: normal !important;
-  line-height: 1.2 !important;
-  height: 40px !important;
-  overflow: hidden !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  line-clamp: 2 !important;
-  -webkit-box-orient: vertical !important;
-  display: flex !important;
-  align-items: center !important;
-  -webkit-box-align: center !important;
-}
-
-.v-list-item {
-  font-family: var(--font-family) !important;
-  min-height: 56px !important;
-  height: 56px !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-.v-navigation-drawer .sidebar-theme-item .v-list-item__prepend .v-icon {
-  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  opacity: 1 !important;
-}
-
-.v-navigation-drawer .sidebar-theme-item:hover .v-list-item__prepend .v-icon {
-  color: inherit;
-}
-
-.v-navigation-drawer .v-list .v-list-item .v-list-item-title {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-.v-navigation-drawer.v-navigation-drawer--rail .v-list .v-list-item .v-list-item-title {
-  opacity: 0 !important;
-  transform: translateX(-12px) !important;
-}
-
-.v-navigation-drawer:not(.v-navigation-drawer--rail) .v-list .v-list-item .v-list-item-title {
-  opacity: 0;
-  transform: translateX(-12px);
-  animation: navTitleSlideIn 180ms ease-out 40ms forwards;
-}
-
-.v-btn .v-btn__content {
-  font-family: var(--font-family) !important;
-}
-
-/* SimpleBar custom styles */
-.simplebar-container {
-  height: 100vh;
-}
-
-.simplebar-scrollbar::before {
-  background-color: #888;
-  opacity: 0;
-  transition: opacity 0.2s linear;
-}
-
-.simplebar-scrollbar.simplebar-visible::before {
-  opacity: 1;
-}
-
-.simplebar-track.simplebar-vertical {
-  width: 6px;
-  right: 0;
-  background: transparent;
-}
-
-.simplebar-track.simplebar-horizontal {
-  height: 6px;
-  bottom: 0;
-  background: transparent;
-}
-
-/* Hide scrollbar when not hovering */
-.simplebar-container:hover .simplebar-scrollbar::before {
-  opacity: 0.5;
-}
-
-.simplebar-container:hover .simplebar-scrollbar.simplebar-visible::before {
-  opacity: 1;
-}
-
-@keyframes navTitleSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  background: transparent !important;
+  min-height: 100%;
+  padding-bottom: 32px;
 }
 </style>

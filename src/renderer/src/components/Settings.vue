@@ -1,283 +1,118 @@
 <template>
   <AppViewShell :title="$t('settings.title')" :lang="currentLocale">
-    <!-- General Settings Section -->
-    <AppIsland card-class="mb-4" icon="$cogOutline">
-      <template #title>
-        <div class="d-flex align-center justify-space-between w-100">
-          <span>{{ $t('settings.general') }}</span>
-          <v-btn
-            icon="$restore"
-            variant="text"
-            size="small"
-            :lang="currentLocale"
-            :disabled="isGeneralDefault || isResetting"
-            :title="$t('settings.reset.general')"
-            @click="resetGeneralSettings"
-          />
-        </div>
-      </template>
-      <AppForm>
-        <PathField
-          v-model="osuStablePath"
-          mode="directory"
-          :label="$t('settings.paths.osuStable')"
-          :browse-title="$t('settings.paths.selectFolder')"
-          :placeholder="osuStablePlaceholder"
-          @browse="selectOsuStablePath"
-        />
-
-        <PathField
-          v-model="osuLazerPath"
-          mode="directory"
-          :label="$t('settings.paths.osuLazer')"
-          :browse-title="$t('settings.paths.selectFolder')"
-          :placeholder="osuLazerPlaceholder"
-          @browse="selectOsuLazerPath"
-        />
-        <div
-          v-if="osuLazerResolvedDataPath && osuLazerResolvedDataPath !== osuLazerPath"
-          class="text-caption text-medium-emphasis mt-n2 mb-2 ml-1"
-          :lang="currentLocale"
-        >
-          {{ $t('settings.paths.lazerRedirected', { path: osuLazerResolvedDataPath }) }}
-        </div>
-        <v-alert
-          v-if="showAutoDetectWarningInline"
-          type="warning"
-          variant="tonal"
-          density="compact"
-          class="mt-n2 mb-2"
-          :text="$t('settings.paths.autoDetectFailed')"
-        />
-      </AppForm>
-      <v-divider></v-divider>
-      <!-- Language Selection -->
-      <v-select
-        v-model="currentLocale"
-        :items="availableLocales"
-        :label="$t('language.title')"
-        prepend-icon="$translate"
-        item-title="text"
-        item-value="value"
-        class="view-field"
-        :lang="currentLocale"
-      >
-        <template #item="{ props, item }">
-          <v-list-item v-bind="props" :title="undefined" :lang="item.raw.value">
-            <template #prepend>
-              <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
-            </template>
-            {{ item.raw.text }}
-          </v-list-item>
-        </template>
-        <template #selection="{ item }">
-          <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
-          <span class="ml-2" :lang="item.raw.value">{{ item.raw.text }}</span>
-        </template>
-      </v-select>
-    </AppIsland>
-
-    <!-- Download Settings Section -->
-    <AppIsland card-class="mb-4" icon="$downloadOutline">
-      <template #title>
-        <div class="d-flex align-center justify-space-between w-100">
-          <span>{{ $t('settings.downloadTab') }}</span>
-          <v-btn
-            icon="$restore"
-            variant="text"
-            size="small"
-            :lang="currentLocale"
-            :disabled="isDownloadDefault || isResetting"
-            :title="$t('settings.reset.download')"
-            @click="resetDownloadSettings"
-          />
-        </div>
-      </template>
-      <!-- Thread Count -->
-      <div class="d-flex flex-column flex-sm-row align-sm-center mb-4">
-        <div class="d-flex align-center mb-2 mb-sm-0 mr-sm-4 pb-6 ga-2" :lang="currentLocale">
-          <span class="text-subtitle-1" :lang="currentLocale">{{ threadCountLabel }}</span>
-          <v-tooltip location="top">
-            <template #activator="{ props }">
-              <v-icon v-bind="props" icon="$helpCircleOutline" size="18" color="medium-emphasis" />
-            </template>
-            <span :lang="currentLocale">{{ $t('settings.downloadOptions.threadCountHelp') }}</span>
-          </v-tooltip>
-        </div>
-        <v-slider
-          v-model="threadCount"
-          :min="1"
-          :max="10"
-          :step="1"
-          thumb-label
-          class="view-field"
-          :lang="currentLocale"
+    <div class="settings-container">
+      <!-- Segmented Tabs Header -->
+      <div class="settings-tabs-wrapper mb-6">
+        <v-tabs
+          v-model="activeTab"
           color="primary"
-        ></v-slider>
-      </div>
-
-      <!-- Two column layout for ignore existing and other options -->
-      <div class="d-flex flex-column flex-sm-row">
-        <!-- Ignore Existing Beatmaps Column -->
-        <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0">
-          <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-            {{ $t('settings.downloadOptions.ignoreExisting') }}
-          </div>
-          <v-checkbox
-            v-model="removeFromStable"
-            :label="$t('settings.downloadOptions.ignoreStable')"
-            color="primary"
-            hide-details
-            class="view-field"
-            :disabled="!isStablePathValid"
-          ></v-checkbox>
-          <v-checkbox
-            v-model="removeFromLazer"
-            :label="$t('settings.downloadOptions.ignoreLazer')"
-            color="primary"
-            hide-details
-            class="view-field"
-            :disabled="!isLazerPathValid"
-          ></v-checkbox>
-        </div>
-
-        <v-divider vertical class="mx-4 d-none d-sm-flex"></v-divider>
-
-        <!-- Other Options Column -->
-        <div class="flex-grow-1">
-          <div class="text-subtitle-1 mb-4 mt-1" :lang="currentLocale">
-            {{ $t('settings.downloadOptions.other') }}
-          </div>
-          <v-switch
-            v-model="noVideo"
-            :label="$t('settings.downloadOptions.noVideo')"
-            color="primary"
-            hide-details
-            class="view-field pl-2"
-          ></v-switch>
-          <v-switch
-            v-model="waitForDownloadsOnPause"
-            :label="$t('settings.downloadOptions.waitForDownloads')"
-            color="primary"
-            hide-details
-            class="view-field pl-2"
-          ></v-switch>
-          <div class="text-caption mt-1 ml-2" :lang="currentLocale">
-            {{ waitForDownloadsHelpText }}
-          </div>
-        </div>
-      </div>
-    </AppIsland>
-
-    <AppIsland :title="$t('settings.database.title')" icon="$databaseOutline">
-      <div class="text-subtitle-1 mb-3" :lang="currentLocale">
-        {{
-          $t('settings.database.totalBeatmapsets', {
-            count: databaseStatus?.totals.beatmapsets ?? 0
-          })
-        }}
-      </div>
-      <div class="text-subtitle-1 mb-3" :lang="currentLocale">
-        {{ $t('settings.database.totalBeatmaps', { count: databaseStatus?.totals.beatmaps ?? 0 }) }}
-      </div>
-      <div class="mb-4">
-        <div class="text-subtitle-2 mb-1" :lang="currentLocale">
-          {{ $t('settings.database.stable') }}:
-          <span :class="stableStatus.colorClass">
-            {{ $t(stableStatus.key) }}
-          </span>
-        </div>
-        <div class="text-caption" :lang="currentLocale">
-          {{ $t('settings.database.lastSync') }}:
-          {{ formatSyncTime(databaseStatus?.stable.lastSyncAt ?? null) }}
-        </div>
-      </div>
-      <div class="mb-4">
-        <div class="text-subtitle-2 mb-1" :lang="currentLocale">
-          {{ $t('settings.database.lazer') }}:
-          <span :class="lazerStatus.colorClass">
-            {{ $t(lazerStatus.key) }}
-          </span>
-        </div>
-        <div class="text-caption" :lang="currentLocale">
-          {{ $t('settings.database.lastSync') }}:
-          {{ formatSyncTime(databaseStatus?.lazer.lastSyncAt ?? null) }}
-        </div>
-      </div>
-
-      <v-progress-linear
-        v-if="isSyncing"
-        indeterminate
-        color="primary"
-        class="mb-3"
-      ></v-progress-linear>
-
-      <div
-        v-if="syncMessage"
-        class="text-caption mb-3"
-        :class="syncMessageIsError ? 'text-error' : 'text-medium-emphasis'"
-        :lang="currentLocale"
-      >
-        {{ syncMessage }}
-      </div>
-
-      <v-btn
-        color="primary"
-        :loading="isSyncing"
-        :disabled="isSyncing || !canSyncDatabase"
-        :lang="currentLocale"
-        @click="triggerDatabaseSync"
-      >
-        {{ $t('settings.database.syncNow') }}
-      </v-btn>
-    </AppIsland>
-
-    <AppIsland card-class="mt-4" icon="$backupRestore">
-      <template #title>
-        <div class="d-flex align-center justify-space-between w-100">
-          <span>{{ $t('settings.reset.all') }}</span>
-        </div>
-      </template>
-      <div class="text-body-2 mb-2" :lang="currentLocale">{{ $t('settings.reset.warning') }}</div>
-      <div v-if="resetFeedbackMessage" class="text-caption mb-2" :class="resetFeedbackClass">
-        {{ resetFeedbackMessage }}
-      </div>
-      <div v-if="showResetAllConfirm" class="mb-3">
-        <div class="text-caption text-warning mb-2" :lang="currentLocale">
-          {{ $t('settings.reset.confirmWarning') }}
-        </div>
-        <div class="text-caption mb-2" :lang="currentLocale">
-          {{ $t('settings.reset.holdHint') }}
-        </div>
-      </div>
-      <div class="d-flex justify-end ga-2">
-        <v-btn
-          v-if="showResetAllConfirm"
-          variant="text"
-          :disabled="isResetting"
-          :lang="currentLocale"
-          @click="cancelResetAllConfirm"
+          align-tabs="center"
+          class="settings-tabs"
+          density="comfortable"
+          hide-slider
         >
-          {{ $t('settings.reset.cancel') }}
-        </v-btn>
-        <v-btn
-          color="error"
-          :variant="showResetAllConfirm ? 'flat' : 'outlined'"
-          class="hold-confirm-btn"
-          :style="confirmHoldStyle"
-          :loading="isResetting"
-          :disabled="isResetting"
-          :lang="currentLocale"
-          @click="requestResetAllConfirm"
-          @pointerdown.prevent="startResetAllHold"
-          @pointerup="cancelResetAllHold"
-          @pointerleave="cancelResetAllHold"
-          @pointercancel="cancelResetAllHold"
-        >
-          {{ showResetAllConfirm ? $t('settings.reset.confirmAction') : $t('settings.reset.all') }}
-        </v-btn>
+          <v-tab value="paths" prepend-icon="$cogOutline">
+            {{ $t('settings.general') }}
+          </v-tab>
+          <v-tab value="download" prepend-icon="$downloadOutline">
+            {{ $t('settings.downloadTab') }}
+          </v-tab>
+          <v-tab value="database" prepend-icon="$databaseOutline">
+            {{ $t('settings.database.title') }}
+          </v-tab>
+          <v-tab value="about" prepend-icon="$informationOutline">
+            {{ $t('settings.about.title') || 'Thông tin' }}
+          </v-tab>
+        </v-tabs>
       </div>
-    </AppIsland>
+
+      <!-- Tab Content Window -->
+      <v-window v-model="activeTab" class="settings-window">
+        <!-- 1. Paths & General Settings -->
+        <v-window-item value="paths">
+          <SettingsPathsCard
+            v-model:model-value-stable="osuStablePath"
+            v-model:model-value-lazer="osuLazerPath"
+            v-model:current-locale="currentLocale"
+            :osu-lazer-resolved-data-path="osuLazerResolvedDataPath"
+            :osu-stable-placeholder="osuStablePlaceholder"
+            :osu-lazer-placeholder="osuLazerPlaceholder"
+            :show-auto-detect-warning-inline="showAutoDetectWarningInline"
+            :is-general-default="isGeneralDefault"
+            :is-resetting="isResetting"
+            :available-locales="availableLocales"
+            @select-stable-path="selectOsuStablePath"
+            @select-lazer-path="selectOsuLazerPath"
+            @reset-general="resetGeneralSettings"
+          />
+        </v-window-item>
+
+        <!-- 2. Download Settings -->
+        <v-window-item value="download">
+          <SettingsDownloadCard
+            v-model:model-value-thread-count="threadCount"
+            v-model:model-value-remove-from-stable="removeFromStable"
+            v-model:model-value-remove-from-lazer="removeFromLazer"
+            v-model:model-value-no-video="noVideo"
+            v-model:model-value-wait-for-downloads-on-pause="waitForDownloadsOnPause"
+            :thread-count-label="threadCountLabel"
+            :is-download-default="isDownloadDefault"
+            :is-resetting="isResetting"
+            :is-stable-path-valid="isStablePathValid"
+            :is-lazer-path-valid="isLazerPathValid"
+            :wait-for-downloads-help-text="waitForDownloadsHelpText"
+            :current-locale="currentLocale"
+            :has-beatconnect-token="hasBeatconnectToken"
+            :mirror-statuses="mirrorStatuses"
+            :is-loading-mirrors="isLoadingMirrors"
+            @reset-download="resetDownloadSettings"
+            @save-beatconnect-token="saveBeatconnectToken"
+            @clear-beatconnect-token="clearBeatconnectToken"
+            @refresh-mirrors="loadMirrorsStatus"
+          />
+        </v-window-item>
+
+        <!-- 3. Database Status & Sync -->
+        <v-window-item value="database">
+          <SettingsDatabaseCard
+            :database-status="databaseStatus"
+            :stable-status="stableStatus"
+            :lazer-status="lazerStatus"
+            :format-sync-time="formatSyncTime"
+            :is-syncing="isSyncing"
+            :sync-message="syncMessage"
+            :sync-message-is-error="syncMessageIsError"
+            :can-sync-database="canSyncDatabase"
+            :current-locale="currentLocale"
+            @trigger-sync="triggerDatabaseSync"
+          />
+        </v-window-item>
+
+        <!-- 4. About & Updates -->
+        <v-window-item value="about">
+          <SettingsAboutCard :current-locale="currentLocale" />
+          <v-row class="mt-4">
+            <v-col cols="12" md="6">
+              <SettingsDiagnosticCard :current-locale="currentLocale" />
+            </v-col>
+            <v-col cols="12" md="6">
+              <SettingsResetCard
+                :current-locale="currentLocale"
+                :reset-feedback-message="resetFeedbackMessage"
+                :reset-feedback-class="resetFeedbackClass"
+                :show-reset-all-confirm="showResetAllConfirm"
+                :is-resetting="isResetting"
+                :confirm-hold-style="confirmHoldStyle"
+                @cancel-reset-all="cancelResetAllConfirm"
+                @request-reset-all="requestResetAllConfirm"
+                @start-reset-all-hold="startResetAllHold"
+                @cancel-reset-all-hold="cancelResetAllHold"
+              />
+            </v-col>
+          </v-row>
+        </v-window-item>
+      </v-window>
+    </div>
   </AppViewShell>
 </template>
 
@@ -290,16 +125,20 @@ import {
   STORAGE_KEYS
 } from '../../../config/frontendConstants'
 import { languageNames, languageFlags } from '../i18n/languageProperties'
-import 'flag-icons/css/flag-icons.min.css'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
 import AppViewShell from './common/AppViewShell.vue'
-import AppIsland from './common/AppIsland.vue'
-import AppForm from './common/AppForm.vue'
-import PathField from './common/PathField.vue'
+import SettingsPathsCard from './settings/SettingsPathsCard.vue'
+import SettingsDownloadCard from './settings/SettingsDownloadCard.vue'
+import SettingsDatabaseCard from './settings/SettingsDatabaseCard.vue'
+import SettingsAboutCard from './settings/SettingsAboutCard.vue'
+import SettingsDiagnosticCard from './settings/SettingsDiagnosticCard.vue'
+import SettingsResetCard from './settings/SettingsResetCard.vue'
 import type { DatabaseStatus } from '../../../services/database/types'
+import type { MirrorStatus } from '../../../preload/electronApiTypes'
 import { getDatabaseSourceStatus, canSyncDatabaseSource } from '../utils/databaseStatus'
 
 const { t, locale } = useI18n()
+const activeTab = ref('paths')
 
 // General Settings
 const osuStablePath = ref('')
@@ -416,6 +255,49 @@ const loadAutoDetectWarning = async (): Promise<void> => {
     }, FRONTEND_TIMINGS_MS.AUTO_DETECT_WARNING_HIDE)
   } catch (error) {
     console.error('Failed to load auto-detect warning state:', error)
+  }
+}
+
+const hasBeatconnectToken = ref(false)
+const mirrorStatuses = ref<MirrorStatus[]>([])
+const isLoadingMirrors = ref(false)
+
+const loadBeatconnectTokenStatus = async (): Promise<void> => {
+  try {
+    hasBeatconnectToken.value = await window.electronAPI.settings.hasBeatconnectToken()
+  } catch (error) {
+    console.error('Failed to load BeatConnect token status:', error)
+  }
+}
+
+const saveBeatconnectToken = async (token: string): Promise<void> => {
+  try {
+    await window.electronAPI.settings.setBeatconnectToken(token)
+    hasBeatconnectToken.value = !!token
+    await loadMirrorsStatus()
+  } catch (error) {
+    console.error('Failed to save BeatConnect token:', error)
+  }
+}
+
+const clearBeatconnectToken = async (): Promise<void> => {
+  try {
+    await window.electronAPI.settings.setBeatconnectToken('')
+    hasBeatconnectToken.value = false
+    await loadMirrorsStatus()
+  } catch (error) {
+    console.error('Failed to clear BeatConnect token:', error)
+  }
+}
+
+const loadMirrorsStatus = async (): Promise<void> => {
+  isLoadingMirrors.value = true
+  try {
+    mirrorStatuses.value = await window.electronAPI.system.getMirrorsStatus()
+  } catch (error) {
+    console.error('Failed to load mirrors status:', error)
+  } finally {
+    isLoadingMirrors.value = false
   }
 }
 
@@ -597,43 +479,40 @@ const performResetAllSettings = async (): Promise<void> => {
 
     await loadSettings()
     await loadDatabaseStatus()
+    hasBeatconnectToken.value = false
+    await loadMirrorsStatus()
     resetFeedbackClass.value = 'text-success'
     resetFeedbackMessage.value = t('settings.reset.success')
     showResetAllConfirm.value = false
-    window.location.reload()
   } catch (error) {
-    console.error('Failed to reset settings:', error)
+    console.error('Failed to reset all settings:', error)
     resetFeedbackClass.value = 'text-error'
-    resetFeedbackMessage.value = t('settings.reset.failed')
+    resetFeedbackMessage.value = t('settings.reset.error')
   } finally {
-    cancelResetAllHold()
     isResetting.value = false
+    cancelResetAllHold()
   }
 }
 
-// Sync waitForDownloadsOnPause to backend whenever it changes
-watch(waitForDownloadsOnPause, async (newValue) => {
-  try {
-    await window.electronAPI.settings.update({ waitForDownloadsOnPause: newValue })
-  } catch (error) {
-    console.error('Failed to save waitForDownloadsOnPause setting:', error)
-  }
+watch([osuStablePath, osuLazerPath], () => {
+  void loadDatabaseStatus()
 })
 
-onMounted(() => {
-  loadSettings()
-  loadDatabaseStatus()
-  loadAutoDetectWarning()
+onMounted(async () => {
+  await loadSettings()
+  await loadDatabaseStatus()
+  await loadAutoDetectWarning()
+  await loadBeatconnectTokenStatus()
+  await loadMirrorsStatus()
   ensureDatabaseEvents()
-  document.documentElement.lang = locale.value
 })
 
 onBeforeUnmount(() => {
+  clearResetHoldRaf()
   if (autoDetectWarningTimer) {
     window.clearTimeout(autoDetectWarningTimer)
     autoDetectWarningTimer = null
   }
-  clearResetHoldRaf()
   if (unsubscribeDatabaseSync) {
     unsubscribeDatabaseSync()
     unsubscribeDatabaseSync = null
@@ -642,24 +521,82 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.flag-icon {
-  margin-right: 8px;
-  font-size: 1.2em;
-}
-.v-divider {
-  margin-bottom: 16px;
+.settings-container {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
 }
 
-.hold-confirm-btn {
-  --hold-progress: 0%;
+.settings-tabs-wrapper {
+  display: flex;
+  justify-content: center;
 }
 
-.hold-confirm-btn :deep(.v-btn__overlay) {
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, currentColor 22%, transparent) var(--hold-progress),
-    transparent var(--hold-progress)
-  ) !important;
-  opacity: 1 !important;
+.settings-tabs {
+  --v-tabs-height: 36px;
+  height: auto !important;
+  min-height: auto !important;
+  background: var(--card-bg-color) !important;
+  border: 1px solid var(--card-border-color) !important;
+  border-radius: 12px !important;
+  padding: 4px !important;
+  backdrop-filter: blur(12px);
+  display: inline-flex !important;
+}
+
+.settings-tabs :deep(.v-slide-group__container) {
+  height: auto !important;
+  contain: none !important;
+}
+
+.settings-tabs :deep(.v-slide-group__content) {
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.settings-tabs :deep(.v-tab) {
+  height: 36px !important;
+  min-height: 36px !important;
+  border-radius: 8px !important;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 0.825rem;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+  margin: 0 2px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.settings-tabs :deep(.v-tab:not(.v-tab--selected)) {
+  color: rgba(var(--v-theme-on-surface), 0.7) !important;
+}
+
+.settings-tabs :deep(.v-tab:hover:not(.v-tab--selected)) {
+  background: rgba(var(--v-theme-on-surface), 0.06) !important;
+  color: rgba(var(--v-theme-on-surface), 0.95) !important;
+}
+
+.settings-tabs :deep(.v-tab--selected) {
+  background: rgba(var(--v-theme-primary), 0.15) !important;
+  color: rgb(var(--v-theme-primary)) !important;
+}
+
+.settings-tabs :deep(.v-btn__content) {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.settings-tabs :deep(.v-btn__prepend) {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: 8px;
+}
+
+.settings-window {
+  width: 100%;
 }
 </style>

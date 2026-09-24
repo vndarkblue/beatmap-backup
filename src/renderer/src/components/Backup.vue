@@ -2,280 +2,56 @@
   <AppViewShell :title="$t('backup.title')" :lang="currentLocale">
     <AppIsland :title="$t('backup.backupBeatmapTitle')" icon="$contentSaveOutline">
       <AppForm>
-        <div class="backup-controls">
-          <div class="d-flex flex-column flex-sm-row backup-options-row">
-            <div class="flex-grow-1 pr-sm-4 mb-4 mb-sm-0">
-              <div class="text-subtitle-1 mb-3 mt-1" :lang="currentLocale">
-                {{ $t('backup.sources.title') }}
-              </div>
-              <v-switch
-                v-model="stableBackup"
-                :label="$t('settings.database.stable')"
-                :lang="currentLocale"
-                class="view-field pl-2"
-                color="primary"
-                hide-details
-              ></v-switch>
-              <v-switch
-                v-model="lazerBackup"
-                :label="$t('settings.database.lazer')"
-                :lang="currentLocale"
-                class="view-field pl-2"
-                color="primary"
-                hide-details
-              ></v-switch>
-            </div>
+        <!-- 1. Sources & Content Options -->
+        <BackupSourcesCard
+          v-model:model-value-stable="stableBackup"
+          v-model:model-value-lazer="lazerBackup"
+          v-model:model-value-online-ids="backupOnlineIds"
+          v-model:model-value-local-beatmaps="backupLocalBeatmaps"
+          :current-locale="currentLocale"
+        />
 
-            <v-divider vertical class="mx-4 d-none d-sm-flex"></v-divider>
+        <v-divider class="backup-divider"></v-divider>
 
-            <div class="flex-grow-1">
-              <div class="text-subtitle-1 mb-3 mt-1" :lang="currentLocale">
-                {{ $t('backup.content.title') }}
-              </div>
-              <v-switch
-                v-model="backupOnlineIds"
-                :label="$t('backup.content.onlineIds')"
-                :lang="currentLocale"
-                class="view-field pl-2"
-                color="primary"
-                hide-details
-              ></v-switch>
-              <v-switch
-                v-model="backupLocalBeatmaps"
-                :label="$t('backup.content.localBeatmaps')"
-                :lang="currentLocale"
-                class="view-field pl-2"
-                color="primary"
-                hide-details
-              ></v-switch>
-            </div>
-          </div>
+        <!-- 2. Collections & Scope -->
+        <BackupCollectionsCard
+          v-model:model-value-backup-by-collection="backupByCollection"
+          v-model:model-value-merge-collection-names="mergeCollectionNames"
+          v-model:model-value-selected-collection-keys="selectedCollectionKeys"
+          :can-use-collection-backup="canUseCollectionBackup"
+          :collection-read-errors="collectionReadErrors"
+          :sync-status="syncStatus"
+          :is-syncing="isSyncing"
+          :can-trigger-sync="canTriggerSync"
+          :is-sync-cooling-down="isSyncCoolingDown"
+          :sync-cooldown-remaining-seconds="syncCooldownRemainingSeconds"
+          :collections="collections"
+          :all-collections-selected="allCollectionsSelected"
+          :is-collection-selection-indeterminate="isCollectionSelectionIndeterminate"
+          :sort-key="sortKey"
+          :get-sort-indicator="getSortIndicator"
+          :get-source-label="getSourceLabel"
+          :sorted-collections="sortedCollections"
+          :current-locale="currentLocale"
+          @toggle-select-all="toggleSelectAllCollections"
+          @set-sort="setSort"
+          @sync-missing="syncMissingNow"
+        />
 
-          <v-alert
-            v-if="backupOnlineIds || backupLocalBeatmaps"
-            type="info"
-            variant="tonal"
-            density="compact"
-            class="local-backup-alert"
-            :lang="currentLocale"
-          >
-            <div v-if="backupOnlineIds">{{ $t('backup.content.onlineIdsPending') }}</div>
-            <div v-if="backupLocalBeatmaps">{{ $t('backup.content.localBeatmapsPending') }}</div>
-          </v-alert>
-
-          <div class="backup-scope">
-            <v-switch
-              v-model="backupByCollection"
-              :label="$t('backup.collection.enabled')"
-              :lang="currentLocale"
-              class="view-field pl-2"
-              color="primary"
-              hide-details
-              :disabled="!canUseCollectionBackup"
-            ></v-switch>
-          </div>
-        </div>
-
-        <div v-if="backupByCollection" class="collection-options">
-          <v-alert
-            v-if="collectionReadErrors.stable"
-            type="warning"
-            variant="tonal"
-            density="compact"
-            class="mb-3"
-            :lang="currentLocale"
-          >
-            {{
-              $t('backup.collection.errors.stableReadFailed', {
-                error: collectionReadErrors.stable
-              })
-            }}
-          </v-alert>
-          <v-alert
-            v-if="collectionReadErrors.lazer"
-            type="warning"
-            variant="tonal"
-            density="compact"
-            class="mb-3"
-            :lang="currentLocale"
-          >
-            {{
-              $t('backup.collection.errors.lazerReadFailed', { error: collectionReadErrors.lazer })
-            }}
-          </v-alert>
-
-          <v-switch
-            v-model="mergeCollectionNames"
-            :label="$t('backup.collection.mergeByName')"
-            :lang="currentLocale"
-            class="view-field pl-2"
-            color="primary"
-            hide-details
-          ></v-switch>
-          <div class="text-caption mb-2" :lang="currentLocale">
-            <span class="status-resolved"
-              >{{ $t('backup.collection.status.resolved') }} {{ syncStatus.resolved }}</span
-            >
-            <span class="mx-2">·</span>
-            <span class="status-pending"
-              >{{ $t('backup.collection.status.pending') }} {{ syncStatus.pending }}</span
-            >
-            <span class="mx-2">·</span>
-            <span class="status-not-found"
-              >{{ $t('backup.collection.status.notFound') }} {{ syncStatus.notFound }}</span
-            >
-            <span class="mx-2">·</span>
-            <span class="status-missing"
-              >{{ $t('backup.collection.status.missingLocal') }} {{ syncStatus.missingLocal }}</span
-            >
-          </div>
-          <v-btn
-            variant="tonal"
-            color="info"
-            class="view-field sync-action-btn"
-            :loading="isSyncing"
-            :disabled="!canTriggerSync"
-            @click="syncMissingNow"
-          >
-            {{
-              isSyncCoolingDown
-                ? `${$t('backup.collection.syncNow')} (${syncCooldownRemainingSeconds}${$t('backup.collection.secondsShort')})`
-                : $t('backup.collection.syncNow')
-            }}
-          </v-btn>
-          <v-card
-            v-if="collections.length > 0"
-            variant="outlined"
-            class="mb-3 collection-table-card"
-          >
-            <SimpleBar class="collection-table-scroll" data-simplebar-auto-hide="false">
-              <v-table density="compact">
-                <thead>
-                  <tr>
-                    <th class="checkbox-col">
-                      <v-checkbox
-                        :model-value="allCollectionsSelected"
-                        :indeterminate="isCollectionSelectionIndeterminate"
-                        hide-details
-                        density="compact"
-                        @update:model-value="toggleSelectAllCollections"
-                      />
-                    </th>
-                    <th class="sortable-col" @click="setSort('name')">
-                      {{ $t('backup.collection.table.name') }}
-                      <span class="sort-indicator" :class="{ active: sortKey === 'name' }">{{
-                        getSortIndicator('name')
-                      }}</span>
-                    </th>
-                    <th class="sortable-col" @click="setSort('maps')">
-                      {{ $t('backup.collection.table.maps') }}
-                      <span class="sort-indicator" :class="{ active: sortKey === 'maps' }">{{
-                        getSortIndicator('maps')
-                      }}</span>
-                    </th>
-                    <th class="sortable-col" @click="setSort('source')">
-                      {{ $t('backup.collection.table.source') }}
-                      <span class="sort-indicator" :class="{ active: sortKey === 'source' }">{{
-                        getSortIndicator('source')
-                      }}</span>
-                    </th>
-                    <th>{{ $t('backup.collection.table.status') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in sortedCollections" :key="item.key">
-                    <td class="checkbox-col">
-                      <v-checkbox
-                        v-model="selectedCollectionKeys"
-                        :value="item.key"
-                        hide-details
-                        density="compact"
-                      />
-                    </td>
-                    <td>{{ item.name }}</td>
-                    <td>
-                      <span class="map-count">{{ item.mapCount }}</span>
-                    </td>
-                    <td>{{ getSourceLabel(item.source) }}</td>
-                    <td>
-                      <span class="status-resolved">{{ item.resolvedCount }}</span>
-                      <span class="mx-2">·</span>
-                      <span class="status-pending">{{ item.pendingCount }}</span>
-                      <span class="mx-2">·</span>
-                      <span class="status-not-found">{{ item.apiNotFoundCount }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </SimpleBar>
-          </v-card>
-          <div v-else class="text-caption mb-2" :lang="currentLocale">
-            {{ $t('backup.collection.empty') }}
-          </div>
-        </div>
-
-        <v-alert
-          v-if="estimateMessage"
-          :type="estimateError ? 'warning' : 'info'"
-          variant="tonal"
-          density="comfortable"
-          class="mb-3"
-        >
-          {{ estimateMessage }}
-        </v-alert>
-        <v-progress-linear
-          v-if="isEstimating"
-          indeterminate
-          color="primary"
-          class="mb-2"
-        ></v-progress-linear>
-        <v-btn
-          color="primary"
-          block
-          class="view-field"
-          :lang="currentLocale"
-          :disabled="!canExport"
-          :loading="isExporting"
-          @click="handleExport"
-        >
-          {{ $t('backup.button') }}
-        </v-btn>
-        <div
-          v-if="isExporting && backupLocalBeatmaps && localExportProgress.total > 0"
-          class="local-export-progress mt-3"
-        >
-          <div class="d-flex justify-space-between text-caption mb-1">
-            <span>
-              {{
-                $t('backup.localProgress', {
-                  current: localExportProgress.current,
-                  total: localExportProgress.total,
-                  percent: localExportProgress.percent
-                })
-              }}
-            </span>
-            <span>{{ localExportProgress.percent }}%</span>
-          </div>
-          <v-progress-linear
-            :model-value="localExportProgress.percent"
-            color="primary"
-            height="6"
-            rounded
-          ></v-progress-linear>
-          <div
-            v-if="localExportProgress.currentBeatmap"
-            class="text-caption text-truncate mt-1 text-medium-emphasis"
-          >
-            {{ localExportProgress.currentBeatmap }}
-          </div>
-        </div>
-        <div
-          v-if="statusMessage"
-          class="text-center mt-2"
-          :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
-        >
-          {{ statusMessage }}
-        </div>
+        <!-- 3. Export Action & Progress -->
+        <BackupActionCard
+          :estimate-message="estimateMessage"
+          :estimate-error="estimateError"
+          :is-estimating="isEstimating"
+          :can-export="canExport"
+          :is-exporting="isExporting"
+          :backup-local-beatmaps="backupLocalBeatmaps"
+          :local-export-progress="localExportProgress"
+          :status-message="statusMessage"
+          :is-success="isSuccess"
+          :current-locale="currentLocale"
+          @export="handleExport"
+        />
       </AppForm>
     </AppIsland>
   </AppViewShell>
@@ -288,8 +64,9 @@ import { STORAGE_KEYS } from '../../../config/frontendConstants'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
 import AppForm from './common/AppForm.vue'
-import SimpleBar from 'simplebar-vue'
-import 'simplebar-vue/dist/simplebar.min.css'
+import BackupSourcesCard from './backup/BackupSourcesCard.vue'
+import BackupCollectionsCard from './backup/BackupCollectionsCard.vue'
+import BackupActionCard from './backup/BackupActionCard.vue'
 
 import type { LocalExportProgress } from '../../../preload/electronApiTypes'
 
@@ -614,7 +391,10 @@ const refreshEstimate = async (): Promise<void> => {
     const estimateParts: string[] = []
     if (backupOnlineIds.value) {
       estimateParts.push(
-        t('backup.onlineEstimate', { count: payload.count, size: formatBytes(payload.estimatedBytes) })
+        t('backup.onlineEstimate', {
+          count: payload.count,
+          size: formatBytes(payload.estimatedBytes)
+        })
       )
     }
     if (backupLocalBeatmaps.value && payload.localCount != null) {
@@ -692,7 +472,7 @@ const setSort = (key: 'name' | 'maps' | 'source'): void => {
 }
 
 const getSortIndicator = (key: 'name' | 'maps' | 'source'): string => {
-  if (sortKey.value !== key) return '▲'
+  if (sortKey.value !== key) return ''
   return sortDir.value === 'asc' ? '▲' : '▼'
 }
 
@@ -863,102 +643,9 @@ const handleExport = async (): Promise<void> => {
   margin-bottom: 4px;
 }
 
-.backup-scope {
-  margin-bottom: 0;
-}
-
-.local-backup-alert {
-  margin-top: 2px;
-  margin-bottom: 2px;
-}
-
-.collection-options {
-  margin-top: -14px;
-}
-
-.collection-options > .v-switch {
-  margin-bottom: 12px;
-}
-
-thead th {
-  font-weight: 700 !important;
-}
-
-.sortable-col {
-  cursor: pointer;
-  user-select: none;
-}
-
-.sort-indicator {
-  display: inline-block;
-  width: 10px;
-  font-size: 0.72rem;
-  margin-left: 4px;
-  opacity: 0;
-}
-
-.sort-indicator.active {
-  opacity: 0.75;
-}
-
-.status-resolved {
-  color: rgb(var(--v-theme-success));
-  opacity: 0.9;
-}
-
-.status-pending {
-  color: rgb(var(--v-theme-warning));
-  opacity: 0.92;
-}
-
-.status-not-found {
-  color: rgb(var(--v-theme-error));
-  opacity: 0.85;
-}
-
-.status-failed {
-  color: rgb(var(--v-theme-error));
-  opacity: 0.7;
-}
-
-.status-missing {
-  opacity: 0.72;
-}
-
-.sync-action-btn {
-  font-weight: 600;
-}
-
-.collection-table-card {
-  border-color: rgba(var(--v-theme-on-surface), 0.16) !important;
-}
-
-.collection-table-card :deep(.v-table__wrapper > table) {
-  border-collapse: collapse;
-}
-
-.collection-table-card :deep(.v-table__wrapper) {
-  overflow: visible !important;
-}
-
-.collection-table-card :deep(thead th),
-.collection-table-card :deep(tbody td) {
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.1) !important;
-}
-
-.collection-table-card :deep(tbody tr:last-child td) {
-  border-bottom: none !important;
-}
-
-.collection-table-scroll {
-  max-width: 100%;
-}
-
-.collection-table-scroll :deep(.simplebar-content-wrapper) {
-  overflow: auto !important;
-}
-
-.collection-table-scroll :deep(.simplebar-track.simplebar-horizontal) {
-  height: 6px;
+.backup-divider {
+  border-color: var(--card-border-color) !important;
+  opacity: 0.6;
+  margin: -6px 0 !important;
 }
 </style>

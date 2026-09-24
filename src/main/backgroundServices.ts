@@ -1,6 +1,7 @@
 import DownloadService from '../services/downloadService'
 import SyncManager from '../services/database/syncManager'
 import CollectionSyncService from '../services/collection/collectionSyncService'
+import updateService from '../services/updateService'
 import { runStartupAutoDetect } from '../services/startupAutoDetect'
 import { setStartupAutoDetectResult } from './ipc/registerIpcHandlers'
 import { startupMark } from '../services/startupTrace'
@@ -29,6 +30,8 @@ export function startDeferredBackgroundServices(): void {
 
     const collectionSyncService = CollectionSyncService.getInstance()
     collectionSyncService.startBackgroundSync()
+
+    updateService.checkOnStartup()
 
     startupMark('backgroundServices:ready')
   } catch (error) {

@@ -1,5 +1,10 @@
 appId: com.vndarkblue.beatmap-backup
 productName: Beatmap Backup
+publish:
+  provider: github
+  owner: vndarkblue
+  repo: beatmap-backup
+  releaseType: release
 directories:
   buildResources: build
 files:
@@ -40,6 +45,7 @@ linux:
   icon: renderer/src/assets/logo.ico
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+npmRebuild: true
+buildDependenciesFromSource: true
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

@@ -42,6 +42,7 @@ release/
 # Temporary files
 *.tmp
 *.temp
+*.tsbuildinfo
 repomix-output.xml
 .eslintcache
 .specstory

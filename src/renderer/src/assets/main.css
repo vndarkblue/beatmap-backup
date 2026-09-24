@@ -49,15 +49,38 @@
 }
 
 .v-theme--light {
-  --card-bg-color: #f2f2f2;
-  --main-bg-color: #fff;
-  --main-text-color: #000;
+  --card-bg-color: #ffffff;
+  --card-border-color: rgba(0, 0, 0, 0.08);
+  --main-bg-color: #f8fafc;
+  --titlebar-bg-color: rgba(241, 245, 249, 0.96);
+  --sidebar-bg-color: rgba(248, 250, 252, 0.96);
+  --main-text-color: #0f172a;
+  --text-muted-color: #64748b;
+  --accent-pink: #db2777;
+  --accent-cyan: #0284c7;
+  --accent-green: #059669;
+  --scrollbar-thumb-color: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.5);
+  --scrollbar-thumb-active-color: rgba(0, 0, 0, 0.68);
+  --scrollbar-track-hover-bg: rgba(0, 0, 0, 0.04);
 }
 
-.v-theme--dark {
-  --card-bg-color: #212121;
-  --main-bg-color: #000;
-  --main-text-color: #fff;
+.v-theme--dark,
+html.theme-dark {
+  --card-bg-color: rgba(255, 255, 255, 0.04);
+  --card-border-color: rgba(255, 255, 255, 0.11);
+  --main-bg-color: #121316;
+  --titlebar-bg-color: rgba(22, 23, 28, 0.96);
+  --sidebar-bg-color: rgba(26, 27, 34, 0.95);
+  --main-text-color: #f8fafc;
+  --text-muted-color: #94a3b8;
+  --accent-pink: #ff66aa;
+  --accent-cyan: #38bdf8;
+  --accent-green: #34d399;
+  --scrollbar-thumb-color: rgba(255, 255, 255, 0.35);
+  --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.55);
+  --scrollbar-thumb-active-color: rgba(255, 255, 255, 0.75);
+  --scrollbar-track-hover-bg: rgba(255, 255, 255, 0.04);
 }
 
 .v-list-item:hover,
@@ -70,7 +93,8 @@
 :root {
   /* Font variables */
   --font-default:
-    'Torus Notched', 'Torus', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    'Torus Notched', 'Torus', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
   --font-default-vi:
     'Quicksand', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-default-ja:
@@ -96,14 +120,18 @@
 :root[lang='vi'],
 html[lang='vi'],
 body[lang='vi'],
-.v-application[lang='vi'] {
+.v-application[lang='vi'],
+.v-overlay-container[lang='vi'],
+[lang='vi'] {
   --font-family: var(--font-default-vi) !important;
 }
 
 :root[lang='ja'],
 html[lang='ja'],
 body[lang='ja'],
-.v-application[lang='ja'] {
+.v-application[lang='ja'],
+.v-overlay-container[lang='ja'],
+[lang='ja'] {
   --font-family: var(--font-default-ja) !important;
 }
 
@@ -113,6 +141,13 @@ body,
 #app,
 .v-application,
 .v-application [class*='text-'],
+.v-overlay-container,
+.v-overlay-container [class*='text-'],
+.v-overlay-container *,
+.v-overlay,
+.v-dialog,
+.v-card,
+[class*='text-'],
 .v-typography,
 button,
 input,
@@ -134,6 +169,11 @@ textarea,
   font-family: var(--font-family) !important;
 }
 
+.v-overlay__scrim {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -150,27 +190,8 @@ body {
 }
 
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  font-size: 2.2em;
+  line-height: 1.2;
 }
 
 .v-container .v-container--fluid .v-locale--is-ltr .container-bg {
@@ -194,9 +215,6 @@ button:focus-visible {
   a:hover {
     color: #747bff;
   }
-  button {
-    background-color: #f9f9f9;
-  }
 }
 
 html,
@@ -206,19 +224,24 @@ body,
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow-y: auto !important;
-  overflow-x: hidden;
+  overflow: hidden !important;
 }
 
 /* Add styles for v-application layout */
 .v-application {
   min-height: 100vh !important;
-  height: auto !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
 }
 
-.v-layout {
+.v-application__wrap {
   min-height: 100vh !important;
-  height: auto !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .settings-card {
@@ -236,20 +259,72 @@ body,
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 40px;
+  padding-top: 24px;
   padding-bottom: 40px;
   min-height: 100%;
 }
 
 .view-card {
-  min-width: 400px;
-  width: 80%;
-  max-width: 900px;
+  min-width: 360px;
+  width: 90%;
+  max-width: 920px;
   margin: 0 auto;
   background: var(--card-bg-color) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06);
-  margin-bottom: 40px;
+  border: 1px solid var(--card-border-color) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12) !important;
+  margin-bottom: 24px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Striped Animation for progress bars */
+@keyframes arcadeStripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 30px 0;
+  }
+}
+
+.anim-striped-bar .v-progress-linear__determinate,
+.anim-striped-bar .v-progress-linear__indeterminate {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.22) 75%,
+    transparent 75%,
+    transparent
+  ) !important;
+  background-size: 24px 24px !important;
+  animation: arcadeStripes 1s linear infinite !important;
+}
+
+.anim-striped-bar.is-paused .v-progress-linear__determinate,
+.anim-striped-bar.is-paused .v-progress-linear__indeterminate,
+.anim-striped-bar.is-paused .striped-progress-fill,
+.striped-progress-fill.is-paused {
+  animation-play-state: paused !important;
+}
+
+.striped-progress-fill {
+  background-color: var(--accent-pink);
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.22) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 24px 24px;
+  animation: arcadeStripes 1s linear infinite;
 }
 
 .view-form {
@@ -320,4 +395,42 @@ body,
 
 .text-h6 {
   font-family: var(--font-family) !important;
+}
+
+/* Theme-adaptive SimpleBar styling */
+.simplebar-scrollbar:before {
+  background-color: var(--scrollbar-thumb-color, rgba(127, 127, 127, 0.35)) !important;
+  border-radius: 7px !important;
+  transition:
+    opacity 0.2s linear,
+    background-color 0.2s ease !important;
+}
+
+.simplebar-scrollbar.simplebar-visible:before {
+  opacity: 1 !important;
+}
+
+.simplebar-scrollbar:hover:before,
+.simplebar-track:hover .simplebar-scrollbar:before,
+.simplebar-track.simplebar-hover .simplebar-scrollbar:before {
+  background-color: var(--scrollbar-thumb-hover-color, rgba(127, 127, 127, 0.55)) !important;
+  opacity: 1 !important;
+}
+
+.simplebar-scrollbar.simplebar-dragging:before,
+[data-simplebar].simplebar-dragging .simplebar-scrollbar:before {
+  background-color: var(--scrollbar-thumb-active-color, rgba(127, 127, 127, 0.75)) !important;
+  opacity: 1 !important;
+}
+
+.simplebar-track:hover,
+.simplebar-track.simplebar-hover {
+  background-color: var(--scrollbar-track-hover-bg, rgba(127, 127, 127, 0.04));
+  transition: background-color 0.2s ease;
+}
+
+/* Fallback native scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color, rgba(127, 127, 127, 0.4)) transparent;
 }

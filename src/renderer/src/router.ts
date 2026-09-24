@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import Settings from './components/Settings.vue'
 // import BeatmapFilter from './components/BeatmapFilter.vue'
 
 // Define route types
@@ -19,7 +20,7 @@ export const routes: RouteItem[] = [
   },
   {
     title: 'navigation.backup',
-    icon: '$export',
+    icon: '$contentSaveOutline',
     to: '/backup',
     name: 'backup'
   },
@@ -47,7 +48,7 @@ const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
-      component: () => import('./components/Settings.vue')
+      component: Settings
     },
     {
       path: '/backup',
@@ -68,8 +69,13 @@ const router = createRouter({
 })
 
 // Add navigation guard to ensure proper route handling
-router.beforeEach((_to, _from, next) => {
-  // Force a small delay to ensure proper state updates
+router.beforeEach((_to, from, next) => {
+  // Proceed immediately on initial boot to render the first screen without delay
+  if (!from.name) {
+    next()
+    return
+  }
+  // Force a small delay on tab switch to ensure proper state updates
   setTimeout(() => {
     next()
   }, 0)

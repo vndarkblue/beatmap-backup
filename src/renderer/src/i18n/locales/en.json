@@ -24,7 +24,22 @@
       "noVideo": "Download without videos",
       "waitForDownloads": "Wait for downloads to complete when pausing",
       "waitForDownloadsHelpOn": "When pausing, in-progress beatmaps are allowed to finish before the queue pauses.",
-      "waitForDownloadsHelpOff": "When pausing, in-progress beatmaps may stop immediately."
+      "waitForDownloadsHelpOff": "When pausing, in-progress beatmaps may stop immediately.",
+      "beatconnectTokenHelp": "Enter your BeatConnect Patreon API token to unlock unlimited, high-speed downloads. Leave empty to use default rate-limited mode.",
+      "beatconnectTokenSubtitle": "Connect your Patreon API token for unlimited download quota and priority auto-sync.",
+      "beatconnectTokenPlaceholder": "Paste your BeatConnect API token here...",
+      "beatconnectTokenSave": "Save",
+      "beatconnectTokenCancel": "Cancel",
+      "beatconnectTokenSaved": "Token configured & encrypted",
+      "beatconnectTokenActiveHint": "Patreon VIP access active • Concurrency 5x",
+      "beatconnectTokenChange": "Change",
+      "beatconnectTokenClear": "Clear",
+      "beatconnectPatreonLink": "Get Token on Patreon",
+      "mirrorsNetwork": "Mirror Network Status",
+      "mirrorsNetworkHelp": "Live status of community beatmap mirrors. The app automatically balances load across online mirrors to prevent rate limits.",
+      "mirrorsNetworkSubtitle": "Automated multi-mirror failover pool with per-mirror safety concurrency caps.",
+      "mirrorsRefresh": "Refresh mirror statuses",
+      "mirrorWarpBlocked": "Cloudflare WARP blocked"
     },
     "database": {
       "title": "Beatmap Database",
@@ -53,6 +68,20 @@
       "cancel": "Cancel",
       "success": "Settings reset complete. The app will reload.",
       "failed": "Failed to reset settings."
+    },
+    "diagnostic": {
+      "title": "Diagnostics & Logs",
+      "description": "Extract configuration details and recent logs to troubleshoot issues.",
+      "copyInfo": "Copy Diagnostics",
+      "copied": "Copied!",
+      "openLogFolder": "Open Log Folder",
+      "copySuccess": "Diagnostic information copied to clipboard.",
+      "copyFailed": "Failed to copy diagnostic information."
+    },
+    "about": {
+      "title": "About",
+      "description": "A tool to backup and synchronize beatmap collections for osu!stable and osu!lazer.",
+      "installationType": "Distribution"
     }
   },
   "backup": {
@@ -150,12 +179,29 @@
         "action": "Go to Download"
       },
       "queueOverview": "Download Queue",
+      "running": "Downloading",
+      "paused": "Paused",
+      "queuePaused": "Download queue is paused",
       "progress": "Overall Progress",
       "files": "files",
       "activeDownloads": "Currently downloading files",
       "completedDownloads": "Completed files",
+      "failedDownloads": "Failed files",
       "noActiveDownloads": "No files are downloading right now",
       "noCompletedDownloads": "No completed files yet",
+      "noFailedDownloads": "No failed files",
+      "retryFailed": "Retry Failed",
+      "retryStarted": "Retrying {count} failed downloads...",
+      "exportFailed": "Export Failed (.bbak)",
+      "exportSuccess": "Exported {count} failed beatmaps to .bbak file",
+      "closeManager": "Close Manager",
+      "failedReasons": {
+        "notFound": "Not found on mirror (404)",
+        "rateLimit": "Mirror rate limited (429)",
+        "timeout": "Connection timed out",
+        "network": "Network connection error",
+        "unknown": "Unknown error"
+      },
       "pause": "Pause Queue",
       "resume": "Resume Queue",
       "stop": "Stop Download",
@@ -164,9 +210,14 @@
       "table": {
         "status": "Status",
         "filename": "Filename",
+        "id": "ID",
+        "beatmapName": "Beatmap Name",
+        "reason": "Reason",
         "speed": "Speed",
         "progress": "Progress",
-        "remaining": "Remaining"
+        "remaining": "Remaining",
+        "actions": "Actions",
+        "openFolder": "Open containing folder"
       },
       "status": {
         "waiting": "Waiting",
@@ -310,6 +361,51 @@
     "syncError": {
       "message": "Database sync failed: {error}",
       "viewSettings": "View Settings"
+    }
+  },
+  "updater": {
+    "title": "Check for updates",
+    "checkUpdate": "Check for updates",
+    "currentVersion": "Current version: v{version}",
+    "checking": "Checking for updates...",
+    "checkingHint": "Connecting to GitHub Releases to check for new versions.",
+    "upToDate": "You're up to date!",
+    "upToDateHint": "Beatmap Backup v{version} is currently the latest version.",
+    "newVersionAvailable": "New version available",
+    "portableNotice": "You are running the Portable version. Please visit GitHub Releases to download the latest zip file and replace your current folder.",
+    "linuxNotice": "Click below to download the latest AppImage file directly to your Downloads folder.",
+    "changelog": "What's new:",
+    "downloading": "Downloading update...",
+    "readyToInstall": "Update downloaded successfully. Restart the app to apply.",
+    "linuxDownloaded": "AppImage downloaded to your Downloads folder and made executable.",
+    "errorTitle": "Update check failed",
+    "defaultError": "Could not check for updates. Please verify your internet connection.",
+    "viewOnGitHub": "View on GitHub",
+    "later": "Later",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "downloadAndInstall": "Update Now",
+    "goToRelease": "Go to Releases",
+    "downloadAppImage": "Download AppImage",
+    "restartAndInstall": "Restart & Install",
+    "toastUpdateAvailable": "Beatmap Backup v{version} is now available!",
+    "view": "View",
+    "checkingShort": "Checking...",
+    "upToDateShort": "Up to date",
+    "downloadNow": "Update now",
+    "relaunchInstall": "Restart & Install",
+    "downloadedShort": "Saved to Downloads",
+    "errorRetry": "Check failed · Retry",
+    "downloadErrorRetry": "Download failed · Retry",
+    "installConflictTitle": "Downloads in progress",
+    "installConflictMsg": "{count} beatmaps are still downloading.",
+    "installConflictDetail": "Progress will be saved and can be resumed when you reopen the app.",
+    "installConflictConfirm": "Restart & Install",
+    "dist": {
+      "winInstaller": "Installer",
+      "winPortable": "Portable",
+      "linuxAppImage": "Linux AppImage",
+      "linux": "Linux"
     }
   }
 }

@@ -46,7 +46,19 @@ import {
   mdiFileDocument,
   mdiFolder,
   mdiFileSearch,
-  mdiFolderOpen
+  mdiFolderOpen,
+  mdiUpdate,
+  mdiRefresh,
+  mdiDownloadBox,
+  mdiMinus,
+  mdiWindowMaximize,
+  mdiWindowRestore,
+  mdiSync,
+  mdiInformationOutline,
+  mdiEye,
+  mdiEyeOff,
+  mdiOpenInNew,
+  mdiServer
 } from '@mdi/js'
 
 const getInitialTheme = (): 'light' | 'dark' => {
@@ -90,7 +102,19 @@ const appIconAliases = {
   fileDocument: mdiFileDocument,
   folder: mdiFolder,
   fileSearch: mdiFileSearch,
-  folderOpen: mdiFolderOpen
+  folderOpen: mdiFolderOpen,
+  update: mdiUpdate,
+  refresh: mdiRefresh,
+  downloadBox: mdiDownloadBox,
+  windowMinimize: mdiMinus,
+  windowMaximize: mdiWindowMaximize,
+  windowRestore: mdiWindowRestore,
+  sync: mdiSync,
+  informationOutline: mdiInformationOutline,
+  eye: mdiEye,
+  eyeOff: mdiEyeOff,
+  openInNew: mdiOpenInNew,
+  server: mdiServer
 }
 
 const vuetify = createVuetify({
@@ -105,15 +129,19 @@ const vuetify = createVuetify({
       light: {
         dark: false,
         colors: {
-          primary: '#ff66aa',
-          secondary: '#5CBBF6'
+          primary: '#db2777',
+          secondary: '#0284c7',
+          background: '#f8fafc',
+          surface: '#ffffff'
         }
       },
       dark: {
         dark: true,
         colors: {
           primary: '#ff66aa',
-          secondary: '#424242'
+          secondary: '#38bdf8',
+          background: '#121316',
+          surface: '#1a1c24'
         }
       }
     }
@@ -121,6 +149,24 @@ const vuetify = createVuetify({
 })
 
 const app = createApp(App)
+
+app.config.errorHandler = (err, _instance, info) => {
+  const errorObj = err instanceof Error ? err : new Error(String(err))
+  console.error('[VueError]', errorObj)
+  window.electronAPI?.system?.reportRendererError?.({
+    message: errorObj.message,
+    stack: errorObj.stack,
+    component: typeof info === 'string' ? info : undefined
+  })
+}
+
+window.addEventListener('error', (event) => {
+  window.electronAPI?.system?.reportRendererError?.({
+    message: event.message || 'Unknown window error',
+    stack: event.error instanceof Error ? event.error.stack : undefined
+  })
+})
+
 app.use(vuetify)
 app.use(router)
 app.use(i18n)

@@ -24,7 +24,22 @@
       "noVideo": "Không tải xuống video",
       "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng",
       "waitForDownloadsHelpOn": "Khi tạm dừng, các beatmap đang tải sẽ hoàn tất rồi mới dừng hẳn.",
-      "waitForDownloadsHelpOff": "Khi tạm dừng, các beatmap đang tải có thể bị dừng ngay."
+      "waitForDownloadsHelpOff": "Khi tạm dừng, các beatmap đang tải có thể bị dừng ngay.",
+      "beatconnectTokenHelp": "Nhập API token Patreon của BeatConnect để mở khóa tải không giới hạn với tốc độ cao. Để trống để dùng chế độ mặc định có giới hạn lượt tải.",
+      "beatconnectTokenSubtitle": "Kết nối Patreon API token để tải không giới hạn và tự động đồng bộ beatmap ưu tiên.",
+      "beatconnectTokenPlaceholder": "Dán API token BeatConnect tại đây...",
+      "beatconnectTokenSave": "Lưu",
+      "beatconnectTokenCancel": "Hủy",
+      "beatconnectTokenSaved": "Đã cấu hình & mã hóa token",
+      "beatconnectTokenActiveHint": "Quyền Patreon VIP đang hoạt động • Tối đa 5 luồng",
+      "beatconnectTokenChange": "Đổi",
+      "beatconnectTokenClear": "Xóa",
+      "beatconnectPatreonLink": "Lấy Token trên Patreon",
+      "mirrorsNetwork": "Trạng thái mạng lưới Mirror",
+      "mirrorsNetworkHelp": "Trạng thái trực tiếp của các máy chủ mirror beatmap. Ứng dụng tự động chia tải qua các mirror đang hoạt động để tránh bị chặn.",
+      "mirrorsNetworkSubtitle": "Tự động chuyển tiếp đa nguồn với trần luồng an toàn cho từng mirror.",
+      "mirrorsRefresh": "Làm mới trạng thái mirror",
+      "mirrorWarpBlocked": "Bị chặn bởi Cloudflare WARP"
     },
     "database": {
       "title": "Cơ sở dữ liệu Beatmap",
@@ -53,6 +68,20 @@
       "cancel": "Hủy",
       "success": "Đã khôi phục cài đặt. Ứng dụng sẽ tải lại.",
       "failed": "Không thể khôi phục cài đặt."
+    },
+    "diagnostic": {
+      "title": "Chẩn đoán & Nhật ký",
+      "description": "Trích xuất thông tin cấu hình và lỗi gần nhất để hỗ trợ xử lý sự cố.",
+      "copyInfo": "Sao chép chẩn đoán",
+      "copied": "Đã sao chép!",
+      "openLogFolder": "Mở thư mục Log",
+      "copySuccess": "Đã sao chép thông tin chẩn đoán vào bộ nhớ tạm.",
+      "copyFailed": "Không thể sao chép thông tin."
+    },
+    "about": {
+      "title": "Thông tin",
+      "description": "Công cụ sao lưu và đồng bộ bộ sưu tập beatmap cho osu!stable và osu!lazer.",
+      "installationType": "Bản phân phối"
     }
   },
   "backup": {
@@ -150,12 +179,29 @@
         "action": "Đi đến Tải xuống"
       },
       "queueOverview": "Hàng đợi Tải xuống",
+      "running": "Đang tải xuống",
+      "paused": "Đang tạm dừng",
+      "queuePaused": "Hàng đợi đang tạm dừng",
       "progress": "Tiến độ Tổng thể",
       "files": "tệp",
       "activeDownloads": "Đang tải",
       "completedDownloads": "Đã tải xong",
+      "failedDownloads": "Tải thất bại",
       "noActiveDownloads": "Hiện không có tệp nào đang tải",
       "noCompletedDownloads": "Chưa có tệp nào tải xong",
+      "noFailedDownloads": "Không có tệp nào bị lỗi",
+      "retryFailed": "Thử lại bài lỗi",
+      "retryStarted": "Đang thử tải lại {count} bài lỗi...",
+      "exportFailed": "Xuất file .bbak bài lỗi",
+      "exportSuccess": "Đã xuất {count} bài lỗi ra file .bbak",
+      "closeManager": "Đóng quản lý tải",
+      "failedReasons": {
+        "notFound": "Không tìm thấy trên mirror (404)",
+        "rateLimit": "Mirror quá tải (Rate limit)",
+        "timeout": "Quá thời gian chờ (Timeout)",
+        "network": "Lỗi kết nối mạng",
+        "unknown": "Lỗi không xác định"
+      },
       "pause": "Tạm dừng",
       "resume": "Tiếp tục",
       "stop": "Dừng Tải xuống",
@@ -164,9 +210,14 @@
       "table": {
         "status": "Trạng thái",
         "filename": "Tên tệp",
+        "id": "ID",
+        "beatmapName": "Tên beatmap",
+        "reason": "Lý do lỗi",
         "speed": "Tốc độ",
         "progress": "Tiến độ",
-        "remaining": "Còn lại"
+        "remaining": "Còn lại",
+        "actions": "Thao tác",
+        "openFolder": "Mở thư mục lưu tệp"
       },
       "status": {
         "waiting": "Đang chờ",
@@ -310,6 +361,51 @@
     "syncError": {
       "message": "Đồng bộ cơ sở dữ liệu thất bại: {error}",
       "viewSettings": "Xem Thiết lập"
+    }
+  },
+  "updater": {
+    "title": "Kiểm tra cập nhật",
+    "checkUpdate": "Kiểm tra cập nhật",
+    "currentVersion": "Phiên bản hiện tại: v{version}",
+    "checking": "Đang kiểm tra bản cập nhật...",
+    "checkingHint": "Đang kết nối tới GitHub Releases để kiểm tra phiên bản mới.",
+    "upToDate": "Đã là phiên bản mới nhất!",
+    "upToDateHint": "Beatmap Backup v{version} hiện là phiên bản mới nhất.",
+    "newVersionAvailable": "Đã có bản cập nhật mới",
+    "portableNotice": "Bạn đang sử dụng bản Portable. Vui lòng mở trang GitHub Releases để tải file zip mới và thay thế thư mục hiện tại.",
+    "linuxNotice": "Nhấn bên dưới để tải trực tiếp file AppImage mới nhất về thư mục Downloads.",
+    "changelog": "Có gì mới:",
+    "downloading": "Đang tải bản cập nhật...",
+    "readyToInstall": "Đã tải xong bản cập nhật. Khởi động lại ứng dụng để áp dụng.",
+    "linuxDownloaded": "Đã tải xong file AppImage vào thư mục Downloads của bạn.",
+    "errorTitle": "Kiểm tra cập nhật thất bại",
+    "defaultError": "Không thể kiểm tra cập nhật. Vui lòng kiểm tra lại kết nối mạng.",
+    "viewOnGitHub": "Xem trên GitHub",
+    "later": "Để sau",
+    "cancel": "Hủy",
+    "retry": "Thử lại",
+    "downloadAndInstall": "Cập nhật ngay",
+    "goToRelease": "Đến trang tải về",
+    "downloadAppImage": "Tải AppImage",
+    "restartAndInstall": "Khởi động lại & Cài đặt",
+    "toastUpdateAvailable": "Đã có bản cập nhật Beatmap Backup v{version} mới!",
+    "view": "Xem",
+    "checkingShort": "Đang kiểm tra...",
+    "upToDateShort": "Đã cập nhật",
+    "downloadNow": "Cập nhật ngay",
+    "relaunchInstall": "Khởi động lại & Cài",
+    "downloadedShort": "Đã lưu vào Downloads",
+    "errorRetry": "Kiểm tra thất bại · Thử lại",
+    "downloadErrorRetry": "Tải thất bại · Thử lại",
+    "installConflictTitle": "Đang có tiến trình tải xuống",
+    "installConflictMsg": "Còn {count} beatmap đang được tải xuống.",
+    "installConflictDetail": "Tiến trình sẽ được lưu lại và bạn có thể tiếp tục tải khi mở lại ứng dụng.",
+    "installConflictConfirm": "Khởi động lại & Cài đặt",
+    "dist": {
+      "winInstaller": "Bản cài đặt",
+      "winPortable": "Bản Portable",
+      "linuxAppImage": "Linux AppImage",
+      "linux": "Linux"
     }
   }
 }

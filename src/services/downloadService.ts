@@ -1,5 +1,11 @@
 import { EventEmitter } from 'events'
-import { BeatmapMirror, DefaultBeatmapMirrors } from '../config/beatmapMirrors'
+import {
+  BeatmapMirror,
+  DefaultBeatmapMirrors,
+  BEATCONNECT_MIRROR_NAME,
+  getBeatconnectRuntimeToken,
+  setBeatconnectRuntimeToken
+} from '../config/beatmapMirrors'
 import { DownloadTask, DownloadOptions, DownloadEvent } from './download/types'
 import {
   getDefaultDownloadPath,
@@ -19,12 +25,37 @@ import {
 import {
   getMaxCheckpointFileSizeMB,
   getQueueCheckpointIntervalMs,
-  getWaitForDownloadsOnPause
+  getWaitForDownloadsOnPause,
+  getBeatconnectApiToken
 } from './settingsStore'
 import { is } from '../utils/env'
+import { logger } from './logger'
 
 export type { DownloadTask, DownloadOptions }
 export { DownloadEvent }
+
+export const MINO_MIRROR_NAME = 'catboy.best'
+export const MINO_MAX_CONCURRENCY = 2
+export const MINO_MIN_DISPATCH_INTERVAL_MS = 600
+export const MINO_MAX_DISPATCHES_PER_MINUTE = 60
+
+export const BEATCONNECT_MIN_DISPATCH_INTERVAL_MS = 150
+export const BEATCONNECT_UNAUTH_MIN_DISPATCH_INTERVAL_MS = 800
+export const BEATCONNECT_AUTH_MAX_CONCURRENCY = 5
+export const BEATCONNECT_UNAUTH_MAX_CONCURRENCY = 2
+export const DEFAULT_MIRROR_MAX_CONCURRENCY = 3
+
+export function getMirrorMaxConcurrencyCap(mirrorName: string): number {
+  if (mirrorName === MINO_MIRROR_NAME) {
+    return MINO_MAX_CONCURRENCY
+  }
+  if (mirrorName === BEATCONNECT_MIRROR_NAME) {
+    return getBeatconnectRuntimeToken()
+      ? BEATCONNECT_AUTH_MAX_CONCURRENCY
+      : BEATCONNECT_UNAUTH_MAX_CONCURRENCY
+  }
+  return DEFAULT_MIRROR_MAX_CONCURRENCY
+}
 
 type MirrorRuntimeState = {
   mirror: BeatmapMirror
@@ -34,9 +65,17 @@ type MirrorRuntimeState = {
   rateLimitCount: number
   consecutiveFailures: number
   consecutiveSuccesses: number
+  lastDispatchAt: number
+  dispatchHistory: number[]
 }
 
-type FailureKind = 'rate-limit' | 'not-found' | 'transient' | 'permanent' | 'cancelled'
+type FailureKind =
+  | 'rate-limit'
+  | 'not-found'
+  | 'transient'
+  | 'permanent'
+  | 'cancelled'
+  | 'auth-invalid'
 
 const BASE_RETRY_DELAY_MS = 1000
 const MAX_RETRY_DELAY_MS = 30000
@@ -290,11 +329,13 @@ class DownloadService extends EventEmitter {
         (!snapshot.options.noVideo || mirror.supportsNoVideo !== false) &&
         healthyMirrorNames.has(mirror.name)
     )
-    console.log(
-      `[DownloadDebug] restorePersistedQueue healthy=[${[...healthyMirrorNames].join(', ')}]` +
-        ` available=[${this.currentMirrors.map((m) => m.name).join(', ')}]` +
-        ` snapshotTasks=${snapshot.tasks.length}`
-    )
+    if (is.dev) {
+      console.log(
+        `[DownloadDebug] restorePersistedQueue healthy=[${[...healthyMirrorNames].join(', ')}]` +
+          ` available=[${this.currentMirrors.map((m) => m.name).join(', ')}]` +
+          ` snapshotTasks=${snapshot.tasks.length}`
+      )
+    }
     if (this.currentMirrors.length === 0) {
       throw new Error('No healthy mirrors available to resume queue')
     }
@@ -322,6 +363,7 @@ class DownloadService extends EventEmitter {
   public async startDownload(filePath: string, options: DownloadOptions): Promise<void> {
     try {
       this.clearQueue(false)
+      setBeatconnectRuntimeToken(getBeatconnectApiToken())
       this.mirrorUsageLogQueueId = null
       this.queueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       this.queueStartTime = Date.now()
@@ -432,14 +474,19 @@ class DownloadService extends EventEmitter {
 
     for (const mirror of mirrors) {
       const persisted = persistedStates.get(mirror.name)
+      const cap = getMirrorMaxConcurrencyCap(mirror.name)
+      const effectiveMaxConcurrency = Math.min(perMirrorConcurrency, cap)
+
       this.mirrorStates.set(mirror.name, {
         mirror,
         activeDownloads: 0,
-        maxConcurrency: perMirrorConcurrency,
+        maxConcurrency: effectiveMaxConcurrency,
         cooldownUntil: persisted?.cooldownUntil ?? 0,
         rateLimitCount: persisted?.rateLimitCount ?? 0,
         consecutiveFailures: persisted?.consecutiveFailures ?? 0,
-        consecutiveSuccesses: persisted?.consecutiveSuccesses ?? 0
+        consecutiveSuccesses: persisted?.consecutiveSuccesses ?? 0,
+        lastDispatchAt: 0,
+        dispatchHistory: []
       })
     }
   }
@@ -522,19 +569,23 @@ class DownloadService extends EventEmitter {
       )
       for (const state of this.mirrorStates.values()) {
         if (nextNames.has(state.mirror.name)) {
-          state.maxConcurrency = perMirrorConcurrency
+          const cap = getMirrorMaxConcurrencyCap(state.mirror.name)
+          state.maxConcurrency = Math.min(perMirrorConcurrency, cap)
         }
       }
       for (const mirror of availableMirrors) {
         if (!this.mirrorStates.has(mirror.name)) {
+          const cap = getMirrorMaxConcurrencyCap(mirror.name)
           this.mirrorStates.set(mirror.name, {
             mirror,
             activeDownloads: 0,
-            maxConcurrency: perMirrorConcurrency,
+            maxConcurrency: Math.min(perMirrorConcurrency, cap),
             cooldownUntil: 0,
             rateLimitCount: 0,
             consecutiveFailures: 0,
-            consecutiveSuccesses: 0
+            consecutiveSuccesses: 0,
+            lastDispatchAt: 0,
+            dispatchHistory: []
           })
         }
       }
@@ -575,12 +626,33 @@ class DownloadService extends EventEmitter {
   private pickAvailableMirror(task: DownloadTask, now: number): MirrorRuntimeState | null {
     const tried = new Set(task.triedMirrors ?? [])
     const currentMirrorNames = new Set(this.currentMirrors.map((mirror) => mirror.name))
-    const available = Array.from(this.mirrorStates.values()).filter(
-      (state) =>
-        currentMirrorNames.has(state.mirror.name) &&
-        state.cooldownUntil <= now &&
-        state.activeDownloads < state.maxConcurrency
-    )
+    const available = Array.from(this.mirrorStates.values()).filter((state) => {
+      if (!currentMirrorNames.has(state.mirror.name)) return false
+      if (state.cooldownUntil > now) return false
+      if (state.activeDownloads >= state.maxConcurrency) return false
+
+      if (state.mirror.name === MINO_MIRROR_NAME) {
+        if (now - (state.lastDispatchAt ?? 0) < MINO_MIN_DISPATCH_INTERVAL_MS) {
+          return false
+        }
+        const recentDispatches = (state.dispatchHistory ?? []).filter((t) => now - t < 60000)
+        state.dispatchHistory = recentDispatches
+        if (recentDispatches.length >= MINO_MAX_DISPATCHES_PER_MINUTE) {
+          return false
+        }
+      }
+
+      if (state.mirror.name === BEATCONNECT_MIRROR_NAME) {
+        const interval = getBeatconnectRuntimeToken()
+          ? BEATCONNECT_MIN_DISPATCH_INTERVAL_MS
+          : BEATCONNECT_UNAUTH_MIN_DISPATCH_INTERVAL_MS
+        if (now - (state.lastDispatchAt ?? 0) < interval) {
+          return false
+        }
+      }
+
+      return true
+    })
     if (available.length === 0) {
       return null
     }
@@ -612,6 +684,23 @@ class DownloadService extends EventEmitter {
     this.touchTask(task)
     mirrorState.activeDownloads++
     this.activeDownloads++
+
+    const now = Date.now()
+    if (
+      mirrorState.mirror.name === MINO_MIRROR_NAME ||
+      mirrorState.mirror.name === BEATCONNECT_MIRROR_NAME
+    ) {
+      mirrorState.lastDispatchAt = now
+    }
+
+    if (mirrorState.mirror.name === MINO_MIRROR_NAME) {
+      if (!mirrorState.dispatchHistory) {
+        mirrorState.dispatchHistory = []
+      }
+      mirrorState.dispatchHistory.push(now)
+      mirrorState.dispatchHistory = mirrorState.dispatchHistory.filter((t) => now - t < 60000)
+    }
+
     this.emit(DownloadEvent.TASK_UPDATED, task)
     this.schedulePersistCheckpoint()
 
@@ -720,6 +809,25 @@ class DownloadService extends EventEmitter {
       )
     }
 
+    if (failureKind === 'auth-invalid') {
+      setBeatconnectRuntimeToken('')
+      logger.warn(
+        `[BeatConnect] API token invalid or expired (HTTP 401) on set=${task.beatmapsetId}. Falling back to unauthenticated.`
+      )
+      const bcState = this.mirrorStates.get(BEATCONNECT_MIRROR_NAME)
+      if (bcState) {
+        bcState.maxConcurrency = BEATCONNECT_UNAUTH_MAX_CONCURRENCY
+      }
+      task.assignedMirror = undefined
+      task.status = 'waiting'
+      task.error = undefined
+      task.nextRetryAt = undefined
+      this.touchTask(task)
+      this.emit(DownloadEvent.TASK_UPDATED, task)
+      this.schedulePersistCheckpoint()
+      return
+    }
+
     task.assignedMirror = undefined
     task.lastErrorAt = Date.now()
 
@@ -782,6 +890,9 @@ class DownloadService extends EventEmitter {
       return 'cancelled'
     }
     if (error instanceof DownloadHttpError) {
+      if (error.statusCode === 401) {
+        return 'auth-invalid'
+      }
       if (error.statusCode === 429) {
         return 'rate-limit'
       }
@@ -801,6 +912,9 @@ class DownloadService extends EventEmitter {
       return 'transient'
     }
     const message = error instanceof Error ? error.message : String(error)
+    if (/401|unauthorized/i.test(message)) {
+      return 'auth-invalid'
+    }
     if (/429|rate.?limit|too many requests/i.test(message)) {
       return 'rate-limit'
     }
@@ -869,6 +983,9 @@ class DownloadService extends EventEmitter {
     task.nextRetryAt = undefined
     task.assignedMirror = undefined
     this.touchTask(task)
+    logger.warn(
+      `[DownloadError] BeatmapSet ${task.beatmapsetId} failed on mirror ${task.lastUsedMirror || 'unknown'}: ${errorMessage}`
+    )
     this.emit(DownloadEvent.TASK_ERROR, task)
     this.schedulePersistCheckpoint()
   }
@@ -898,6 +1015,36 @@ class DownloadService extends EventEmitter {
     for (const state of this.mirrorStates.values()) {
       if (state.cooldownUntil > now) {
         next = next === null ? state.cooldownUntil : Math.min(next, state.cooldownUntil)
+      }
+      if (state.mirror.name === MINO_MIRROR_NAME && state.activeDownloads < state.maxConcurrency) {
+        if (state.lastDispatchAt > 0) {
+          const intervalReady = state.lastDispatchAt + MINO_MIN_DISPATCH_INTERVAL_MS
+          if (intervalReady > now) {
+            next = next === null ? intervalReady : Math.min(next, intervalReady)
+          }
+        }
+        const recentDispatches = (state.dispatchHistory ?? []).filter((t) => now - t < 60000)
+        state.dispatchHistory = recentDispatches
+        if (recentDispatches.length >= MINO_MAX_DISPATCHES_PER_MINUTE && recentDispatches[0]) {
+          const rateLimitReady = recentDispatches[0] + 60000
+          if (rateLimitReady > now) {
+            next = next === null ? rateLimitReady : Math.min(next, rateLimitReady)
+          }
+        }
+      }
+      if (
+        state.mirror.name === BEATCONNECT_MIRROR_NAME &&
+        state.activeDownloads < state.maxConcurrency
+      ) {
+        if (state.lastDispatchAt > 0) {
+          const interval = getBeatconnectRuntimeToken()
+            ? BEATCONNECT_MIN_DISPATCH_INTERVAL_MS
+            : BEATCONNECT_UNAUTH_MIN_DISPATCH_INTERVAL_MS
+          const intervalReady = state.lastDispatchAt + interval
+          if (intervalReady > now) {
+            next = next === null ? intervalReady : Math.min(next, intervalReady)
+          }
+        }
       }
     }
     return next === null ? null : Math.max(1, next - now)
@@ -985,7 +1132,47 @@ class DownloadService extends EventEmitter {
     })
 
     void this.discardRecoveryState()
-    setTimeout(() => this.clearQueue(), 2000)
+    // Auto-clear queue only if all downloads succeeded.
+    // If any tasks failed, keep queue in memory so user can inspect or retry.
+    if (failed === 0) {
+      setTimeout(() => this.clearQueue(), 3000)
+    }
+  }
+
+  public retryFailedTasks(): number {
+    const failedTasks = Array.from(this.tasks.values()).filter((t) => t.status === 'error')
+    if (failedTasks.length === 0) return 0
+
+    this.isPaused = false
+    for (const task of failedTasks) {
+      task.status = 'waiting'
+      task.progress = 0
+      task.speed = 0
+      task.remainingTime = 0
+      task.error = undefined
+      task.nextRetryAt = 0
+      task.attemptCount = 0
+      task.mirrorAttemptCount = 0
+      this.touchTask(task)
+      this.emit(DownloadEvent.TASK_UPDATED, { ...task })
+    }
+
+    this.schedulePersistCheckpoint()
+    this.scheduleDownloads()
+    return failedTasks.length
+  }
+
+  public getFailedTaskBeatmapsetIds(): number[] {
+    const ids: number[] = []
+    for (const task of this.tasks.values()) {
+      if (task.status === 'error') {
+        const id = parseInt(task.beatmapsetId, 10)
+        if (!isNaN(id) && id > 0) {
+          ids.push(id)
+        }
+      }
+    }
+    return ids
   }
 
   public async pauseQueue(): Promise<void> {

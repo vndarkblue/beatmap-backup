@@ -7,278 +7,71 @@
       </div>
 
       <!-- Download Form - shown when not downloading -->
-      <AppForm v-else-if="!showDownloadManager">
-        <!-- File Selection -->
-        <PathField
-          :model-value="selectedFileName"
-          mode="file"
-          :label="$t('download.selectFile')"
-          :rules="[(v) => !!v || $t('download.fileRequired')]"
-          :lang="currentLocale"
-          @browse="handleFileSelect"
-        />
-
-        <!-- Download Path -->
-        <PathField
-          v-model="downloadPath"
-          mode="directory"
-          :label="$t('download.path')"
-          clearable
-          @clear="clearDownloadPath"
-          @browse="selectDownloadPath"
-        />
-
-        <!-- Download Button -->
-        <v-btn
-          color="primary"
-          block
-          class="view-field"
-          :lang="currentLocale"
-          :disabled="!isDownloadEnabled"
-          :loading="isDownloading"
-          @click="handleDownload"
-        >
-          {{ $t('download.button') }}
-        </v-btn>
-        <v-progress-linear
-          v-if="isDownloading"
-          indeterminate
-          color="primary"
-          class="mt-3"
-        ></v-progress-linear>
-
-        <!-- Status Message -->
-        <div
-          v-if="statusMessage"
-          class="text-center mt-2"
-          :class="{ 'text-success': isSuccess, 'text-error': !isSuccess }"
-        >
-          {{ statusMessage }}
-        </div>
-      </AppForm>
+      <DownloadSetupCard
+        v-else-if="!showDownloadManager"
+        v-model:model-value-download-path="downloadPath"
+        :selected-file-name="selectedFileName"
+        :is-download-enabled="isDownloadEnabled"
+        :is-downloading="isDownloading"
+        :status-message="statusMessage"
+        :is-success="isSuccess"
+        :current-locale="currentLocale"
+        @select-file="handleFileSelect"
+        @clear-download-path="clearDownloadPath"
+        @select-download-path="selectDownloadPath"
+        @start-download="handleDownload"
+      />
 
       <!-- Download Manager - shown when downloading -->
       <div v-else>
-        <!-- Queue Overview -->
-        <div class="d-flex align-center justify-space-between mb-4">
-          <div class="text-h6">{{ $t('download.manager.queueOverview') }}</div>
-          <div class="d-flex">
-            <v-btn
-              :icon="isPaused ? '$play' : '$pause'"
-              variant="text"
-              :title="isPaused ? $t('download.manager.resume') : $t('download.manager.pause')"
-              :lang="currentLocale"
-              :disabled="confirmingStop"
-              @click="togglePause"
-            ></v-btn>
-            <template v-if="confirmingStop">
-              <v-btn
-                icon="$check"
-                variant="text"
-                color="error"
-                :title="$t('download.manager.stopConfirmYes')"
-                :lang="currentLocale"
-                @click="confirmStopDownload"
-              ></v-btn>
-              <v-btn
-                icon="$close"
-                variant="text"
-                :title="$t('download.manager.stopConfirmNo')"
-                :lang="currentLocale"
-                @click="cancelStopDownload"
-              ></v-btn>
-            </template>
-            <v-btn
-              v-else
-              icon="$stop"
-              variant="text"
-              :title="$t('download.manager.stop')"
-              :lang="currentLocale"
-              @click="requestStopDownload"
-            ></v-btn>
-          </div>
-        </div>
+        <DownloadQueueOverview
+          :is-paused="isPaused"
+          :confirming-stop="confirmingStop"
+          :completed-files="completedFiles"
+          :total-files="totalFiles"
+          :queue-progress="queueProgress"
+          :current-locale="currentLocale"
+          :can-dismiss="
+            isQueueInactive && (failedDownloadFiles.length > 0 || completedDownloadFiles.length > 0)
+          "
+          @toggle-pause="togglePause"
+          @request-stop="requestStopDownload"
+          @confirm-stop="confirmStopDownload"
+          @cancel-stop="cancelStopDownload"
+          @dismiss-queue="handleDismissQueue"
+        />
 
-        <!-- Progress Bar -->
-        <div class="mb-4">
-          <div class="d-flex justify-space-between mb-2">
-            <div>{{ $t('download.manager.progress') }}</div>
-            <div>{{ completedFiles }}/{{ totalFiles }} {{ $t('download.manager.files') }}</div>
-          </div>
-          <v-progress-linear
-            :model-value="queueProgress"
-            color="primary"
-            height="8"
-            rounded
-          ></v-progress-linear>
-        </div>
-
-        <!-- Downloading Files Table -->
-        <div class="text-subtitle-1 mb-2">{{ $t('download.manager.activeDownloads') }}</div>
-        <v-table class="active-downloads-table">
-          <thead>
-            <tr>
-              <th class="active-col-status">{{ $t('download.manager.table.status') }}</th>
-              <th class="active-col-filename">{{ $t('download.manager.table.filename') }}</th>
-              <th class="active-col-speed">{{ $t('download.manager.table.speed') }}</th>
-              <th class="active-col-progress">{{ $t('download.manager.table.progress') }}</th>
-              <th class="active-col-remaining">{{ $t('download.manager.table.remaining') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="file in visibleDownloadingFiles" :key="file.id">
-              <td class="active-col-status">
-                <v-tooltip :text="getStatusText(file.status)" location="top">
-                  <template #activator="{ props }">
-                    <v-icon
-                      v-bind="props"
-                      :color="getStatusColor(file.status)"
-                      :icon="getStatusIcon(file.status)"
-                    ></v-icon>
-                  </template>
-                </v-tooltip>
-              </td>
-              <td class="active-col-filename">{{ getDownloadFileName(file) }}</td>
-              <td class="active-col-speed">{{ formatSpeed(file.speed) }}</td>
-              <td class="active-col-progress">
-                <v-progress-linear
-                  :model-value="file.progress"
-                  color="primary"
-                  height="4"
-                  rounded
-                ></v-progress-linear>
-              </td>
-              <td class="active-col-remaining">{{ formatTime(file.remainingTime) }}</td>
-            </tr>
-            <tr v-if="visibleDownloadingFiles.length === 0">
-              <td colspan="5" class="text-center text-medium-emphasis py-4">
-                {{ $t('download.manager.noActiveDownloads') }}
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-
-        <!-- Completed Files Drawer -->
-        <div class="completed-downloads-drawer mt-4">
-          <button
-            class="completed-downloads-toggle"
-            type="button"
-            :aria-expanded="showCompletedDownloads"
-            @click="showCompletedDownloads = !showCompletedDownloads"
-          >
-            <span class="d-flex align-center ga-2">
-              <v-icon icon="$checkCircle" color="success" size="20" />
-              <span>{{ $t('download.manager.completedDownloads') }}</span>
-              <span class="text-medium-emphasis">({{ completedDownloadFiles.length }})</span>
-            </span>
-            <v-icon :icon="showCompletedDownloads ? '$chevronUp' : '$chevronDown'" />
-          </button>
-          <v-expand-transition>
-            <div v-show="showCompletedDownloads" class="completed-downloads-content">
-              <div v-if="completedDownloadFiles.length > 0" class="completed-table-wrapper">
-                <div class="completed-table-header">
-                  <span class="col-status">{{ $t('download.manager.table.status') }}</span>
-                  <span class="col-filename">{{ $t('download.manager.table.filename') }}</span>
-                  <span class="col-progress">{{ $t('download.manager.table.progress') }}</span>
-                </div>
-                <v-virtual-scroll
-                  :items="completedDownloadFiles"
-                  item-key="id"
-                  :item-height="48"
-                  max-height="360"
-                  class="completed-virtual-scroll"
-                >
-                  <template #default="{ item }">
-                    <div class="completed-row">
-                      <div class="col-status">
-                        <v-tooltip :text="getStatusText(item.status)" location="top">
-                          <template #activator="{ props }">
-                            <v-icon
-                              v-bind="props"
-                              :color="getStatusColor(item.status)"
-                              :icon="getStatusIcon(item.status)"
-                            ></v-icon>
-                          </template>
-                        </v-tooltip>
-                      </div>
-                      <div class="col-filename text-truncate" :title="getDownloadFileName(item)">
-                        {{ getDownloadFileName(item) }}
-                      </div>
-                      <div class="col-progress">
-                        <v-progress-linear
-                          :model-value="item.progress"
-                          color="success"
-                          height="4"
-                          rounded
-                        ></v-progress-linear>
-                      </div>
-                    </div>
-                  </template>
-                </v-virtual-scroll>
-              </div>
-              <div v-else class="text-center text-medium-emphasis py-4">
-                {{ $t('download.manager.noCompletedDownloads') }}
-              </div>
-            </div>
-          </v-expand-transition>
-        </div>
+        <DownloadActiveTable
+          v-model:model-value-show-completed="showCompletedDownloads"
+          v-model:model-value-show-failed="showFailedDownloads"
+          :visible-downloading-files="visibleDownloadingFiles"
+          :completed-download-files="completedDownloadFiles"
+          :failed-download-files="failedDownloadFiles"
+          :is-paused="isPaused"
+          :is-retrying="isRetryingFailed"
+          :is-exporting-failed="isExportingFailed"
+          :get-status-text="getStatusText"
+          :get-status-color="getStatusColor"
+          :get-status-icon="getStatusIcon"
+          :get-download-file-name="getDownloadFileName"
+          :format-speed="formatSpeed"
+          :format-time="formatTime"
+          @retry-failed="handleRetryFailed"
+          @export-failed-backup="handleExportFailedBackup"
+        />
       </div>
     </AppIsland>
 
     <!-- Recovery Download Queue Dialog -->
-    <v-dialog v-model="showRecoveryDialog" max-width="520" persistent>
-      <v-card class="recovery-dialog">
-        <v-card-title class="d-flex align-center ga-2">
-          <v-icon icon="$restoreAlert" color="primary" />
-          <span>{{ $t('download.recovery.title') }}</span>
-        </v-card-title>
-        <v-card-text>
-          <div class="mb-2">
-            {{
-              $t('download.recovery.description', {
-                total: recoveryState?.taskCount ?? 0
-              })
-            }}
-          </div>
-          <div class="text-medium-emphasis mb-3">{{ $t('download.recovery.hint') }}</div>
-          <div class="text-medium-emphasis">
-            {{
-              $t('download.recovery.stats', {
-                waiting: recoveryState?.waitingCount ?? 0,
-                downloading: recoveryState?.downloadingCount ?? 0
-              })
-            }}
-          </div>
-          <div v-if="showDiscardConfirm" class="recovery-warning mt-4">
-            <v-icon icon="$alert" size="18" />
-            {{ $t('download.recovery.discardConfirm') }}
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            :color="showDiscardConfirm ? 'error' : undefined"
-            variant="text"
-            :disabled="recoveryActionLoading"
-            @click="handleDiscardRecovery"
-          >
-            {{
-              showDiscardConfirm
-                ? $t('download.recovery.discardConfirmButton')
-                : $t('download.recovery.discard')
-            }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :loading="recoveryActionLoading"
-            @click="handleResumeRecovery"
-          >
-            {{ $t('download.recovery.resume') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <DownloadRecoveryDialog
+      v-model="showRecoveryDialog"
+      :recovery-state="recoveryState"
+      :show-discard-confirm="showDiscardConfirm"
+      :recovery-action-loading="recoveryActionLoading"
+      :current-locale="currentLocale"
+      @discard="handleDiscardRecovery"
+      @resume="handleResumeRecovery"
+    />
 
     <!-- Completion Toast -->
     <v-snackbar
@@ -315,8 +108,10 @@ import { FRONTEND_TIMINGS_MS } from '../../../config/frontendConstants'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
 import AppViewShell from './common/AppViewShell.vue'
 import AppIsland from './common/AppIsland.vue'
-import AppForm from './common/AppForm.vue'
-import PathField from './common/PathField.vue'
+import DownloadSetupCard from './download/DownloadSetupCard.vue'
+import DownloadQueueOverview from './download/DownloadQueueOverview.vue'
+import DownloadActiveTable from './download/DownloadActiveTable.vue'
+import DownloadRecoveryDialog from './download/DownloadRecoveryDialog.vue'
 import type { DownloadTask, RecoveryState } from '../../../preload/electronApiTypes'
 
 const { locale, t } = useI18n()
@@ -367,6 +162,9 @@ const showCompletedToast = ref(false)
 const completedSummary = ref<QueueSummary | null>(null)
 const completedDownloadPath = ref('')
 const showCompletedDownloads = ref(false)
+const showFailedDownloads = ref(true)
+const isRetryingFailed = ref(false)
+const isExportingFailed = ref(false)
 const showRecoveryDialog = ref(false)
 const showDiscardConfirm = ref(false)
 const recoveryActionLoading = ref(false)
@@ -426,6 +224,18 @@ const downloadingFiles = computed(() =>
 const completedDownloadFiles = computed(() =>
   downloadFiles.value.filter((task) => task.status === 'completed')
 )
+
+const failedDownloadFiles = computed(() =>
+  downloadFiles.value.filter((task) => task.status === 'error')
+)
+
+const isQueueInactive = computed(() => {
+  return (
+    showDownloadManager.value &&
+    downloadingFiles.value.length === 0 &&
+    downloadFiles.value.filter((t) => t.status === 'waiting').length === 0
+  )
+})
 
 const visibleDownloadingFiles = computed(() =>
   downloadingFiles.value.slice(0, MAX_RENDERED_DOWNLOAD_ROWS)
@@ -809,6 +619,44 @@ const openFolder = async (): Promise<void> => {
   }
 }
 
+const handleRetryFailed = async (): Promise<void> => {
+  try {
+    isRetryingFailed.value = true
+    const result = await window.electronAPI.download.retryFailed()
+    if (result?.success && result.count > 0) {
+      statusMessage.value = t('download.manager.retryStarted', { count: result.count })
+      isSuccess.value = true
+    }
+  } catch (error) {
+    console.error('Failed to retry failed tasks:', error)
+  } finally {
+    isRetryingFailed.value = false
+  }
+}
+
+const handleExportFailedBackup = async (): Promise<void> => {
+  try {
+    isExportingFailed.value = true
+    const result = await window.electronAPI.download.exportFailedBackup()
+    if (result?.success && result.filePath) {
+      statusMessage.value = t('download.manager.exportSuccess', { count: result.count })
+      isSuccess.value = true
+    }
+  } catch (error) {
+    console.error('Failed to export failed backup:', error)
+  } finally {
+    isExportingFailed.value = false
+  }
+}
+
+const handleDismissQueue = async (): Promise<void> => {
+  try {
+    await window.electronAPI.download.clearQueue()
+  } catch (error) {
+    console.error('Failed to clear queue:', error)
+  }
+}
+
 // Event Dispatcher setup
 const connectDownloadEvents = async (): Promise<void> => {
   if (unsubscribeDownloadEvents) {
@@ -880,6 +728,15 @@ const connectDownloadEvents = async (): Promise<void> => {
       completedSummary.value = data
       completedDownloadPath.value = typeof data?.downloadPath === 'string' ? data.downloadPath : ''
       showCompletedToast.value = true
+      if (data.failed > 0) {
+        showFailedDownloads.value = true
+        isSuccess.value = false
+        statusMessage.value = t('download.finishedWithErrors', {
+          success: data.success,
+          total: data.total,
+          failed: data.failed
+        })
+      }
     }
   })
 }
@@ -899,150 +756,10 @@ const disconnectDownloadEvents = (): void => {
   user-select: none;
 }
 
-.recovery-dialog {
-  border: 1px solid rgba(127, 127, 127, 0.25);
-  border-radius: 16px !important;
-  padding: 8px 10px 6px;
-}
-
-.recovery-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgb(var(--v-theme-error));
-  font-size: 0.95rem;
-}
-
-.completed-downloads-drawer {
-  border-top: 1px solid rgba(127, 127, 127, 0.2);
-}
-
-.completed-downloads-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 12px 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.text-subtitle-1 {
-  font-family: var(--font-default) !important;
-}
-
-.completed-downloads-content {
-  padding-bottom: 4px;
-}
-
-.active-downloads-table :deep(.active-col-status),
-.active-downloads-table :deep(.active-col-speed),
-.active-downloads-table :deep(.active-col-progress),
-.active-downloads-table :deep(.active-col-remaining) {
-  white-space: nowrap;
-}
-
-.active-downloads-table :deep(.active-col-filename) {
-  white-space: normal;
-  word-break: break-word;
-}
-
 .download-loading-state {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 220px;
-}
-
-.completed-table-wrapper {
-  border: 1px solid rgba(127, 127, 127, 0.15);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.completed-table-header {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 140px;
-  align-items: center;
-  height: 48px;
-  min-height: 48px;
-  padding: 0 16px;
-  box-sizing: border-box;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity, 0.7));
-  border-bottom: 1px solid rgba(127, 127, 127, 0.15);
-  background-color: rgba(var(--v-theme-on-surface), 0.02);
-}
-
-.completed-row {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 140px;
-  align-items: center;
-  height: 48px;
-  min-height: 48px;
-  padding: 0 16px;
-  box-sizing: border-box;
-  font-size: 0.875rem;
-  border-bottom: 1px solid rgba(127, 127, 127, 0.08);
-  transition: background-color 0.15s ease;
-}
-
-.completed-row:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.04);
-}
-
-.completed-table-header .col-status,
-.completed-row .col-status {
-  display: flex;
-  align-items: center;
-}
-
-.completed-table-header .col-filename,
-.completed-row .col-filename {
-  padding-right: 16px;
-}
-
-.completed-table-header .col-progress,
-.completed-row .col-progress {
-  display: flex;
-  align-items: center;
-}
-
-/* Custom scrollbar matching app's SimpleBar style */
-.completed-virtual-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(136, 136, 136, 0.5) transparent;
-}
-
-.completed-virtual-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.completed-virtual-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.completed-virtual-scroll::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 6px;
-}
-
-.completed-table-wrapper:hover .completed-virtual-scroll::-webkit-scrollbar-thumb,
-.completed-virtual-scroll:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(136, 136, 136, 0.5);
-}
-
-.completed-virtual-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #888;
-}
-
-.completed-virtual-scroll::-webkit-scrollbar-corner {
-  background: transparent;
 }
 </style>

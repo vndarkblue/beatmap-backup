@@ -15,6 +15,11 @@ describe('DownloadService failure classification', () => {
     service as unknown as { classifyFailure: (err: unknown) => string }
   ).classifyFailure.bind(service)
 
+  it('classifies 401 as auth-invalid', () => {
+    expect(classify(new DownloadHttpError('Unauthorized', 401))).toBe('auth-invalid')
+    expect(classify(new Error('HTTP 401 Unauthorized'))).toBe('auth-invalid')
+  })
+
   it('classifies 429 as rate-limit', () => {
     expect(classify(new DownloadHttpError('Rate limit', 429))).toBe('rate-limit')
     expect(classify(new Error('HTTP 429 Too Many Requests'))).toBe('rate-limit')

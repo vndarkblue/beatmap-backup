@@ -7,7 +7,8 @@
     "src/preload/*.d.ts",
     "src/services/settingsStore.ts",
     "src/services/types",
-    "src/config/*"
+    "src/config/*",
+    "src/utils/beatmapTitle.ts"
   ],
   "compilerOptions": {
     "ignoreDeprecations": "5.0",

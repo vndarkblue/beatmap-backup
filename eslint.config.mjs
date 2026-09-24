@@ -17,6 +17,9 @@ export default tseslint.config(
         },
         extraFileExtensions: ['.vue'],
         parser: tseslint.parser
+      },
+      globals: {
+        __APP_VERSION__: 'readonly'
       }
     }
   },

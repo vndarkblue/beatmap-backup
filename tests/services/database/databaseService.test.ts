@@ -378,4 +378,150 @@ describe('DatabaseService (Integration)', () => {
     expect(dbService.getBeatmapCountBySource('stable')).toBe(0)
     expect(dbService.getBeatmapCountBySource('lazer')).toBe(1)
   })
+
+  describe('getBeatmapsetTitle', () => {
+    it('returns null when beatmapset does not exist', () => {
+      expect(dbService.getBeatmapsetTitle(999999)).toBeNull()
+    })
+
+    it('returns formatted title when artist and title are present', () => {
+      const set: NormalizedBeatmapsetRecord = {
+        id: 701,
+        artist: 'Test Artist',
+        artistUnicode: 'Test Artist JP',
+        title: 'Test Title',
+        titleUnicode: 'Test Title JP',
+        creator: 'Creator',
+        source: '',
+        tags: '',
+        status: 'ranked',
+        bpm: 120,
+        rankedDate: null,
+        submittedDate: null,
+        lastUpdated: null,
+        genreId: null,
+        languageId: null,
+        rating: null,
+        spotlight: false,
+        video: false,
+        storyboard: false,
+        isScoreable: true,
+        sourceOrigin: 'stable'
+      }
+      dbService.upsertBatch([set], [], Date.now())
+      expect(dbService.getBeatmapsetTitle(701)).toBe('Test Artist - Test Title')
+    })
+
+    it('falls back to unicode fields if ascii fields are empty', () => {
+      const set: NormalizedBeatmapsetRecord = {
+        id: 702,
+        artist: '',
+        artistUnicode: 'Unicode Artist',
+        title: '',
+        titleUnicode: 'Unicode Title',
+        creator: 'Creator',
+        source: '',
+        tags: '',
+        status: 'ranked',
+        bpm: 120,
+        rankedDate: null,
+        submittedDate: null,
+        lastUpdated: null,
+        genreId: null,
+        languageId: null,
+        rating: null,
+        spotlight: false,
+        video: false,
+        storyboard: false,
+        isScoreable: true,
+        sourceOrigin: 'stable'
+      }
+      dbService.upsertBatch([set], [], Date.now())
+      expect(dbService.getBeatmapsetTitle(702)).toBe('Unicode Artist - Unicode Title')
+    })
+
+    it('returns title only when artist is absent', () => {
+      const set: NormalizedBeatmapsetRecord = {
+        id: 703,
+        artist: '',
+        artistUnicode: '',
+        title: 'Only Title',
+        titleUnicode: '',
+        creator: 'Creator',
+        source: '',
+        tags: '',
+        status: 'ranked',
+        bpm: 120,
+        rankedDate: null,
+        submittedDate: null,
+        lastUpdated: null,
+        genreId: null,
+        languageId: null,
+        rating: null,
+        spotlight: false,
+        video: false,
+        storyboard: false,
+        isScoreable: true,
+        sourceOrigin: 'stable'
+      }
+      dbService.upsertBatch([set], [], Date.now())
+      expect(dbService.getBeatmapsetTitle(703)).toBe('Only Title')
+    })
+
+    it('returns artist only when title is absent', () => {
+      const set: NormalizedBeatmapsetRecord = {
+        id: 704,
+        artist: 'Only Artist',
+        artistUnicode: '',
+        title: '',
+        titleUnicode: '',
+        creator: 'Creator',
+        source: '',
+        tags: '',
+        status: 'ranked',
+        bpm: 120,
+        rankedDate: null,
+        submittedDate: null,
+        lastUpdated: null,
+        genreId: null,
+        languageId: null,
+        rating: null,
+        spotlight: false,
+        video: false,
+        storyboard: false,
+        isScoreable: true,
+        sourceOrigin: 'stable'
+      }
+      dbService.upsertBatch([set], [], Date.now())
+      expect(dbService.getBeatmapsetTitle(704)).toBe('Only Artist')
+    })
+
+    it('returns null when both artist and title are empty', () => {
+      const set: NormalizedBeatmapsetRecord = {
+        id: 705,
+        artist: '',
+        artistUnicode: '',
+        title: '',
+        titleUnicode: '',
+        creator: 'Creator',
+        source: '',
+        tags: '',
+        status: 'ranked',
+        bpm: 120,
+        rankedDate: null,
+        submittedDate: null,
+        lastUpdated: null,
+        genreId: null,
+        languageId: null,
+        rating: null,
+        spotlight: false,
+        video: false,
+        storyboard: false,
+        isScoreable: true,
+        sourceOrigin: 'stable'
+      }
+      dbService.upsertBatch([set], [], Date.now())
+      expect(dbService.getBeatmapsetTitle(705)).toBeNull()
+    })
+  })
 })

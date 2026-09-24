@@ -1,5 +1,10 @@
 appId: com.vndarkblue.beatmap-backup
 productName: Beatmap Backup
+publish:
+  provider: github
+  owner: vndarkblue
+  repo: beatmap-backup
+  releaseType: release
 directories:
   buildResources: build
 files:

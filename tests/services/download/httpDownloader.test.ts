@@ -92,9 +92,6 @@ describe('httpDownloader', () => {
       const task: DownloadTask = {
         id: 't-html',
         beatmapsetId: '12345',
-        title: 'HTML error song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'downloading',
         progress: 0,
         speed: 0,
@@ -145,9 +142,6 @@ describe('httpDownloader', () => {
         const task: DownloadTask = {
           id: `t-valid-${ct ?? 'none'}`,
           beatmapsetId: '12345',
-          title: 'Valid Song',
-          artist: 'Artist',
-          creator: 'Creator',
           status: 'downloading',
           progress: 0,
           speed: 0,

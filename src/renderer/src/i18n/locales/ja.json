@@ -24,7 +24,22 @@
       "noVideo": "動画を含めない",
       "waitForDownloads": "一時停止時にダウンロード完了を待つ",
       "waitForDownloadsHelpOn": "一時停止前にダウンロード中の譜面を完了させます",
-      "waitForDownloadsHelpOff": "一時停止時にダウンロード中の譜面は即座に中断されることがあります"
+      "waitForDownloadsHelpOff": "一時停止時にダウンロード中の譜面は即座に中断されることがあります",
+      "beatconnectTokenHelp": "BeatConnectのPatreon APIトークンを入力すると、無制限の高速ダウンロードが可能になります。空欄の場合は通常の制限付きモードが適用されます。",
+      "beatconnectTokenSubtitle": "Patreon APIトークンを連携してダウンロード制限を解除します。",
+      "beatconnectTokenPlaceholder": "BeatConnect APIトークンを入力...",
+      "beatconnectTokenSave": "保存",
+      "beatconnectTokenCancel": "キャンセル",
+      "beatconnectTokenSaved": "トークン保存済み（暗号化）",
+      "beatconnectTokenActiveHint": "Patreon VIPアクセス有効 • 最大5スレッド",
+      "beatconnectTokenChange": "変更",
+      "beatconnectTokenClear": "削除",
+      "beatconnectPatreonLink": "Patreonでトークンを取得",
+      "mirrorsNetwork": "ミラーネットワーク状態",
+      "mirrorsNetworkHelp": "各ミラーサーバーの稼働状況です。アクセス制限を回避するため、稼働中のミラー間で自動的に負荷分散されます。",
+      "mirrorsNetworkSubtitle": "ミラーごとの安全なスレッド上限を備えた自動フェイルオーバープール。",
+      "mirrorsRefresh": "ミラー状態を更新",
+      "mirrorWarpBlocked": "Cloudflare WARPによりブロック中"
     },
     "database": {
       "title": "譜面データベース",
@@ -53,6 +68,20 @@
       "cancel": "キャンセル",
       "success": "設定をリセットしました。アプリを再読み込みします。",
       "failed": "設定のリセットに失敗しました"
+    },
+    "diagnostic": {
+      "title": "診断とログ",
+      "description": "問題解決のために設定詳細と最近のログを抽出します。",
+      "copyInfo": "診断情報をコピー",
+      "copied": "コピー完了！",
+      "openLogFolder": "ログフォルダーを開く",
+      "copySuccess": "診断情報がクリップボードにコピーされました。",
+      "copyFailed": "診断情報のコピーに失敗しました。"
+    },
+    "about": {
+      "title": "アプリについて",
+      "description": "osu!stableとosu!lazerの譜面コレクションをバックアップおよび同期するツール。",
+      "installationType": "配布形式"
     }
   },
   "backup": {
@@ -150,12 +179,29 @@
         "action": "ダウンロード画面へ"
       },
       "queueOverview": "ダウンロードキュー",
+      "running": "ダウンロード中",
+      "paused": "一時停止中",
+      "queuePaused": "キューは一時停止中です",
       "progress": "進捗",
       "files": "ファイル",
       "activeDownloads": "ダウンロード中のファイル",
       "completedDownloads": "ダウンロード済み",
+      "failedDownloads": "失敗したファイル",
       "noActiveDownloads": "ダウンロード中のファイルはありません",
       "noCompletedDownloads": "ダウンロード済みのファイルはありません",
+      "noFailedDownloads": "失敗したファイルはありません",
+      "retryFailed": "失敗したファイルを再試行",
+      "retryStarted": "{count}件の失敗ファイルを再試行中...",
+      "exportFailed": "失敗した譜面をエクスポート (.bbak)",
+      "exportSuccess": "{count}件の失敗した譜面を.bbakに保存しました",
+      "closeManager": "マネージャーを閉じる",
+      "failedReasons": {
+        "notFound": "ミラーに見つかりません (404)",
+        "rateLimit": "ミラーのレート制限 (429)",
+        "timeout": "タイムアウト",
+        "network": "ネットワーク接続エラー",
+        "unknown": "不明なエラー"
+      },
       "pause": "一時停止",
       "resume": "再開",
       "stop": "停止",
@@ -164,9 +210,14 @@
       "table": {
         "status": "ステータス",
         "filename": "ファイル名",
+        "id": "ID",
+        "beatmapName": "ビートマップ名",
+        "reason": "エラー理由",
         "speed": "速度",
         "progress": "進捗",
-        "remaining": "残り"
+        "remaining": "残り",
+        "actions": "操作",
+        "openFolder": "保存先フォルダーを開く"
       },
       "status": {
         "waiting": "待機中",
@@ -310,6 +361,51 @@
     "syncError": {
       "message": "データベースの同期に失敗しました: {error}",
       "viewSettings": "設定を表示"
+    }
+  },
+  "updater": {
+    "title": "更新を確認",
+    "checkUpdate": "更新を確認",
+    "currentVersion": "現在のバージョン: v{version}",
+    "checking": "更新を確認中...",
+    "checkingHint": "GitHub Releasesに接続して最新バージョンを確認しています。",
+    "upToDate": "最新バージョンです！",
+    "upToDateHint": "Beatmap Backup v{version} は現在最新のバージョンです。",
+    "newVersionAvailable": "新しいバージョンが利用可能です",
+    "portableNotice": "ポータブル版を使用しています。GitHub Releasesから最新のzipファイルをダウンロードしてフォルダーを置き換えてください。",
+    "linuxNotice": "下をクリックして最新のAppImageファイルをダウンロードフォルダーに直接ダウンロードします。",
+    "changelog": "更新内容:",
+    "downloading": "更新プログラムをダウンロード中...",
+    "readyToInstall": "更新プログラムのダウンロードが完了しました。再起動して適用してください。",
+    "linuxDownloaded": "AppImageがダウンロードフォルダーに保存されました。",
+    "errorTitle": "更新の確認に失敗しました",
+    "defaultError": "更新を確認できませんでした。インターネット接続を確認してください。",
+    "viewOnGitHub": "GitHubで表示",
+    "later": "後で",
+    "cancel": "キャンセル",
+    "retry": "再試行",
+    "downloadAndInstall": "今すぐ更新",
+    "goToRelease": "リリースページへ",
+    "downloadAppImage": "AppImageをダウンロード",
+    "restartAndInstall": "再起動してインストール",
+    "toastUpdateAvailable": "Beatmap Backup v{version} が利用可能になりました！",
+    "view": "確認",
+    "checkingShort": "確認中...",
+    "upToDateShort": "最新版です",
+    "downloadNow": "今すぐ更新",
+    "relaunchInstall": "再起動して適用",
+    "downloadedShort": "ダウンロード完了",
+    "errorRetry": "確認失敗 · 再試行",
+    "downloadErrorRetry": "ダウンロード失敗 · 再試行",
+    "installConflictTitle": "ダウンロード進行中",
+    "installConflictMsg": "{count} 件の譜面をダウンロード中です。",
+    "installConflictDetail": "進捗は保存され、アプリを再起動した際に再開できます。",
+    "installConflictConfirm": "再起動してインストール",
+    "dist": {
+      "winInstaller": "インストーラー版",
+      "winPortable": "ポータブル版",
+      "linuxAppImage": "Linux AppImage",
+      "linux": "Linux"
     }
   }
 }

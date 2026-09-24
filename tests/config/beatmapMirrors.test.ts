@@ -60,4 +60,42 @@ describe('Beatmap Mirrors Configuration', () => {
     const url = nekoha?.getDownloadUrl('12345', false)
     expect(url).toContain('/api/download/12345')
   })
+
+  it('BeatConnect returns Token header and genres healthUrl when runtime token is configured', async () => {
+    const { setBeatconnectRuntimeToken } = await import('../../src/config/beatmapMirrors')
+    setBeatconnectRuntimeToken('patreon-token-xyz')
+    const bc = DefaultBeatmapMirrors.find((m) => m.name === 'BeatConnect')
+    expect(bc).toBeDefined()
+    expect(bc?.getExtraHeaders?.()).toEqual({ Token: 'patreon-token-xyz' })
+    expect(bc?.getHealthHeaders?.()).toEqual({ Token: 'patreon-token-xyz' })
+    expect(bc?.getHealthUrl?.()).toBe('https://beatconnect.io/api/genres/')
+    setBeatconnectRuntimeToken('') // cleanup
+  })
+
+  it('BeatConnect returns empty headers and docs healthUrl when no runtime token', async () => {
+    const { setBeatconnectRuntimeToken } = await import('../../src/config/beatmapMirrors')
+    setBeatconnectRuntimeToken('')
+    const bc = DefaultBeatmapMirrors.find((m) => m.name === 'BeatConnect')
+    expect(bc).toBeDefined()
+    expect(bc?.getExtraHeaders?.()).toEqual({})
+    expect(bc?.getHealthHeaders?.()).toEqual({})
+    expect(bc?.getHealthUrl?.()).toBe('https://beatconnect.io/api/docs/')
+  })
+
+  it('gets and sets beatconnect runtime token', async () => {
+    const { getBeatconnectRuntimeToken, setBeatconnectRuntimeToken } = await import(
+      '../../src/config/beatmapMirrors'
+    )
+    setBeatconnectRuntimeToken('test-token')
+    expect(getBeatconnectRuntimeToken()).toBe('test-token')
+    setBeatconnectRuntimeToken('')
+    expect(getBeatconnectRuntimeToken()).toBe('')
+  })
+
+  it('catboy.best returns User-Agent headers', () => {
+    const catboy = DefaultBeatmapMirrors.find((m) => m.name === 'catboy.best')
+    expect(catboy).toBeDefined()
+    expect(catboy?.getHealthHeaders?.()).toEqual({ 'User-Agent': 'osu-beatmap-backup/1.0' })
+    expect(catboy?.getExtraHeaders?.()).toEqual({ 'User-Agent': 'osu-beatmap-backup/1.0' })
+  })
 })

@@ -1,9 +1,14 @@
+import './initPortable'
+import { logger } from '../services/logger'
+logger.init()
+
 import { app, shell, BrowserWindow } from 'electron'
 import path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../renderer/src/assets/logo.ico?asset'
 import { APP_NAME, APP_ID } from '../config/sharedConstants'
 import { WINDOW_CONFIG } from '../config/backendConstants'
+import { restoreWindowState, manageWindowState } from './windowState'
 import { startupMark } from '../services/startupTrace'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import {
@@ -13,19 +18,45 @@ import {
 } from './backgroundServices'
 import SyncManager from '../services/database/syncManager'
 
+// Suppress noisy Chromium-internal DevTools protocol logs (e.g. unsupported Autofill CDP domain in Electron)
+if (is.dev) {
+  app.commandLine.appendSwitch('log-level', '3')
+
+  const originalStderrWrite = process.stderr.write.bind(process.stderr)
+  process.stderr.write = ((
+    chunk: string | Uint8Array,
+    encoding?: BufferEncoding | ((err?: Error) => void),
+    callback?: (err?: Error) => void
+  ): boolean => {
+    const str = typeof chunk === 'string' ? chunk : chunk?.toString?.() || ''
+    if (str.includes('Autofill.enable') || str.includes('Autofill.setAddresses')) {
+      const cb = typeof encoding === 'function' ? encoding : callback
+      cb?.()
+      return true
+    }
+    return (originalStderrWrite as (...args: unknown[]) => boolean)(chunk, encoding, callback)
+  }) as typeof process.stderr.write
+}
+
 let cleanupIpcHandlers: (() => void) | undefined
+let cleanupWindowState: (() => void) | undefined
 
 function createWindow(): BrowserWindow {
   startupMark('createWindow:start')
+  const windowState = restoreWindowState()
+
   const mainWindow = new BrowserWindow({
     title: APP_NAME,
-    width: WINDOW_CONFIG.DEFAULT_WIDTH,
-    height: WINDOW_CONFIG.DEFAULT_HEIGHT,
+    width: windowState.width,
+    height: windowState.height,
+    x: windowState.x,
+    y: windowState.y,
     minWidth: WINDOW_CONFIG.MIN_WIDTH,
     minHeight: WINDOW_CONFIG.MIN_HEIGHT,
     show: false,
     backgroundColor: '#fafafa',
     autoHideMenuBar: true,
+    frame: false,
     icon: icon,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -34,6 +65,8 @@ function createWindow(): BrowserWindow {
       sandbox: false
     }
   })
+
+  cleanupWindowState = manageWindowState(mainWindow, windowState)
 
   let backgroundStarted = false
   const scheduleDeferredTasks = (): void => {
@@ -45,22 +78,30 @@ function createWindow(): BrowserWindow {
     }, 1500)
   }
 
+  // Fallback to guarantee window visibility even if ready-to-show is delayed
+  const fallbackDelay = is.dev ? 5000 : 3000
+  const fallbackTimer = setTimeout(() => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      if (windowState.isMaximized) {
+        mainWindow.maximize()
+      }
+      mainWindow.show()
+      scheduleDeferredTasks()
+    }
+  }, fallbackDelay)
+
   mainWindow.once('ready-to-show', () => {
+    clearTimeout(fallbackTimer)
     startupMark('window:ready-to-show')
+    if (windowState.isMaximized) {
+      mainWindow.maximize()
+    }
     mainWindow.show()
     if (is.dev) {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
     scheduleDeferredTasks()
   })
-
-  // Fallback to guarantee window visibility even if ready-to-show is delayed
-  setTimeout(() => {
-    if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) {
-      mainWindow.show()
-    }
-    scheduleDeferredTasks()
-  }, 1000)
 
   mainWindow.webContents.on('dom-ready', () => {
     startupMark('window:dom-ready')
@@ -69,6 +110,13 @@ function createWindow(): BrowserWindow {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== mainWindow.webContents.getURL()) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -87,6 +135,10 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.on('closed', () => {
+    if (cleanupWindowState) {
+      cleanupWindowState()
+      cleanupWindowState = undefined
+    }
     if (cleanupIpcHandlers) {
       cleanupIpcHandlers()
       cleanupIpcHandlers = undefined
@@ -105,10 +157,11 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Quick synchronous early services (e.g. auto detect paths)
-  initEarlyServices()
-
+  // Create window immediately so navigation starts without waiting
   createWindow()
+
+  // Run early services (e.g. auto detect paths) concurrently with initial page load
+  initEarlyServices()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

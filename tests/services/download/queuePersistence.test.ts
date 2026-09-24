@@ -48,7 +48,9 @@ describe('QueuePersistence', () => {
         sources: ['osu.direct'],
         noVideo: true,
         downloadPath: 'C:/downloads',
-        concurrency: 3
+        threadCount: 3,
+        removeFromStable: false,
+        removeFromLazer: false
       },
       rotation: {
         currentMirrorIndex: 0,
@@ -70,9 +72,6 @@ describe('QueuePersistence', () => {
         {
           id: 'task-1',
           beatmapsetId: '1001',
-          title: 'Test Song',
-          artist: 'Test Artist',
-          creator: 'Mapper',
           status: 'completed',
           progress: 100,
           speed: 0,
@@ -144,9 +143,6 @@ describe('QueuePersistence', () => {
       {
         id: 'task-1',
         beatmapsetId: '1234',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'downloading',
         progress: 50,
         speed: 1024,
@@ -173,9 +169,6 @@ describe('QueuePersistence', () => {
       {
         id: 'task-1',
         beatmapsetId: '1001',
-        title: 'Known Mirror Task',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting' as const,
         progress: 0,
         speed: 0,
@@ -187,9 +180,6 @@ describe('QueuePersistence', () => {
       {
         id: 'task-2',
         beatmapsetId: '1002',
-        title: 'Unknown Mirror Task',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting' as const,
         progress: 0,
         speed: 0,

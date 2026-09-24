@@ -81,4 +81,21 @@ describe('Beatmap Mirrors Configuration', () => {
     expect(bc?.getHealthHeaders?.()).toEqual({})
     expect(bc?.getHealthUrl?.()).toBe('https://beatconnect.io/api/docs/')
   })
+
+  it('gets and sets beatconnect runtime token', async () => {
+    const { getBeatconnectRuntimeToken, setBeatconnectRuntimeToken } = await import(
+      '../../src/config/beatmapMirrors'
+    )
+    setBeatconnectRuntimeToken('test-token')
+    expect(getBeatconnectRuntimeToken()).toBe('test-token')
+    setBeatconnectRuntimeToken('')
+    expect(getBeatconnectRuntimeToken()).toBe('')
+  })
+
+  it('catboy.best returns User-Agent headers', () => {
+    const catboy = DefaultBeatmapMirrors.find((m) => m.name === 'catboy.best')
+    expect(catboy).toBeDefined()
+    expect(catboy?.getHealthHeaders?.()).toEqual({ 'User-Agent': 'osu-beatmap-backup/1.0' })
+    expect(catboy?.getExtraHeaders?.()).toEqual({ 'User-Agent': 'osu-beatmap-backup/1.0' })
+  })
 })

@@ -13,6 +13,9 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
+    env:
+      GYP_MSVS_VERSION: '2022'
+      npm_config_msvs_version: '2022'
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -20,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -60,7 +63,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies

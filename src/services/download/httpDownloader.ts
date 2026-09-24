@@ -5,6 +5,7 @@ import http from 'http'
 import { URL } from 'url'
 import { is } from '../../utils/env'
 import type { DownloadTask } from './types'
+import { parseTitleFromFileName, resolveBeatmapTitle } from './oszMetadata'
 
 export interface MirrorHealth {
   success: number
@@ -199,7 +200,8 @@ export async function downloadFile(
         targetUrl,
         {
           headers: {
-            'User-Agent': 'osu-beatmap-backup/1.0 (+https://github.com)'
+            'User-Agent': 'osu-beatmap-backup/1.0',
+            ...(task.mirror.getExtraHeaders?.() ?? {})
           }
         },
         (response) => {
@@ -285,6 +287,7 @@ export async function downloadFile(
           tempFilePath = `${finalFilePath}.part`
 
           task.fileName = fileName
+          task.beatmapTitle = parseTitleFromFileName(fileName)
           onProgress(task)
 
           writer = fs.createWriteStream(tempFilePath)
@@ -335,6 +338,16 @@ export async function downloadFile(
               task.speed = 0
               task.remainingTime = 0
               task.filePath = finalFilePath
+              try {
+                const title = resolveBeatmapTitle(finalFilePath, task.fileName, task.beatmapsetId)
+                if (title) {
+                  task.beatmapTitle = title
+                }
+              } catch (err) {
+                if (is.dev) {
+                  console.warn('[DownloadDebug] Failed to resolve beatmap title:', err)
+                }
+              }
               resolve({ startTime })
             })
           })

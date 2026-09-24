@@ -21,6 +21,7 @@ export interface DownloadTask {
   /** Final file name and full path, set once headers are known / completed */
   fileName?: string
   filePath?: string
+  beatmapTitle?: string | null
   createdAt?: number
   updatedAt?: number
   /** Number of retries caused by failures on mirrors (separate from item failures). */

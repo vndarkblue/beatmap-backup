@@ -1,3 +1,4 @@
+import { safeStorage } from 'electron'
 import Store from 'electron-store'
 
 export interface Settings {
@@ -13,6 +14,7 @@ export interface Settings {
   queueAutoResume: boolean
   queueCheckpointIntervalMs: number
   maxCheckpointFileSizeMB: number
+  beatconnectApiTokenEncrypted: string
 }
 
 const defaultSettings: Settings = {
@@ -27,7 +29,8 @@ const defaultSettings: Settings = {
   downloadPath: '',
   queueAutoResume: true,
   queueCheckpointIntervalMs: 1500,
-  maxCheckpointFileSizeMB: 20
+  maxCheckpointFileSizeMB: 20,
+  beatconnectApiTokenEncrypted: ''
 }
 
 // @ts-ignore - Store type definition is incomplete in electron-store package
@@ -49,7 +52,8 @@ export const getSettings = (): Settings => {
     downloadPath: settingsStore.get('downloadPath', ''),
     queueAutoResume: settingsStore.get('queueAutoResume', true),
     queueCheckpointIntervalMs: settingsStore.get('queueCheckpointIntervalMs', 1500),
-    maxCheckpointFileSizeMB: settingsStore.get('maxCheckpointFileSizeMB', 20)
+    maxCheckpointFileSizeMB: settingsStore.get('maxCheckpointFileSizeMB', 20),
+    beatconnectApiTokenEncrypted: settingsStore.get('beatconnectApiTokenEncrypted', '')
   }
 }
 
@@ -147,4 +151,41 @@ export const getMaxCheckpointFileSizeMB = (): number => {
 
 export const resetSettings = (): void => {
   settingsStore.clear()
+}
+
+export const getBeatconnectApiToken = (): string => {
+  const encrypted = settingsStore.get('beatconnectApiTokenEncrypted', '')
+  if (!encrypted) return ''
+  if (
+    typeof safeStorage?.isEncryptionAvailable !== 'function' ||
+    !safeStorage.isEncryptionAvailable()
+  ) {
+    return encrypted
+  }
+  try {
+    return safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
+  } catch {
+    settingsStore.set('beatconnectApiTokenEncrypted', '')
+    return ''
+  }
+}
+
+export const setBeatconnectApiToken = (token: string): void => {
+  if (!token) {
+    settingsStore.set('beatconnectApiTokenEncrypted', '')
+    return
+  }
+  if (
+    typeof safeStorage?.isEncryptionAvailable === 'function' &&
+    safeStorage.isEncryptionAvailable()
+  ) {
+    const encrypted = safeStorage.encryptString(token)
+    settingsStore.set('beatconnectApiTokenEncrypted', encrypted.toString('base64'))
+  } else {
+    settingsStore.set('beatconnectApiTokenEncrypted', token)
+  }
+}
+
+export const hasBeatconnectApiToken = (): boolean => {
+  return !!settingsStore.get('beatconnectApiTokenEncrypted', '')
 }

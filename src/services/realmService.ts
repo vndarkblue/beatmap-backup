@@ -250,9 +250,11 @@ export const realmService = {
         )
         if (hasOnlineId) {
           targetTypeName = hasOnlineId.name
-          console.log(
-            `Selected realm object type '${targetTypeName}' by presence of OnlineID property`
-          )
+          if (is.dev) {
+            console.log(
+              `Selected realm object type '${targetTypeName}' by presence of OnlineID property`
+            )
+          }
         }
       }
       if (!targetTypeName) {

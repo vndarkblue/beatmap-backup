@@ -582,4 +582,23 @@ export class DatabaseService {
       missingLocal: row.missingLocal ?? 0
     }
   }
+
+  getBeatmapsetTitle(beatmapsetId: number): string | null {
+    try {
+      const row = this.db
+        .prepare(
+          'SELECT artist, artist_unicode, title, title_unicode FROM beatmapsets WHERE id = ? LIMIT 1'
+        )
+        .get(beatmapsetId) as
+        | { artist?: string; artist_unicode?: string; title?: string; title_unicode?: string }
+        | undefined
+      if (!row) return null
+      const artist = row.artist || row.artist_unicode || ''
+      const title = row.title || row.title_unicode || ''
+      if (artist && title) return `${artist} - ${title}`
+      return title || artist || null
+    } catch {
+      return null
+    }
+  }
 }

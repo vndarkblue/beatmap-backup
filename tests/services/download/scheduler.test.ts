@@ -8,7 +8,11 @@ vi.mock('electron', () => ({
 
 import DownloadService from '../../../src/services/downloadService'
 import { DownloadHttpError } from '../../../src/services/download/httpDownloader'
-import { DefaultBeatmapMirrors, type BeatmapMirror } from '../../../src/config/beatmapMirrors'
+import {
+  DefaultBeatmapMirrors,
+  setBeatconnectRuntimeToken,
+  type BeatmapMirror
+} from '../../../src/config/beatmapMirrors'
 import type { DownloadTask } from '../../../src/services/download/types'
 
 describe('DownloadService Scheduler & Failure Handling', () => {
@@ -34,8 +38,40 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       failureKind: 'rate-limit' | 'transient'
     ) => void
     currentMirrors: BeatmapMirror[]
-    mirrorStates: Map<string, unknown>
+    mirrorStates: Map<
+      string,
+      {
+        mirror: BeatmapMirror
+        activeDownloads: number
+        maxConcurrency: number
+        cooldownUntil: number
+        rateLimitCount: number
+        consecutiveFailures: number
+        consecutiveSuccesses: number
+        lastDispatchAt: number
+        dispatchHistory: number[]
+      }
+    >
     refreshMirrorAvailability: () => void
+    initializeMirrorStates: (
+      mirrors: BeatmapMirror[],
+      options: { sources: string[]; threadCount: number; noVideo: boolean }
+    ) => void
+    pickAvailableMirror: (
+      task: DownloadTask,
+      now: number
+    ) => { mirror: BeatmapMirror; activeDownloads: number; maxConcurrency: number } | null
+    startTask: (
+      task: DownloadTask,
+      mirrorState: {
+        mirror: BeatmapMirror
+        activeDownloads: number
+        maxConcurrency: number
+        lastDispatchAt: number
+        dispatchHistory: number[]
+      }
+    ) => void
+    getNextWakeupMs: () => number | null
   }
 
   beforeEach(() => {
@@ -101,9 +137,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       const task: DownloadTask = {
         id: 't-1',
         beatmapsetId: '100',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting',
         progress: 0,
         speed: 0,
@@ -126,9 +159,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       const task: DownloadTask = {
         id: 't-2',
         beatmapsetId: '100',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting',
         progress: 0,
         speed: 0,
@@ -151,9 +181,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       const task: DownloadTask = {
         id: 't-3',
         beatmapsetId: '100',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting',
         progress: 0,
         speed: 0,
@@ -175,9 +202,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       const task: DownloadTask = {
         id: 't-4',
         beatmapsetId: '100',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting',
         progress: 0,
         speed: 0,
@@ -194,9 +218,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       const task: DownloadTask = {
         id: 't-5',
         beatmapsetId: '100',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting',
         progress: 0,
         speed: 0,
@@ -275,9 +296,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
           {
             id: 't-1',
             beatmapsetId: '100',
-            title: 'S',
-            artist: 'A',
-            creator: 'C',
             status: 'downloading',
             progress: 50,
             speed: 0,
@@ -370,9 +388,6 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       const dummyTask: DownloadTask = {
         id: 't-life',
         beatmapsetId: '555',
-        title: 'Song',
-        artist: 'Artist',
-        creator: 'Creator',
         status: 'waiting',
         progress: 0,
         speed: 0,
@@ -407,6 +422,296 @@ describe('DownloadService Scheduler & Failure Handling', () => {
       service.clearQueue(false)
       expect(service.getTasks()).toHaveLength(0)
       expect(service.getQueueSize()).toBe(0)
+    })
+
+    it('retries failed tasks and retrieves failed beatmapset IDs', () => {
+      const internalService = service as unknown as {
+        tasks: Map<string, DownloadTask>
+      }
+      internalService.tasks.clear()
+
+      const failedTask1: DownloadTask = {
+        id: 't-fail1',
+        beatmapsetId: '1001',
+        status: 'error',
+        error: 'HTTP 404',
+        progress: 50,
+        speed: 100,
+        remainingTime: 5,
+        noVideo: false,
+        mirror: DefaultBeatmapMirrors[0]
+      }
+
+      const failedTask2: DownloadTask = {
+        id: 't-fail2',
+        beatmapsetId: '1002',
+        status: 'error',
+        error: 'Timeout',
+        progress: 0,
+        speed: 0,
+        remainingTime: 0,
+        noVideo: false,
+        mirror: DefaultBeatmapMirrors[0]
+      }
+
+      const completedTask: DownloadTask = {
+        id: 't-done',
+        beatmapsetId: '1003',
+        status: 'completed',
+        progress: 100,
+        speed: 0,
+        remainingTime: 0,
+        noVideo: false,
+        mirror: DefaultBeatmapMirrors[0]
+      }
+
+      internalService.tasks.set(failedTask1.id, failedTask1)
+      internalService.tasks.set(failedTask2.id, failedTask2)
+      internalService.tasks.set(completedTask.id, completedTask)
+
+      // Test getFailedTaskBeatmapsetIds
+      const failedIds = service.getFailedTaskBeatmapsetIds()
+      expect(failedIds).toEqual([1001, 1002])
+
+      // Test retryFailedTasks
+      const retriedCount = service.retryFailedTasks()
+      expect(retriedCount).toBe(2)
+      expect(failedTask1.status).toBe('waiting')
+      expect(failedTask1.error).toBeUndefined()
+      expect(failedTask1.progress).toBe(0)
+      expect(failedTask2.status).toBe('waiting')
+      expect(completedTask.status).toBe('completed')
+
+      // Cleanup
+      service.clearQueue(false)
+    })
+  })
+
+  describe('Mino (catboy.best) Rate Limiting & Concurrency Controls', () => {
+    const minoMirror = DefaultBeatmapMirrors.find((m) => m.name === 'catboy.best')!
+
+    beforeEach(() => {
+      service.clearQueue(false)
+    })
+
+    it('caps catboy.best maxConcurrency to 2 even if threadCount is 10 and only catboy.best is selected', () => {
+      internal.initializeMirrorStates([minoMirror], {
+        sources: ['catboy.best'],
+        threadCount: 10,
+        noVideo: false
+      })
+
+      const minoState = internal.mirrorStates.get('catboy.best')
+      expect(minoState).toBeDefined()
+      expect(minoState?.maxConcurrency).toBe(2)
+    })
+
+    it('enforces MINO_MIN_DISPATCH_INTERVAL_MS between dispatches to catboy.best', () => {
+      internal.currentMirrors = [minoMirror]
+      internal.initializeMirrorStates([minoMirror], {
+        sources: ['catboy.best'],
+        threadCount: 2,
+        noVideo: false
+      })
+
+      const task: DownloadTask = {
+        id: 't-mino-1',
+        beatmapsetId: '2001',
+        status: 'waiting',
+        progress: 0,
+        speed: 0,
+        remainingTime: 0,
+        noVideo: false,
+        mirror: minoMirror
+      }
+
+      const now = Date.now()
+      const minoState = internal.mirrorStates.get('catboy.best')!
+
+      // Just dispatched 100ms ago -> should NOT be picked
+      minoState.lastDispatchAt = now - 100
+      expect(internal.pickAvailableMirror(task, now)).toBeNull()
+
+      // Dispatched 700ms ago (> 600ms) -> can be picked
+      minoState.lastDispatchAt = now - 700
+      const picked = internal.pickAvailableMirror(task, now)
+      expect(picked).not.toBeNull()
+      expect(picked?.mirror.name).toBe('catboy.best')
+    })
+
+    it('enforces MINO_MAX_DISPATCHES_PER_MINUTE (60/min limit)', () => {
+      internal.currentMirrors = [minoMirror]
+      internal.initializeMirrorStates([minoMirror], {
+        sources: ['catboy.best'],
+        threadCount: 2,
+        noVideo: false
+      })
+
+      const task: DownloadTask = {
+        id: 't-mino-2',
+        beatmapsetId: '2002',
+        status: 'waiting',
+        progress: 0,
+        speed: 0,
+        remainingTime: 0,
+        noVideo: false,
+        mirror: minoMirror
+      }
+
+      const now = Date.now()
+      const minoState = internal.mirrorStates.get('catboy.best')!
+      minoState.lastDispatchAt = now - 1000
+
+      // Fill with 60 timestamps within the last 60 seconds
+      minoState.dispatchHistory = Array.from({ length: 60 }, (_, i) => now - 1000 - i * 500)
+      expect(internal.pickAvailableMirror(task, now)).toBeNull()
+
+      // If timestamps are older than 60s, they expire and pick succeeds
+      minoState.dispatchHistory = Array.from({ length: 60 }, (_, i) => now - 61000 - i * 500)
+      const picked = internal.pickAvailableMirror(task, now)
+      expect(picked).not.toBeNull()
+    })
+
+    it('calculates getNextWakeupMs accurately for Mino dispatch interval', () => {
+      internal.currentMirrors = [minoMirror]
+      internal.initializeMirrorStates([minoMirror], {
+        sources: ['catboy.best'],
+        threadCount: 2,
+        noVideo: false
+      })
+
+      const now = Date.now()
+      const minoState = internal.mirrorStates.get('catboy.best')!
+      minoState.lastDispatchAt = now - 200 // 400ms remaining until 600ms
+
+      const wakeupMs = internal.getNextWakeupMs()
+      expect(wakeupMs).toBeGreaterThanOrEqual(350)
+      expect(wakeupMs).toBeLessThanOrEqual(450)
+    })
+  })
+
+  describe('BeatConnect Mirror Dispatch Limits & Token Fallback', () => {
+    const beatconnectMirror = DefaultBeatmapMirrors.find((m) => m.name === 'BeatConnect')!
+
+    it('enforces unauthenticated concurrency cap of 2 and authenticated cap of 5', () => {
+      setBeatconnectRuntimeToken('')
+      internal.initializeMirrorStates([beatconnectMirror], {
+        sources: ['BeatConnect'],
+        threadCount: 10,
+        noVideo: false
+      })
+      const unauthState = internal.mirrorStates.get('BeatConnect')!
+      expect(unauthState.maxConcurrency).toBe(2)
+
+      setBeatconnectRuntimeToken('test-patreon-token')
+      internal.initializeMirrorStates([beatconnectMirror], {
+        sources: ['BeatConnect'],
+        threadCount: 10,
+        noVideo: false
+      })
+      const authState = internal.mirrorStates.get('BeatConnect')!
+      expect(authState.maxConcurrency).toBe(5)
+      setBeatconnectRuntimeToken('')
+    })
+
+    it('enforces 150ms dispatch interval when authenticated with token', () => {
+      setBeatconnectRuntimeToken('test-patreon-token')
+      internal.currentMirrors = [beatconnectMirror]
+      internal.initializeMirrorStates([beatconnectMirror], {
+        sources: ['BeatConnect'],
+        threadCount: 5,
+        noVideo: false
+      })
+
+      const task: DownloadTask = {
+        id: 't-bc-1',
+        beatmapsetId: '200',
+        status: 'waiting',
+        progress: 0,
+        speed: 0,
+        remainingTime: 0,
+        noVideo: false,
+        mirror: beatconnectMirror
+      }
+
+      const now = Date.now()
+      const bcState = internal.mirrorStates.get('BeatConnect')!
+      bcState.lastDispatchAt = now - 50 // only 50ms elapsed, needs 150ms
+
+      expect(internal.pickAvailableMirror(task, now)).toBeNull()
+
+      bcState.lastDispatchAt = now - 160 // 160ms elapsed
+      expect(internal.pickAvailableMirror(task, now)).not.toBeNull()
+      setBeatconnectRuntimeToken('')
+    })
+
+    it('enforces 800ms dispatch interval when unauthenticated', () => {
+      setBeatconnectRuntimeToken('')
+      internal.currentMirrors = [beatconnectMirror]
+      internal.initializeMirrorStates([beatconnectMirror], {
+        sources: ['BeatConnect'],
+        threadCount: 2,
+        noVideo: false
+      })
+
+      const task: DownloadTask = {
+        id: 't-bc-2',
+        beatmapsetId: '201',
+        status: 'waiting',
+        progress: 0,
+        speed: 0,
+        remainingTime: 0,
+        noVideo: false,
+        mirror: beatconnectMirror
+      }
+
+      const now = Date.now()
+      const bcState = internal.mirrorStates.get('BeatConnect')!
+      bcState.lastDispatchAt = now - 500 // only 500ms elapsed, needs 800ms
+
+      expect(internal.pickAvailableMirror(task, now)).toBeNull()
+
+      bcState.lastDispatchAt = now - 850 // 850ms elapsed
+      expect(internal.pickAvailableMirror(task, now)).not.toBeNull()
+    })
+
+    it('handles 401 failure by clearing token, downgrading concurrency, and re-queuing task', () => {
+      setBeatconnectRuntimeToken('expired-token')
+      internal.currentMirrors = [beatconnectMirror]
+      internal.initializeMirrorStates([beatconnectMirror], {
+        sources: ['BeatConnect'],
+        threadCount: 5,
+        noVideo: false
+      })
+
+      const task: DownloadTask = {
+        id: 't-bc-fail',
+        beatmapsetId: '999',
+        status: 'downloading',
+        progress: 10,
+        speed: 50,
+        remainingTime: 5,
+        noVideo: false,
+        mirror: beatconnectMirror,
+        assignedMirror: 'BeatConnect'
+      }
+
+      const internalWithFailure = service as unknown as {
+        handleDownloadFailure: (task: DownloadTask, mirrorState: unknown, error: unknown) => void
+      }
+
+      const bcState = internal.mirrorStates.get('BeatConnect')!
+      expect(bcState.maxConcurrency).toBe(5)
+
+      internalWithFailure.handleDownloadFailure(
+        task,
+        bcState,
+        new DownloadHttpError('Unauthorized', 401)
+      )
+
+      expect(task.status).toBe('waiting')
+      expect(task.assignedMirror).toBeUndefined()
+      expect(bcState.maxConcurrency).toBe(2) // Downgraded to unauth cap
     })
   })
 })

@@ -5,6 +5,20 @@ export interface BeatmapMirror {
   healthUrl: string
   supportsNoVideo?: boolean
   getDownloadUrl: (beatmapsetId: string, noVideo: boolean) => string
+  getExtraHeaders?: () => Record<string, string>
+  getHealthHeaders?: () => Record<string, string>
+  getHealthUrl?: () => string
+}
+
+let _beatconnectRuntimeToken = ''
+export const BEATCONNECT_MIRROR_NAME = 'BeatConnect'
+
+export function setBeatconnectRuntimeToken(token: string): void {
+  _beatconnectRuntimeToken = token
+}
+
+export function getBeatconnectRuntimeToken(): string {
+  return _beatconnectRuntimeToken
 }
 
 export const DefaultBeatmapMirrors: BeatmapMirror[] = [
@@ -21,7 +35,7 @@ export const DefaultBeatmapMirrors: BeatmapMirror[] = [
     name: 'NeriNyan',
     baseUrl: 'https://api.nerinyan.moe/d/',
     webUrl: 'https://nerinyan.moe/',
-    healthUrl: 'https://api.nerinyan.moe/health',
+    healthUrl: 'https://nerinyan.moe/',
     supportsNoVideo: true,
     getDownloadUrl: (beatmapsetId: string, noVideo: boolean) =>
       `https://api.nerinyan.moe/d/${beatmapsetId}${noVideo ? '?noVideo=true' : ''}`
@@ -30,10 +44,12 @@ export const DefaultBeatmapMirrors: BeatmapMirror[] = [
     name: 'catboy.best',
     baseUrl: 'https://catboy.best/d/',
     webUrl: 'https://catboy.best/',
-    healthUrl: 'https://catboy.best/api/',
+    healthUrl: 'https://catboy.best/docs',
     supportsNoVideo: true,
     getDownloadUrl: (beatmapsetId: string, noVideo: boolean) =>
-      `https://catboy.best/d/${beatmapsetId}${noVideo ? 'n' : ''}`
+      `https://catboy.best/d/${beatmapsetId}${noVideo ? 'n' : ''}`,
+    getHealthHeaders: () => ({ 'User-Agent': 'osu-beatmap-backup/1.0' }),
+    getExtraHeaders: () => ({ 'User-Agent': 'osu-beatmap-backup/1.0' })
   },
   {
     name: 'Nekoha',
@@ -50,9 +66,17 @@ export const DefaultBeatmapMirrors: BeatmapMirror[] = [
     name: 'BeatConnect',
     baseUrl: 'https://beatconnect.io/b/',
     webUrl: 'https://beatconnect.io',
-    healthUrl: 'https://beatconnect.io/',
+    healthUrl: 'https://beatconnect.io/api/docs/',
     supportsNoVideo: true,
     getDownloadUrl: (beatmapsetId: string, noVideo: boolean) =>
-      `https://beatconnect.io/b/${beatmapsetId}${noVideo ? '?novideo=1' : ''}`
+      `https://beatconnect.io/b/${beatmapsetId}${noVideo ? '?novideo=1' : ''}`,
+    getHealthUrl: () =>
+      _beatconnectRuntimeToken
+        ? 'https://beatconnect.io/api/genres/'
+        : 'https://beatconnect.io/api/docs/',
+    getHealthHeaders: (): Record<string, string> =>
+      _beatconnectRuntimeToken ? { Token: _beatconnectRuntimeToken } : {},
+    getExtraHeaders: (): Record<string, string> =>
+      _beatconnectRuntimeToken ? { Token: _beatconnectRuntimeToken } : {}
   }
 ]

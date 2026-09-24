@@ -8,6 +8,7 @@ describe('BeatmapMirrorService', () => {
   beforeEach(() => {
     BeatmapMirrorService.resetInstanceForTest()
     mirrorService = BeatmapMirrorService.getInstance()
+    mirrorService.setWarpActiveForTest(false)
     vi.restoreAllMocks()
   })
 
@@ -142,5 +143,106 @@ describe('BeatmapMirrorService', () => {
     expect(healthyNames.has('osu.direct')).toBe(true)
     expect(healthyNames.has('catboy.best')).toBe(true)
     expect(healthyNames.size).toBe(2)
+  })
+
+  describe('Cloudflare WARP detection & Mino (catboy.best) auto-disable', () => {
+    it('detects warp=on from trace endpoint and excludes catboy.best from healthy mirrors', async () => {
+      mirrorService.setWarpActiveForTest(null) // Enable real trace logic
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('cdn-cgi/trace')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve('fl=1176f99\nwarp=on\ngateway=off\n')
+          })
+        }
+        return Promise.resolve({ ok: true, status: 200 })
+      })
+
+      const isWarp = await mirrorService.isCloudflareWarpActive(true)
+      expect(isWarp).toBe(true)
+
+      const statuses = await mirrorService.getMirrorsStatus(true)
+      const catboyStatus = statuses.find((s) => s.name === 'catboy.best')
+      expect(catboyStatus?.isOnline).toBe(false)
+      expect(catboyStatus?.isWarpBlocked).toBe(true)
+      expect(catboyStatus?.error).toContain('Cloudflare WARP')
+
+      const healthy = await mirrorService.getHealthyMirrorNames(true)
+      expect(healthy.has('catboy.best')).toBe(false)
+      expect(healthy.has('osu.direct')).toBe(true)
+    })
+
+    it('detects warp=plus from trace endpoint and excludes catboy.best', async () => {
+      mirrorService.setWarpActiveForTest(null)
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('cdn-cgi/trace')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve('fl=1176f99\nwarp=plus\ngateway=off\n')
+          })
+        }
+        return Promise.resolve({ ok: true, status: 200 })
+      })
+
+      const isWarp = await mirrorService.isCloudflareWarpActive(true)
+      expect(isWarp).toBe(true)
+
+      const healthy = await mirrorService.getHealthyMirrorNames(true)
+      expect(healthy.has('catboy.best')).toBe(false)
+    })
+
+    it('keeps catboy.best online when warp=off', async () => {
+      mirrorService.setWarpActiveForTest(null)
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('cdn-cgi/trace')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve('fl=1176f99\nwarp=off\ngateway=off\n')
+          })
+        }
+        return Promise.resolve({ ok: true, status: 200 })
+      })
+
+      const isWarp = await mirrorService.isCloudflareWarpActive(true)
+      expect(isWarp).toBe(false)
+
+      const statuses = await mirrorService.getMirrorsStatus(true)
+      const catboyStatus = statuses.find((s) => s.name === 'catboy.best')
+      expect(catboyStatus?.isOnline).toBe(true)
+
+      const healthy = await mirrorService.getHealthyMirrorNames(true)
+      expect(healthy.has('catboy.best')).toBe(true)
+    })
+
+    it('falls back to 1.1.1.1 if cloudflare.com/cdn-cgi/trace fails', async () => {
+      mirrorService.setWarpActiveForTest(null)
+      global.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('www.cloudflare.com/cdn-cgi/trace')) {
+          return Promise.reject(new Error('Network error on cloudflare.com'))
+        }
+        if (url.includes('1.1.1.1/cdn-cgi/trace')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve('fl=1176f99\nwarp=on\n')
+          })
+        }
+        return Promise.resolve({ ok: true, status: 200 })
+      })
+
+      const isWarp = await mirrorService.isCloudflareWarpActive(true)
+      expect(isWarp).toBe(true)
+    })
+
+    it('returns false gracefully when both trace endpoints fail', async () => {
+      mirrorService.setWarpActiveForTest(null)
+      global.fetch = vi.fn().mockRejectedValue(new Error('All trace endpoints failed'))
+
+      const isWarp = await mirrorService.isCloudflareWarpActive(true)
+      expect(isWarp).toBe(false)
+    })
   })
 })

@@ -131,6 +131,41 @@ export interface LocalExportProgress {
   currentBeatmap?: string
 }
 
+export type AppDistributionType =
+  | 'win-installer'
+  | 'win-portable'
+  | 'linux-appimage'
+  | 'linux-other'
+
+export interface UpdateCheckResult {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion?: string
+  releaseNotes?: string
+  releaseDate?: string
+  distributionType: AppDistributionType
+  downloadUrl?: string
+  error?: string
+}
+
+export interface UpdateDownloadProgress {
+  percent: number
+  bytesPerSecond: number
+  transferred: number
+  total: number
+}
+
+export type UpdatePushEvent =
+  | { event: 'checking'; data: null }
+  | { event: 'updateAvailable'; data: UpdateCheckResult }
+  | {
+      event: 'updateNotAvailable'
+      data: { currentVersion: string; distributionType: AppDistributionType }
+    }
+  | { event: 'downloadProgress'; data: UpdateDownloadProgress }
+  | { event: 'updateDownloaded'; data: { version: string } }
+  | { event: 'error'; data: { message: string } }
+
 export interface ElectronApi {
   settings: {
     get: () => Promise<AppSettings>
@@ -141,6 +176,8 @@ export interface ElectronApi {
       customPath?: string
     ) => Promise<PathValidationResult>
     getAutoDetectStatus: () => Promise<StartupAutoDetectResult>
+    hasBeatconnectToken: () => Promise<boolean>
+    setBeatconnectToken: (token: string) => Promise<{ success: boolean }>
   }
   download: {
     start: (payload: {
@@ -155,6 +192,14 @@ export interface ElectronApi {
     }>
     handleRecovery: (action: 'resume' | 'discard') => Promise<{ success: boolean }>
     getTasks: () => Promise<DownloadTask[]>
+    retryFailed: () => Promise<{ success: boolean; count: number }>
+    clearQueue: () => Promise<{ success: boolean }>
+    exportFailedBackup: () => Promise<{
+      success: boolean
+      count?: number
+      filePath?: string
+      error?: string
+    }>
     onEvent: (listener: (event: DownloadPushEvent) => void) => () => void
   }
   database: {
@@ -178,6 +223,41 @@ export interface ElectronApi {
     selectDirectory: () => Promise<string>
     selectBackupFile: () => Promise<string>
     openPath: (targetPath: string) => Promise<string>
+    openExternal: (url: string) => Promise<void>
+    showItemInFolder: (targetPath: string) => Promise<boolean>
     getMirrorsStatus: () => Promise<MirrorStatus[]>
+    openLogFolder: () => Promise<string>
+    getDiagnosticInfo: () => Promise<string>
+    reportRendererError: (payload: { message: string; stack?: string; component?: string }) => void
+  }
+  updater: {
+    getAppVersion: () => Promise<string>
+    getDistributionType: () => Promise<AppDistributionType>
+    getLastCheckResult: () => Promise<UpdateCheckResult | null>
+    getUpdateState: () => Promise<{
+      isChecking: boolean
+      isDownloading: boolean
+      isDownloaded: boolean
+    }>
+    checkForUpdates: () => Promise<UpdateCheckResult>
+    downloadUpdate: () => Promise<{ success: boolean; message?: string }>
+    installUpdate: () => void
+    openReleasePage: (version?: string) => Promise<void>
+    downloadLinuxAppImage: (version?: string) => Promise<{ success: boolean; message?: string }>
+    showInstallConfirm: (options: {
+      title: string
+      message: string
+      detail?: string
+      confirmLabel: string
+      cancelLabel: string
+    }) => Promise<boolean>
+    onEvent: (listener: (event: UpdatePushEvent) => void) => () => void
+  }
+  windowControls: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+    isMaximized: () => Promise<boolean>
+    onMaximizeChange: (listener: (isMaximized: boolean) => void) => () => void
   }
 }

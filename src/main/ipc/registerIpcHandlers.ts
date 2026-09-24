@@ -1,11 +1,44 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import fs from 'fs'
+import path from 'path'
+
+function isValidExternalUrl(rawUrl: string): boolean {
+  if (typeof rawUrl !== 'string') return false
+  try {
+    const parsed = new URL(rawUrl)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function isSafeDirectoryToOpen(targetPath: string): boolean {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) return false
+  try {
+    const resolved = path.resolve(targetPath.trim())
+    return fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function isSafePathToShow(targetPath: string): boolean {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) return false
+  try {
+    const resolved = path.resolve(targetPath.trim())
+    return fs.existsSync(resolved)
+  } catch {
+    return false
+  }
+}
 import {
   getSettings,
   updateSettings,
   resetSettings,
   setOsuStableSongsPath,
   setOsuLazerResolvedDataPath,
+  hasBeatconnectApiToken,
+  setBeatconnectApiToken,
   type Settings as AppSettings
 } from '../../services/settingsStore'
 import { probeStablePath, probeLazerPath } from '../../services/pathAutoDetect'
@@ -18,6 +51,8 @@ import { DatabaseService } from '../../services/database/databaseService'
 import { exportService, type ExportOptions } from '../../services/exportService'
 import { collectionService } from '../../services/collection/collectionService'
 import CollectionSyncService from '../../services/collection/collectionSyncService'
+import updateService from '../../services/updateService'
+import { logger } from '../../services/logger'
 import type { DownloadOptions } from '../../services/download/types'
 import type {
   DownloadPushEvent,
@@ -52,7 +87,8 @@ function serializeTask(task: DownloadTask): DownloadTask {
     error: task.error ?? null,
     downloadPath: task.downloadPath ?? null,
     fileName: task.fileName ?? null,
-    filePath: task.filePath ?? null
+    filePath: task.filePath ?? null,
+    beatmapTitle: task.beatmapTitle ?? null
   } as unknown as DownloadTask
 }
 
@@ -62,6 +98,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
     'settings:get',
     'settings:update',
     'settings:reset',
+    'settings:has-beatconnect-token',
+    'settings:set-beatconnect-token',
     'settings:validate-path',
     'settings:get-auto-detect-status',
     'download:start',
@@ -80,7 +118,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
     'system:select-directory',
     'system:select-backup-file',
     'system:open-path',
-    'system:get-mirrors-status'
+    'system:open-external',
+    'system:show-item-in-folder',
+    'system:get-mirrors-status',
+    'updater:get-app-version',
+    'updater:get-distribution-type',
+    'updater:get-last-result',
+    'updater:get-update-state',
+    'updater:check',
+    'updater:download',
+    'updater:open-release',
+    'updater:download-linux-appimage',
+    'updater:show-install-confirm'
   ]
 
   for (const channel of registeredChannels) {
@@ -104,6 +153,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
     resetSettings()
     return { success: true }
   })
+
+  ipcMain.handle('settings:has-beatconnect-token', async (): Promise<boolean> => {
+    return hasBeatconnectApiToken()
+  })
+
+  ipcMain.handle(
+    'settings:set-beatconnect-token',
+    async (_event, token: string): Promise<{ success: boolean }> => {
+      setBeatconnectApiToken(token)
+      return { success: true }
+    }
+  )
 
   ipcMain.handle(
     'settings:validate-path',
@@ -238,6 +299,42 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
   ipcMain.handle('download:get-tasks', async () => {
     const downloadService = DownloadService.getInstance()
     return downloadService.getTasks().map(serializeTask)
+  })
+
+  ipcMain.handle('download:retry-failed', async () => {
+    const downloadService = DownloadService.getInstance()
+    const retriedCount = downloadService.retryFailedTasks()
+    return { success: true, count: retriedCount }
+  })
+
+  ipcMain.handle('download:clear-queue', async () => {
+    const downloadService = DownloadService.getInstance()
+    downloadService.clearQueue()
+    return { success: true }
+  })
+
+  ipcMain.handle('download:export-failed-backup', async () => {
+    const downloadService = DownloadService.getInstance()
+    const failedIds = downloadService.getFailedTaskBeatmapsetIds()
+    if (failedIds.length === 0) {
+      return { success: false, error: 'No failed beatmaps to export' }
+    }
+    const saveResult = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Failed Beatmaps',
+      defaultPath: `osu-failed-beatmaps-${new Date().toISOString().slice(0, 10)}.bbak`,
+      filters: [{ name: 'Beatmap Backup Files', extensions: ['bbak'] }]
+    })
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: false, error: 'cancelled' }
+    }
+    const content = [
+      '# osu! beatmap backup file (Failed Downloads)',
+      `# Exported: ${new Date().toISOString()}`,
+      `# Total Beatmapsets: ${failedIds.length}`,
+      ...failedIds
+    ].join('\n')
+    await fs.promises.writeFile(saveResult.filePath, `${content}\n`, 'utf-8')
+    return { success: true, count: failedIds.length, filePath: saveResult.filePath }
   })
 
   // Setup Download Event Dispatcher
@@ -402,9 +499,38 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
 
   ipcMain.handle('system:open-path', async (_event, targetPath: string) => {
     try {
-      return await shell.openPath(targetPath)
+      if (!isSafeDirectoryToOpen(targetPath)) {
+        return 'Invalid or non-existent directory'
+      }
+      return await shell.openPath(path.resolve(targetPath.trim()))
     } catch (error) {
       return error instanceof Error ? error.message : 'Failed to open path'
+    }
+  })
+
+  ipcMain.handle('system:open-external', async (_event, url: string) => {
+    try {
+      if (!isValidExternalUrl(url)) {
+        console.warn('Blocked opening invalid/unsafe external URL:', url)
+        return
+      }
+      await shell.openExternal(url)
+    } catch (error) {
+      console.error('Failed to open external url:', error)
+    }
+  })
+
+  ipcMain.handle('system:show-item-in-folder', async (_event, targetPath: string) => {
+    try {
+      if (!isSafePathToShow(targetPath)) {
+        console.warn('Blocked revealing invalid/non-existent path:', targetPath)
+        return false
+      }
+      shell.showItemInFolder(path.resolve(targetPath.trim()))
+      return true
+    } catch (error) {
+      console.error('Failed to show item in folder:', error)
+      return false
     }
   })
 
@@ -413,12 +539,147 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
     return mirrorService.getMirrorsStatus()
   })
 
+  ipcMain.handle('system:open-log-folder', async () => {
+    try {
+      const logDir = logger.getLogDir()
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true })
+      }
+      return await shell.openPath(logDir)
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Failed to open log directory'
+    }
+  })
+
+  ipcMain.handle('system:get-diagnostic-info', async () => {
+    return logger.getDiagnosticSnapshot()
+  })
+
+  ipcMain.on(
+    'system:report-renderer-error',
+    (_event, payload: { message: string; stack?: string; component?: string }) => {
+      logger.error(
+        `[RendererError${payload.component ? ` in ${payload.component}` : ''}] ${payload.message}`,
+        payload.stack || ''
+      )
+    }
+  )
+
+  // --- 6. UPDATER DOMAIN ---
+  ipcMain.handle('updater:get-app-version', async () => {
+    return updateService.getAppVersion()
+  })
+
+  ipcMain.handle('updater:get-distribution-type', async () => {
+    return updateService.getDistributionType()
+  })
+
+  ipcMain.handle('updater:get-last-result', async () => {
+    return updateService.getLastCheckResult()
+  })
+
+  ipcMain.handle('updater:get-update-state', async () => {
+    return updateService.getUpdateState()
+  })
+
+  ipcMain.handle('updater:check', async () => {
+    return updateService.checkForUpdates()
+  })
+
+  ipcMain.handle('updater:download', async () => {
+    return updateService.downloadUpdate()
+  })
+
+  const onInstallUpdate = (): void => {
+    updateService.installUpdate()
+  }
+  ipcMain.on('updater:install', onInstallUpdate)
+
+  ipcMain.handle('updater:open-release', async (_event, version?: string) => {
+    return updateService.openReleasePage(version)
+  })
+
+  ipcMain.handle('updater:download-linux-appimage', async (_event, version?: string) => {
+    return updateService.downloadLinuxAppImage(version)
+  })
+
+  ipcMain.handle(
+    'updater:show-install-confirm',
+    async (
+      _event,
+      options: {
+        title: string
+        message: string
+        detail?: string
+        confirmLabel: string
+        cancelLabel: string
+      }
+    ) => {
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: options.title,
+        message: options.message,
+        detail: options.detail,
+        buttons: [options.confirmLabel, options.cancelLabel],
+        defaultId: 0,
+        cancelId: 1
+      })
+      return result.response === 0
+    }
+  )
+
+  const unsubscribeUpdater = updateService.addListener((event) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:push-event', event)
+    }
+  })
+
+  // --- 7. WINDOW CONTROLS DOMAIN ---
+  const onMinimize = (): void => {
+    if (!mainWindow.isDestroyed()) mainWindow.minimize()
+  }
+  const onMaximize = (): void => {
+    if (!mainWindow.isDestroyed()) {
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize()
+      } else {
+        mainWindow.maximize()
+      }
+    }
+  }
+  const onClose = (): void => {
+    if (!mainWindow.isDestroyed()) mainWindow.close()
+  }
+  ipcMain.on('window:minimize', onMinimize)
+  ipcMain.on('window:maximize', onMaximize)
+  ipcMain.on('window:close', onClose)
+  ipcMain.handle('window:is-maximized', async () => {
+    return !mainWindow.isDestroyed() && mainWindow.isMaximized()
+  })
+
+  const onWindowMaximizeEvent = (): void => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('window:maximize-change', true)
+  }
+  const onWindowUnmaximizeEvent = (): void => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('window:maximize-change', false)
+  }
+  mainWindow.on('maximize', onWindowMaximizeEvent)
+  mainWindow.on('unmaximize', onWindowUnmaximizeEvent)
+
   // Return cleanup function
   return () => {
     if (addedTasksFlushTimer) {
       clearTimeout(addedTasksFlushTimer)
       addedTasksFlushTimer = undefined
     }
+    ipcMain.removeListener('window:minimize', onMinimize)
+    ipcMain.removeListener('window:maximize', onMaximize)
+    ipcMain.removeListener('window:close', onClose)
+    ipcMain.removeHandler('window:is-maximized')
+    mainWindow.removeListener('maximize', onWindowMaximizeEvent)
+    mainWindow.removeListener('unmaximize', onWindowUnmaximizeEvent)
+    ipcMain.removeListener('updater:install', onInstallUpdate)
+    unsubscribeUpdater()
     downloadService.removeListener(DownloadEvent.TASK_ADDED, onTaskAdded)
     downloadService.removeListener(DownloadEvent.TASK_UPDATED, onTaskUpdated)
     downloadService.removeListener(DownloadEvent.TASK_COMPLETED, onTaskCompleted)

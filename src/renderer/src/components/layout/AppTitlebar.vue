@@ -18,6 +18,8 @@
         class="update-pill"
         :class="pillClass"
         :title="pillTitle"
+        @mouseenter="handleMouseEnter"
+        @mouseleave="handleMouseLeave"
         @click="handlePillClick"
       >
         <span class="update-pill-icon-host">
@@ -62,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import logoUrl from '../../assets/logo.png'
 import type {
@@ -107,7 +109,9 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appVersion = ref('')
 const isMaximized = ref(false)
+const isHoverExpanded = ref(false)
 let cleanupMaximizeListener: (() => void) | null = null
+let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
 const isDownloading = computed(() => props.updateStatus === 'downloading')
 const isInstaller = computed(() => props.distributionType === 'win-installer')
@@ -127,7 +131,8 @@ const pillClass = computed(() => ({
   'is-up-to-date': props.updateStatus === 'up-to-date',
   'is-downloading': props.updateStatus === 'downloading',
   'is-downloaded': props.updateStatus === 'downloaded',
-  'is-error': props.updateStatus === 'error'
+  'is-error': props.updateStatus === 'error',
+  'is-expanded': isHoverExpanded.value
 }))
 
 const pillIcon = computed(() => {
@@ -178,7 +183,33 @@ const pillTitle = computed(() => {
   return pillLabel.value
 })
 
+const handleMouseEnter = (): void => {
+  if (props.updateStatus !== 'idle') return
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+  hoverTimer = setTimeout(() => {
+    isHoverExpanded.value = true
+    hoverTimer = null
+  }, 250)
+}
+
+const handleMouseLeave = (): void => {
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+  isHoverExpanded.value = false
+}
+
 const handlePillClick = (): void => {
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+  isHoverExpanded.value = false
+
   if (props.updateStatus === 'downloaded' && isInstaller.value) {
     emit('install-update')
   } else if (props.updateStatus === 'available' || props.updateStatus === 'downloaded') {
@@ -193,6 +224,17 @@ const handlePillClick = (): void => {
     emit('check-updates')
   }
 }
+
+watch(
+  () => props.updateStatus,
+  (newStatus) => {
+    if (newStatus !== 'idle' && hoverTimer) {
+      clearTimeout(hoverTimer)
+      hoverTimer = null
+      isHoverExpanded.value = false
+    }
+  }
+)
 
 const minimizeWindow = (): void => {
   window.electronAPI?.windowControls?.minimize()
@@ -225,6 +267,10 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
   if (cleanupMaximizeListener) {
     cleanupMaximizeListener()
     cleanupMaximizeListener = null
@@ -330,8 +376,14 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-/* Hover expansion in idle state */
+/* Hover feedback on icon in idle state */
 .update-pill:hover {
+  background-color: rgba(255, 102, 170, 0.12);
+  color: var(--accent-pink);
+}
+
+/* Debounced expansion in idle state */
+.update-pill.is-expanded {
   max-width: 240px;
   padding: 0 10px;
   background-color: rgba(255, 102, 170, 0.12);
@@ -408,7 +460,7 @@ body[lang='ja'] .update-pill-label,
   top: -1px;
 }
 
-.update-pill:hover .update-pill-label,
+.update-pill.is-expanded .update-pill-label,
 .update-pill.is-available .update-pill-label,
 .update-pill.is-checking .update-pill-label,
 .update-pill.is-up-to-date .update-pill-label,
@@ -432,7 +484,7 @@ body[lang='ja'] .update-pill-label,
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-.update-pill:hover .update-notif-dot,
+.update-pill.is-expanded .update-notif-dot,
 .update-pill.is-available .update-notif-dot,
 .update-pill.is-checking .update-notif-dot,
 .update-pill.is-up-to-date .update-notif-dot,

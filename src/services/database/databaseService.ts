@@ -10,7 +10,11 @@ import type {
   NormalizedBeatmapsetRecord,
   SyncSource
 } from './types'
-import { runBeatmapFilter, type BeatmapFilterResult } from './beatmapFilterQuery'
+import {
+  runBeatmapFilter,
+  getFilteredBeatmapsetIds,
+  type BeatmapFilterResult
+} from './beatmapFilterQuery'
 
 type MetaRow = { value: string }
 type BeatmapSetIdRow = { beatmapset_id: number }
@@ -112,6 +116,14 @@ export class DatabaseService {
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('foreign_keys = ON')
+
+    this.db.function('NORMALIZE_TEXT', (text: unknown) => {
+      if (typeof text !== 'string') return ''
+      return text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+    })
 
     this.db.exec(CREATE_TABLES_SQL)
     this.db.exec(CREATE_INDEXES_SQL)
@@ -480,6 +492,10 @@ export class DatabaseService {
 
   filterBeatmaps(body: unknown): BeatmapFilterResult {
     return runBeatmapFilter(this.db, body)
+  }
+
+  getFilteredBeatmapsetIds(body: unknown): number[] {
+    return getFilteredBeatmapsetIds(this.db, body)
   }
 
   getBeatmapsetIdByMd5(md5: string): number | null {

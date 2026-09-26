@@ -30,6 +30,7 @@ import {
   mdiDatabaseOutline,
   mdiBackupRestore,
   mdiContentSaveOutline,
+  mdiContentCopy,
   mdiPlay,
   mdiPause,
   mdiCheck,
@@ -58,7 +59,8 @@ import {
   mdiEye,
   mdiEyeOff,
   mdiOpenInNew,
-  mdiServer
+  mdiServer,
+  mdiFilterVariant
 } from '@mdi/js'
 
 const getInitialTheme = (): 'light' | 'dark' => {
@@ -86,6 +88,7 @@ const appIconAliases = {
   databaseOutline: mdiDatabaseOutline,
   backupRestore: mdiBackupRestore,
   contentSaveOutline: mdiContentSaveOutline,
+  contentCopy: mdiContentCopy,
   play: mdiPlay,
   pause: mdiPause,
   check: mdiCheck,
@@ -114,7 +117,8 @@ const appIconAliases = {
   eye: mdiEye,
   eyeOff: mdiEyeOff,
   openInNew: mdiOpenInNew,
-  server: mdiServer
+  server: mdiServer,
+  filterVariant: mdiFilterVariant
 }
 
 const vuetify = createVuetify({

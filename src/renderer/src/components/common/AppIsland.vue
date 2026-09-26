@@ -43,6 +43,12 @@ withDefaults(
   padding-bottom: 26px;
 }
 
+.view-card.d-flex.flex-column > .app-island-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .view-card {
   padding-top: 10px;
 }

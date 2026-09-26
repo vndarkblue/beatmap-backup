@@ -211,6 +211,9 @@ export interface ElectronApi {
     syncCollections: () => Promise<ManualSyncResult>
     getCollectionStatus: () => Promise<CollectionSyncStatus>
     filterBeatmaps: (filter: Record<string, unknown>) => Promise<unknown>
+    exportFilteredBackup: (
+      filter: Record<string, unknown>
+    ) => Promise<{ success: boolean; count?: number; filePath?: string; error?: string }>
     onSyncProgress: (listener: (progress: SyncProgressEvent) => void) => () => void
   }
   backup: {

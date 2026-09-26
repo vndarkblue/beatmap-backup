@@ -60,6 +60,9 @@ Các trường hợp sử dụng tiêu biểu:
 
 ## ✨ Tính năng <a id="features"></a>
 
+- **Lọc & Tìm kiếm** — Khám phá và tra cứu thư viện beatmap với bộ lọc đa tiêu chí
+  - **Lọc chuyên sâu** — Lọc theo chế độ chơi (Mode), trạng thái xếp hạng (Ranked, Loved...), Star Rating, BPM, thời lượng và độ khó (CS/AR/OD/HP)
+  - **Xuất danh sách đã lọc** — Xuất trực tiếp kết quả lọc ra file `.bbak` để sao lưu hoặc chia sẻ có chọn lọc
 - **Backup** — Xuất thư viện beatmap thành một file `.bbak` gọn nhẹ
   - **Hỗ trợ cả 2 client** — Đọc dữ liệu từ osu!stable (`osu!.db`) và osu!lazer (`client.realm`)
   - **Lọc theo Collection** — Chỉ sao lưu các bộ sưu tập bạn chọn
@@ -88,21 +91,27 @@ Khi khôi phục, ứng dụng đọc danh sách trên và tải từng beatmaps
 
 ## 🖼️ Ảnh chụp màn hình <a id="screenshots"></a>
 
-### Settings
+### Lọc Beatmap
 
-![Settings UI](doc/screenshots/settings.png)
+![Giao diện Tiêu chí Lọc](doc/screenshots/filter_criteria.png)
 
-### Backup
+![Giao diện Kết quả Lọc](doc/screenshots/filter_results.png)
 
-![Backup UI](doc/screenshots/backup.png)
+### Sao lưu
 
-### Download
+![Giao diện Sao lưu](doc/screenshots/backup.png)
 
-![Download UI](doc/screenshots/download.png)
+### Tải xuống
 
-### Resume Download
+![Giao diện Tải xuống](doc/screenshots/download.png)
 
-![Resume Download UI](doc/screenshots/download_resume.png)
+### Tiếp tục tải
+
+![Giao diện Tiếp tục tải](doc/screenshots/download_resume.png)
+
+### Cài đặt
+
+![Giao diện Cài đặt](doc/screenshots/settings.png)
 
 ## 🛠️ Thiết lập môi trường phát triển (Dành cho cộng tác viên) <a id="development-setup"></a>
 
@@ -128,13 +137,16 @@ npm run dev
 ### Các lệnh có sẵn
 
 ```bash
-npm run dev          # Khởi chạy development server
-npm run build        # Type-check, sau đó build cho bản phát hành
-npm run build:win    # Build cho Windows
-npm run build:linux  # Build cho Linux
-npm test             # Chạy bộ test vitest
-npm run lint         # Chạy ESLint
-npm run typecheck    # Type-check main, preload, và renderer
+npm run dev            # Khởi chạy development server
+npm run build          # Type-check, sau đó build cho bản phát hành
+npm run build:win      # Build cho Windows
+npm run build:linux    # Build cho Linux
+npm run check          # Chạy toàn bộ kiểm tra CI cục bộ (lint, typecheck, test coverage)
+npm test               # Chạy bộ test vitest
+npm run test:coverage  # Chạy bộ test vitest kèm báo cáo độ phủ code
+npm run lint           # Chạy ESLint
+npm run format         # Định dạng lại toàn bộ mã nguồn bằng Prettier
+npm run typecheck      # Type-check main, preload, và renderer
 ```
 
 ### Cấu trúc dự án
@@ -142,22 +154,24 @@ npm run typecheck    # Type-check main, preload, và renderer
 ```
 beatmap-backup/
 ├── src/
-│   ├── main/                # Electron main process, vòng đời cửa sổ, IPC routing
+│   ├── main/                # Electron main process, vòng đời cửa sổ, kiểm tra bảo mật
+│   │   └── ipc/             # Các IPC handler chuyên biệt theo domain (download, database...)
 │   ├── preload/             # Context bridge và các API giao tiếp renderer
 │   ├── renderer/            # Ứng dụng Vue 3
 │   │   └── src/
-│   │       ├── assets/      # CSS toàn cục và tài nguyên tĩnh
-│   │       ├── components/  # Vue components (Settings, Backup, Download, layout)
-│   │       ├── composables/ # Các composable Vue tái sử dụng
-│   │       ├── i18n/        # Bản dịch đa ngôn ngữ
-│   │       └── router/      # Cấu hình Vue Router
+│   │       ├── assets/      # CSS toàn cục, font Unicode bổ trợ và tài nguyên tĩnh
+│   │       ├── components/  # Vue components (Filter, Backup, Download, Settings, layout)
+│   │       │   └── filter/  # Các thẻ tiêu chí và bảng kết quả lọc beatmap
+│   │       ├── composables/ # Các composable Vue tái sử dụng (hàng đợi tải, luồng sao lưu)
+│   │       ├── i18n/        # Bản dịch đa ngôn ngữ (en, vi, ja)
+│   │       └── router.ts    # Cấu hình Vue Router
 │   ├── services/            # Logic nghiệp vụ ứng dụng (main process)
 │   │   ├── collection/      # Đọc collection từ osu!stable và lazer
-│   │   ├── database/        # SQLite schema, bộ import, quản lý đồng bộ
-│   │   └── download/        # Quản lý hàng đợi tải, mirror & bộ điều phối
-│   ├── config/              # Các hằng số chia sẻ, cấu hình mirror
+│   │   ├── database/        # SQLite schema, bộ import, quản lý đồng bộ và engine lọc
+│   │   └── download/        # Quản lý hàng đợi tải, bộ kiểm tra và điều phối mirror
+│   ├── config/              # Các hằng số ứng dụng, cấu hình mirror
 │   └── utils/               # Các hàm tiện ích dùng chung
-└── tests/                   # Bộ test Vitest
+└── tests/                   # Bộ test Vitest (unit & integration tests)
 ```
 
 ## 🤝 Đóng góp <a id="contributing"></a>

@@ -60,6 +60,9 @@ osu! プレイヤー向けの譜面コレクションのバックアップ・共
 
 ## ✨ 機能 <a id="features"></a>
 
+- **フィルター＆検索** — 多彩な条件で譜面ライブラリを検索・絞り込み
+  - **高度な条件指定** — ゲームモード、ランキング状態（Ranked、Lovedなど）、星評価、BPM、曲の長さ、難易度設定（CS/AR/OD/HP）で絞り込み
+  - **絞り込み結果のエクスポート** — 検索条件に一致した譜面のみを直接 `.bbak` ファイルとして出力・共有
 - **バックアップ** — 譜面ライブラリを軽量な `.bbak` ファイルにエクスポート
   - **両クライアント対応** — osu!stable (`osu!.db`) および osu!lazer (`client.realm`) を読み取り
   - **コレクションフィルター** — 特定のコレクションのみを対象にバックアップ
@@ -88,21 +91,27 @@ osu! プレイヤー向けの譜面コレクションのバックアップ・共
 
 ## 🖼️ スクリーンショット <a id="screenshots"></a>
 
-### Settings
+### 譜面フィルター
 
-![Settings UI](doc/screenshots/settings.png)
+![フィルター条件 UI](doc/screenshots/filter_criteria.png)
 
-### Backup
+![フィルター結果 UI](doc/screenshots/filter_results.png)
 
-![Backup UI](doc/screenshots/backup.png)
+### バックアップ
 
-### Download
+![バックアップ画面 UI](doc/screenshots/backup.png)
 
-![Download UI](doc/screenshots/download.png)
+### ダウンロード
 
-### Resume Download
+![ダウンロード画面 UI](doc/screenshots/download.png)
 
-![Resume Download UI](doc/screenshots/download_resume.png)
+### ダウンロード再開
+
+![ダウンロード再開画面 UI](doc/screenshots/download_resume.png)
+
+### 設定
+
+![設定画面 UI](doc/screenshots/settings.png)
 
 ## 🛠️ 開発環境のセットアップ（コントリビューター向け） <a id="development-setup"></a>
 
@@ -128,13 +137,16 @@ npm run dev
 ### 利用可能なスクリプト
 
 ```bash
-npm run dev          # 開発サーバーを起動
-npm run build        # 型チェック後、本番用にビルド
-npm run build:win    # Windows 向けビルド
-npm run build:linux  # Linux 向けビルド
-npm test             # Vitest テストスイートを実行
-npm run lint         # ESLint を実行
-npm run typecheck    # main、preload、renderer の型チェック
+npm run dev            # 開発サーバーを起動
+npm run build          # 型チェック後、本番用にビルド
+npm run build:win      # Windows 向けビルド
+npm run build:linux    # Linux 向けビルド
+npm run check          # CI の全検証（Lint、型チェック、テストカバレッジ）をローカルで実行
+npm test               # Vitest テストスイートを実行
+npm run test:coverage  # カバレッジレポート付きで Vitest テストスイートを実行
+npm run lint           # ESLint を実行
+npm run format         # Prettier でコード全体をフォーマット
+npm run typecheck      # main、preload、renderer の型チェック
 ```
 
 ### プロジェクト構成
@@ -142,20 +154,22 @@ npm run typecheck    # main、preload、renderer の型チェック
 ```
 beatmap-backup/
 ├── src/
-│   ├── main/                # Electron メインプロセス、ウィンドウライフサイクル、IPC ルーティング
+│   ├── main/                # Electron メインプロセス、ウィンドウライフサイクル、セキュリティ保護
+│   │   └── ipc/             # ドメイン別の IPC ハンドラー (download, database など)
 │   ├── preload/             # コンテキストブリッジと公開 API
 │   ├── renderer/            # Vue 3 アプリケーション
 │   │   └── src/
-│   │       ├── assets/      # グローバル CSS と静的アセット
-│   │       ├── components/  # Vue コンポーネント (Settings, Backup, Download, layout)
-│   │       ├── composables/ # 再利用可能な Vue コンポーザブル
-│   │       ├── i18n/        # 翻訳ファイル
-│   │       └── router/      # Vue Router 設定
+│   │       ├── assets/      # グローバル CSS、Unicode フォント、静的アセット
+│   │       ├── components/  # Vue コンポーネント (Filter, Backup, Download, Settings, layout)
+│   │       │   └── filter/  # 譜面フィルター条件と結果一覧カード
+│   │       ├── composables/ # 再利用可能な Vue コンポーザブル (ダウンロードキュー、バックアップ処理)
+│   │       ├── i18n/        # 多言語翻訳ファイル (en, vi, ja)
+│   │       └── router.ts    # Vue Router 設定
 │   ├── services/            # アプリケーションロジック (メインプロセス)
 │   │   ├── collection/      # collection.db および lazer コレクション読み取り
-│   │   ├── database/        # SQLite スキーマ、インポーター、同期マネージャー
-│   │   └── download/        # ダウンロードキュー内部処理、ミラー＆スケジューラー
-│   ├── config/              # 共有定数、ミラー定義
+│   │   ├── database/        # SQLite スキーマ、インポーター、同期マネージャー、フィルターエンジン
+│   │   └── download/        # ダウンロードキュー内部処理、検証＆スケジューラー
+│   ├── config/              # アプリケーション定数、ミラー定義
 │   └── utils/               # 共有ヘルパー関数
 └── tests/                   # Vitest テストスイート
 ```

@@ -60,6 +60,9 @@ Typical uses:
 
 ## ✨ Features <a id="features"></a>
 
+- **Filter & Search** — Explore and query your beatmap library with rich criteria
+  - **Multi-criteria filter** — Filter by game mode, ranked status, star rating, BPM, song length, and stats
+  - **Filtered export** — Export filtered results directly into a `.bbak` file for targeted sharing
 - **Backup** — Export your beatmap library into a compact `.bbak` file
   - **Both clients** — Reads osu!stable (`osu!.db`) and osu!lazer (`client.realm`)
   - **Collection filter** — Narrow backups down to specific collections
@@ -88,9 +91,11 @@ Restoring reads that list and downloads each beatmapset as an `.osz` file into a
 
 ## 🖼️ Screenshots <a id="screenshots"></a>
 
-### Settings
+### Filter Beatmaps
 
-![Settings UI](doc/screenshots/settings.png)
+![Filter Criteria UI](doc/screenshots/filter_criteria.png)
+
+![Filter Results UI](doc/screenshots/filter_results.png)
 
 ### Backup
 
@@ -103,6 +108,10 @@ Restoring reads that list and downloads each beatmapset as an `.osz` file into a
 ### Resume Download
 
 ![Resume Download UI](doc/screenshots/download_resume.png)
+
+### Settings
+
+![Settings UI](doc/screenshots/settings.png)
 
 ## 🛠️ Development Setup (Contributors) <a id="development-setup"></a>
 
@@ -128,13 +137,16 @@ npm run dev
 ### Available Scripts
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Type-check, then build for production
-npm run build:win    # Build for Windows
-npm run build:linux  # Build for Linux
-npm test             # Run the vitest suite
-npm run lint         # Run ESLint
-npm run typecheck    # Type-check main, preload, and renderer
+npm run dev            # Start development server
+npm run build          # Type-check, then build for production
+npm run build:win      # Build for Windows
+npm run build:linux    # Build for Linux
+npm run check          # Run full CI suite locally (lint, typecheck, tests with coverage)
+npm test               # Run the vitest suite
+npm run test:coverage  # Run the vitest suite with coverage report
+npm run lint           # Run ESLint
+npm run format         # Format codebase with Prettier
+npm run typecheck      # Type-check main, preload, and renderer
 ```
 
 ### Project Structure
@@ -142,22 +154,24 @@ npm run typecheck    # Type-check main, preload, and renderer
 ```
 beatmap-backup/
 ├── src/
-│   ├── main/                # Electron main process, window lifecycle, IPC routing
+│   ├── main/                # Electron main process, window lifecycle, security guards
+│   │   └── ipc/             # Domain-specific IPC handlers (download, database, etc.)
 │   ├── preload/             # Context bridge and exposed API surface
 │   ├── renderer/            # Vue 3 application
 │   │   └── src/
-│   │       ├── assets/      # Global CSS and static assets
-│   │       ├── components/  # Vue components (Settings, Backup, Download, layout)
-│   │       ├── composables/ # Reusable Vue composables
-│   │       ├── i18n/        # Translations
-│   │       └── router/      # Vue Router config
+│   │       ├── assets/      # Global CSS, Unicode fonts, and static assets
+│   │       ├── components/  # Vue components (Filter, Backup, Download, Settings, layout)
+│   │       │   └── filter/  # Beatmap filter criteria and results cards
+│   │       ├── composables/ # Reusable Vue composables (download queue, backup workflow)
+│   │       ├── i18n/        # Localized translations (en, vi, ja)
+│   │       └── router.ts    # Vue Router configuration
 │   ├── services/            # Application logic (main process)
 │   │   ├── collection/      # collection.db and lazer collection reading
-│   │   ├── database/        # SQLite schema, importers, sync manager
-│   │   └── download/        # Download queue internals, mirrors & scheduler
-│   ├── config/              # Shared constants, mirror definitions
-│   └── utils/               # Shared helpers
-└── tests/                   # Vitest suite
+│   │   ├── database/        # SQLite schema, importers, sync manager, filter query engine
+│   │   └── download/        # Download queue internals, validator & scheduler
+│   ├── config/              # Application constants, mirror definitions
+│   └── utils/               # Shared helper utilities
+└── tests/                   # Vitest unit and integration test suites
 ```
 
 ## 🤝 Contributing <a id="contributing"></a>

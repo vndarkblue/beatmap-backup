@@ -23,7 +23,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "i18n:export": "node scripts/i18n-export-csv.js",
-    "i18n:import": "node scripts/i18n-import-csv.js"
+    "i18n:import": "node scripts/i18n-import-csv.js",
+    "check": "npm run lint && npm run typecheck && npm run test:coverage"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",

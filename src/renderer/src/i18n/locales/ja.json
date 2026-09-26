@@ -25,17 +25,17 @@
       "waitForDownloads": "一時停止時にダウンロード完了を待つ",
       "waitForDownloadsHelpOn": "一時停止前にダウンロード中の譜面を完了させます",
       "waitForDownloadsHelpOff": "一時停止時にダウンロード中の譜面は即座に中断されることがあります",
-      "beatconnectTokenHelp": "BeatConnectのPatreon APIトークンを入力すると、無制限の高速ダウンロードが可能になります。空欄の場合は通常の制限付きモードが適用されます。",
-      "beatconnectTokenSubtitle": "Patreon APIトークンを連携してダウンロード制限を解除します。",
+      "beatconnectTokenHelp": "BeatConnect APIトークンを入力すると、無制限の高速ダウンロードが可能になります。",
+      "beatconnectTokenSubtitle": "BeatConnect APIトークンを使用してダウンロード制限を解除し、優先的に自動同期します。",
       "beatconnectTokenPlaceholder": "BeatConnect APIトークンを入力...",
       "beatconnectTokenSave": "保存",
       "beatconnectTokenCancel": "キャンセル",
       "beatconnectTokenSaved": "トークン保存済み（暗号化）",
-      "beatconnectTokenActiveHint": "Patreon VIPアクセス有効 • 最大5スレッド",
+      "beatconnectTokenActiveHint": "APIアクセス有効 • 最大5スレッド",
       "beatconnectTokenChange": "変更",
       "beatconnectTokenClear": "削除",
-      "beatconnectPatreonLink": "Patreonでトークンを取得",
-      "mirrorsNetwork": "ミラーネットワーク状態",
+      "beatconnectPatreonLink": "APIトークンを取得",
+      "mirrorsNetwork": "譜面ミラー状態",
       "mirrorsNetworkHelp": "各ミラーサーバーの稼働状況です。アクセス制限を回避するため、稼働中のミラー間で自動的に負荷分散されます。",
       "mirrorsNetworkSubtitle": "ミラーごとの安全なスレッド上限を備えた自動フェイルオーバープール。",
       "mirrorsRefresh": "ミラー状態を更新",
@@ -114,13 +114,13 @@
       "mergeByName": "同名のコレクションを統合",
       "syncNow": "不足譜面を同期",
       "secondsShort": "秒",
+      "loading": "コレクションを読み込み中...",
       "empty": "コレクションが見つかりません",
       "successStats": "{count} 譜面をバックアップ（同期待ち: {pending}、ローカルのみ: {missing}、API未検出: {notFound}）",
       "status": {
         "resolved": "利用可能",
         "pending": "同期待ち",
         "notFound": "未検出",
-        "failed": "失敗",
         "missingLocal": "ローカルなし"
       },
       "sources": {
@@ -163,7 +163,6 @@
       "discardFailed": "保存されたキューの破棄に失敗しました"
     },
     "errors": {
-      "invalidFile": "無効なファイル形式です。.bbak ファイルのみ対応しています。",
       "getFilePath": "ファイルパスは見つかりません",
       "downloadPathNotExist": "ダウンロードパスは見つかりません",
       "downloadPathNotDirectory": "ダウンロードパスは無効",
@@ -172,12 +171,6 @@
       "allBeatmapsExist": "ダウンロード対象の譜面が既に存在します"
     },
     "manager": {
-      "title": "ダウンロード管理",
-      "emptyState": {
-        "title": "実行中のダウンロードはありません",
-        "description": "ダウンロードページに移動して、譜面ダウンロードを開始します",
-        "action": "ダウンロード画面へ"
-      },
       "queueOverview": "ダウンロードキュー",
       "running": "ダウンロード中",
       "paused": "一時停止中",
@@ -189,7 +182,6 @@
       "failedDownloads": "失敗したファイル",
       "noActiveDownloads": "ダウンロード中のファイルはありません",
       "noCompletedDownloads": "ダウンロード済みのファイルはありません",
-      "noFailedDownloads": "失敗したファイルはありません",
       "retryFailed": "失敗したファイルを再試行",
       "retryStarted": "{count}件の失敗ファイルを再試行中...",
       "exportFailed": "失敗した譜面をエクスポート (.bbak)",
@@ -223,118 +215,57 @@
         "waiting": "待機中",
         "downloading": "ダウンロード中",
         "completed": "ダウンロード済み",
-        "error": "エラー",
-        "unknown": "不明"
-      },
-      "preview": {
-        "show": "プレビュー表示",
-        "hide": "プレビュー非表示"
+        "error": "エラー"
       }
     }
   },
   "filter": {
     "title": "譜面フィルター",
+    "criteriaTitle": "フィルター条件",
     "gameMode": "ゲームモード",
-    "difficulty": "難易度",
+    "difficulty": "難易度・ステータス",
     "status": "ステータス",
     "statusOptions": {
-      "any": "全て",
+      "any": "すべて",
+      "hasLeaderboard": "ランキングあり",
       "ranked": "Ranked",
-      "loved": "お気に入り",
-      "hasLeaderboard": "リーダボード",
+      "loved": "Loved",
       "approved": "Approved",
       "qualified": "Qualified",
-      "unranked": "Unranked",
-      "wip": "WIP",
-      "pending": "Pending",
-      "graveyard": "Graveyard"
+      "unranked": "Unranked"
     },
-    "stars": "星",
+    "stars": "難易度 (Stars)",
     "bpm": "BPM",
-    "cs": "サークルサイズ",
-    "keys": "キー",
-    "ar": "アプローチ速度",
-    "hp": "HPの厳しさ",
-    "od": "精度",
-    "beatmapInfo": "ビートマップ情報",
-    "generalSearch": "検索",
-    "generalSearchHint": "キーワード",
-    "artist": "アーティスト",
-    "mapTitle": "タイトル",
-    "mapper": "作者",
-    "length": "長さ",
-    "drainLength": "Drainの長さ",
-    "maxCombo": "最大コンボ",
-    "metadata": "メタデータ",
-    "genre": "ジャンル",
-    "language": "言語",
-    "source": "ソース",
-    "tags": "タグ",
-    "genreOptions": {
-      "any": "全て",
-      "unspecified": "未分類",
-      "videoGame": "ゲーム",
-      "anime": "アニメ",
-      "rock": "ロック",
-      "pop": "ポップ",
-      "other": "その他",
-      "novelty": "ノベルティ",
-      "hipHop": "ヒップホップ",
-      "electronic": "エレクトロニック",
-      "metal": "メタル",
-      "classical": "クラシカル",
-      "folk": "フォーク",
-      "jazz": "ジャズ"
-    },
-    "languageOptions": {
-      "any": "全て",
-      "english": "英語",
-      "japanese": "日本語",
-      "chinese": "中国語",
-      "instrumental": "楽器",
-      "korean": "韓国語",
-      "french": "フランス語",
-      "german": "ドイツ語",
-      "swedish": "スウェーデン語",
-      "spanish": "スペイン語",
-      "italian": "イタリア語",
-      "russian": "ロシア語",
-      "polish": "ポーランド語",
-      "other": "その他"
-    },
-    "resetAll": "全てリセット",
-    "applyFilter": "フィルター応用",
-    "modeLabels": {
-      "osu": "osu!",
-      "taiko": "Taiko",
-      "fruits": "Catch",
-      "mania": "Mania"
-    },
+    "cs": "CS",
+    "keys": "キー数",
+    "keysRange": "{min}K - {max}K",
+    "ar": "AR",
+    "hp": "HP",
+    "od": "OD",
+    "length": "曲の長さ",
+    "search": "検索 (曲名, アーティスト, 作成者, タグ...)",
+    "searchPlaceholder": "キーワードを入力...",
+    "resetAll": "リセット",
     "results": {
-      "title": "結果",
+      "title": "検索結果",
       "summary": "{beatmaps} 譜面 · {sets} 譜面セット · {ms} ms",
-      "empty": "譜面は見つかりません",
-      "error": "フィルター実行できません",
-      "loading": "検索中",
-      "pageSize": "1ページあたり",
+      "empty": "一致する譜面が見つかりませんでした。",
+      "loading": "検索中...",
+      "unicodeTooltip": "ビートマップのメタデータを元の言語で表示",
+      "export": "バックアップを出力 (.bbak)",
+      "exporting": "出力中...",
+      "exportSuccess": "{count} 個の譜面セットIDを出力しました",
+      "exportError": "バックアップの出力に失敗しました",
+      "pageSize": "表示件数",
       "columns": {
-        "artist": "アーティスト",
-        "title": "タイトル",
-        "creator": "作者",
+        "title": "タイトル / アーティスト",
         "version": "難易度",
-        "mode": "モード",
-        "stars": "★",
+        "stars": "Stars",
         "bpm": "BPM",
-        "length": "長さ",
-        "status": "ステータス",
-        "source": "ソース"
+        "stats": "CS / AR / HP / OD",
+        "length": "長さ"
       }
-    },
-    "min": "Min",
-    "max": "Max",
-    "seconds": "秒",
-    "addTag": "...タグ追加",
-    "addTagHint": "Enterを押して、タグを追加"
+    }
   },
   "language": {
     "title": "言語"
@@ -342,7 +273,8 @@
   "navigation": {
     "settings": "設定",
     "backup": "バックアップ",
-    "download": "ダウンロード"
+    "download": "ダウンロード",
+    "beatmapFilter": "フィルター"
   },
   "theme": {
     "dark": "ダークモード",
@@ -364,32 +296,20 @@
     }
   },
   "updater": {
-    "title": "更新を確認",
     "checkUpdate": "更新を確認",
-    "currentVersion": "現在のバージョン: v{version}",
     "checking": "更新を確認中...",
-    "checkingHint": "GitHub Releasesに接続して最新バージョンを確認しています。",
     "upToDate": "最新バージョンです！",
-    "upToDateHint": "Beatmap Backup v{version} は現在最新のバージョンです。",
     "newVersionAvailable": "新しいバージョンが利用可能です",
     "portableNotice": "ポータブル版を使用しています。GitHub Releasesから最新のzipファイルをダウンロードしてフォルダーを置き換えてください。",
     "linuxNotice": "下をクリックして最新のAppImageファイルをダウンロードフォルダーに直接ダウンロードします。",
     "changelog": "更新内容:",
     "downloading": "更新プログラムをダウンロード中...",
-    "readyToInstall": "更新プログラムのダウンロードが完了しました。再起動して適用してください。",
-    "linuxDownloaded": "AppImageがダウンロードフォルダーに保存されました。",
-    "errorTitle": "更新の確認に失敗しました",
     "defaultError": "更新を確認できませんでした。インターネット接続を確認してください。",
-    "viewOnGitHub": "GitHubで表示",
-    "later": "後で",
     "cancel": "キャンセル",
-    "retry": "再試行",
     "downloadAndInstall": "今すぐ更新",
     "goToRelease": "リリースページへ",
     "downloadAppImage": "AppImageをダウンロード",
     "restartAndInstall": "再起動してインストール",
-    "toastUpdateAvailable": "Beatmap Backup v{version} が利用可能になりました！",
-    "view": "確認",
     "checkingShort": "確認中...",
     "upToDateShort": "最新版です",
     "downloadNow": "今すぐ更新",
@@ -400,12 +320,6 @@
     "installConflictTitle": "ダウンロード進行中",
     "installConflictMsg": "{count} 件の譜面をダウンロード中です。",
     "installConflictDetail": "進捗は保存され、アプリを再起動した際に再開できます。",
-    "installConflictConfirm": "再起動してインストール",
-    "dist": {
-      "winInstaller": "インストーラー版",
-      "winPortable": "ポータブル版",
-      "linuxAppImage": "Linux AppImage",
-      "linux": "Linux"
-    }
+    "installConflictConfirm": "再起動してインストール"
   }
 }

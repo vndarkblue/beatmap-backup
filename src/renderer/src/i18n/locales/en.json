@@ -25,17 +25,17 @@
       "waitForDownloads": "Wait for downloads to complete when pausing",
       "waitForDownloadsHelpOn": "When pausing, in-progress beatmaps are allowed to finish before the queue pauses.",
       "waitForDownloadsHelpOff": "When pausing, in-progress beatmaps may stop immediately.",
-      "beatconnectTokenHelp": "Enter your BeatConnect Patreon API token to unlock unlimited, high-speed downloads. Leave empty to use default rate-limited mode.",
-      "beatconnectTokenSubtitle": "Connect your Patreon API token for unlimited download quota and priority auto-sync.",
+      "beatconnectTokenHelp": "Enter your BeatConnect API token to unlock unlimited, high-speed downloads.",
+      "beatconnectTokenSubtitle": "Use a BeatConnect API token for unlimited download quota and priority auto-sync.",
       "beatconnectTokenPlaceholder": "Paste your BeatConnect API token here...",
       "beatconnectTokenSave": "Save",
       "beatconnectTokenCancel": "Cancel",
       "beatconnectTokenSaved": "Token configured & encrypted",
-      "beatconnectTokenActiveHint": "Patreon VIP access active • Concurrency 5x",
+      "beatconnectTokenActiveHint": "API access active • Concurrency 5x",
       "beatconnectTokenChange": "Change",
       "beatconnectTokenClear": "Clear",
-      "beatconnectPatreonLink": "Get Token on Patreon",
-      "mirrorsNetwork": "Mirror Network Status",
+      "beatconnectPatreonLink": "Get API token",
+      "mirrorsNetwork": "Beatmap Mirror Status",
       "mirrorsNetworkHelp": "Live status of community beatmap mirrors. The app automatically balances load across online mirrors to prevent rate limits.",
       "mirrorsNetworkSubtitle": "Automated multi-mirror failover pool with per-mirror safety concurrency caps.",
       "mirrorsRefresh": "Refresh mirror statuses",
@@ -114,13 +114,13 @@
       "mergeByName": "Merge collections with the same name",
       "syncNow": "Resolve missing beatmaps",
       "secondsShort": "s",
+      "loading": "Loading collections...",
       "empty": "No collections found for selected sources.",
       "successStats": "Backed up {count} beatmaps (pending sync: {pending}, missing local: {missing}, api not found: {notFound})",
       "status": {
         "resolved": "available",
         "pending": "pending",
         "notFound": "not found",
-        "failed": "failed",
         "missingLocal": "offline"
       },
       "sources": {
@@ -163,7 +163,6 @@
       "discardFailed": "Failed to discard saved queue"
     },
     "errors": {
-      "invalidFile": "Invalid file type. Only .bbak files are allowed.",
       "getFilePath": "Failed to get file path",
       "downloadPathNotExist": "Download path does not exist",
       "downloadPathNotDirectory": "Download path is not a directory",
@@ -172,12 +171,6 @@
       "allBeatmapsExist": "All beatmaps in the backup file already exist on your system"
     },
     "manager": {
-      "title": "Download Manager",
-      "emptyState": {
-        "title": "No Active Downloads",
-        "description": "Go to the Download page to start downloading beatmaps",
-        "action": "Go to Download"
-      },
       "queueOverview": "Download Queue",
       "running": "Downloading",
       "paused": "Paused",
@@ -189,7 +182,6 @@
       "failedDownloads": "Failed files",
       "noActiveDownloads": "No files are downloading right now",
       "noCompletedDownloads": "No completed files yet",
-      "noFailedDownloads": "No failed files",
       "retryFailed": "Retry Failed",
       "retryStarted": "Retrying {count} failed downloads...",
       "exportFailed": "Export Failed (.bbak)",
@@ -223,118 +215,57 @@
         "waiting": "Waiting",
         "downloading": "Downloading",
         "completed": "Completed",
-        "error": "Error",
-        "unknown": "Unknown"
-      },
-      "preview": {
-        "show": "Show Preview",
-        "hide": "Hide Preview"
+        "error": "Error"
       }
     }
   },
   "filter": {
     "title": "Beatmap Filter",
+    "criteriaTitle": "Filter Criteria",
     "gameMode": "Game Mode",
-    "difficulty": "Difficulty",
+    "difficulty": "Difficulty & Stats",
     "status": "Status",
     "statusOptions": {
       "any": "Any",
+      "hasLeaderboard": "Has Leaderboard",
       "ranked": "Ranked",
       "loved": "Loved",
-      "hasLeaderboard": "Has Leaderboard",
       "approved": "Approved",
       "qualified": "Qualified",
-      "unranked": "Unranked",
-      "wip": "WIP",
-      "pending": "Pending",
-      "graveyard": "Graveyard"
+      "unranked": "Unranked"
     },
     "stars": "Stars",
     "bpm": "BPM",
     "cs": "CS",
     "keys": "Keys",
+    "keysRange": "{min}K - {max}K",
     "ar": "AR",
     "hp": "HP",
     "od": "OD",
-    "beatmapInfo": "Beatmap Info",
-    "generalSearch": "Search",
-    "generalSearchHint": "Match any word in artist, title, mapper, source, or tags (space-separated)",
-    "artist": "Artist",
-    "mapTitle": "Title",
-    "mapper": "Mapper",
     "length": "Length",
-    "drainLength": "Drain Length",
-    "maxCombo": "Max Combo",
-    "metadata": "Metadata",
-    "genre": "Genre",
-    "language": "Language",
-    "source": "Source",
-    "tags": "Tags",
-    "genreOptions": {
-      "any": "Any",
-      "unspecified": "Unspecified",
-      "videoGame": "Video Game",
-      "anime": "Anime",
-      "rock": "Rock",
-      "pop": "Pop",
-      "other": "Other",
-      "novelty": "Novelty",
-      "hipHop": "Hip Hop",
-      "electronic": "Electronic",
-      "metal": "Metal",
-      "classical": "Classical",
-      "folk": "Folk",
-      "jazz": "Jazz"
-    },
-    "languageOptions": {
-      "any": "Any",
-      "english": "English",
-      "japanese": "Japanese",
-      "chinese": "Chinese",
-      "instrumental": "Instrumental",
-      "korean": "Korean",
-      "french": "French",
-      "german": "German",
-      "swedish": "Swedish",
-      "spanish": "Spanish",
-      "italian": "Italian",
-      "russian": "Russian",
-      "polish": "Polish",
-      "other": "Other"
-    },
+    "search": "Search (Artist, Title, Mapper, Tags, Source)",
+    "searchPlaceholder": "Type to search...",
     "resetAll": "Reset All",
-    "applyFilter": "Apply Filter",
-    "modeLabels": {
-      "osu": "osu!",
-      "taiko": "Taiko",
-      "fruits": "Catch",
-      "mania": "Mania"
-    },
     "results": {
       "title": "Results",
       "summary": "{beatmaps} beatmaps · {sets} beatmapsets · {ms} ms",
       "empty": "No beatmaps matched these filters.",
-      "error": "Could not run filter.",
-      "loading": "Searching…",
+      "loading": "Filtering beatmaps...",
+      "unicodeTooltip": "Show metadata in original language",
+      "export": "Export Backup (.bbak)",
+      "exporting": "Exporting...",
+      "exportSuccess": "Exported {count} beatmapset IDs to file",
+      "exportError": "Failed to export backup",
       "pageSize": "Per page",
       "columns": {
-        "artist": "Artist",
-        "title": "Title",
-        "creator": "Creator",
+        "title": "Title / Artist",
         "version": "Difficulty",
-        "mode": "Mode",
         "stars": "Stars",
         "bpm": "BPM",
-        "length": "Length",
-        "status": "Status",
-        "source": "Source"
+        "stats": "CS / AR / HP / OD",
+        "length": "Length"
       }
-    },
-    "min": "Min",
-    "max": "Max",
-    "seconds": "s",
-    "addTag": "Add tags...",
-    "addTagHint": "Press Enter, Space or Comma to add a tag"
+    }
   },
   "language": {
     "title": "Language"
@@ -342,7 +273,8 @@
   "navigation": {
     "settings": "Settings",
     "backup": "Backup",
-    "download": "Download"
+    "download": "Download",
+    "beatmapFilter": "Filter"
   },
   "theme": {
     "dark": "Dark Mode",
@@ -364,32 +296,20 @@
     }
   },
   "updater": {
-    "title": "Check for updates",
     "checkUpdate": "Check for updates",
-    "currentVersion": "Current version: v{version}",
     "checking": "Checking for updates...",
-    "checkingHint": "Connecting to GitHub Releases to check for new versions.",
     "upToDate": "You're up to date!",
-    "upToDateHint": "Beatmap Backup v{version} is currently the latest version.",
     "newVersionAvailable": "New version available",
     "portableNotice": "You are running the Portable version. Please visit GitHub Releases to download the latest zip file and replace your current folder.",
     "linuxNotice": "Click below to download the latest AppImage file directly to your Downloads folder.",
     "changelog": "What's new:",
     "downloading": "Downloading update...",
-    "readyToInstall": "Update downloaded successfully. Restart the app to apply.",
-    "linuxDownloaded": "AppImage downloaded to your Downloads folder and made executable.",
-    "errorTitle": "Update check failed",
     "defaultError": "Could not check for updates. Please verify your internet connection.",
-    "viewOnGitHub": "View on GitHub",
-    "later": "Later",
     "cancel": "Cancel",
-    "retry": "Retry",
     "downloadAndInstall": "Update Now",
     "goToRelease": "Go to Releases",
     "downloadAppImage": "Download AppImage",
     "restartAndInstall": "Restart & Install",
-    "toastUpdateAvailable": "Beatmap Backup v{version} is now available!",
-    "view": "View",
     "checkingShort": "Checking...",
     "upToDateShort": "Up to date",
     "downloadNow": "Update now",
@@ -400,12 +320,6 @@
     "installConflictTitle": "Downloads in progress",
     "installConflictMsg": "{count} beatmaps are still downloading.",
     "installConflictDetail": "Progress will be saved and can be resumed when you reopen the app.",
-    "installConflictConfirm": "Restart & Install",
-    "dist": {
-      "winInstaller": "Installer",
-      "winPortable": "Portable",
-      "linuxAppImage": "Linux AppImage",
-      "linux": "Linux"
-    }
+    "installConflictConfirm": "Restart & Install"
   }
 }

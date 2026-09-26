@@ -25,17 +25,17 @@
       "waitForDownloads": "Đợi các beatmap tải xong khi tạm dừng",
       "waitForDownloadsHelpOn": "Khi tạm dừng, các beatmap đang tải sẽ hoàn tất rồi mới dừng hẳn.",
       "waitForDownloadsHelpOff": "Khi tạm dừng, các beatmap đang tải có thể bị dừng ngay.",
-      "beatconnectTokenHelp": "Nhập API token Patreon của BeatConnect để mở khóa tải không giới hạn với tốc độ cao. Để trống để dùng chế độ mặc định có giới hạn lượt tải.",
-      "beatconnectTokenSubtitle": "Kết nối Patreon API token để tải không giới hạn và tự động đồng bộ beatmap ưu tiên.",
+      "beatconnectTokenHelp": "Nhập API token BeatConnect để mở khóa tải không giới hạn với tốc độ cao.",
+      "beatconnectTokenSubtitle": "Sử dụng BeatConnect API token để tải không giới hạn và tự động đồng bộ beatmap ưu tiên.",
       "beatconnectTokenPlaceholder": "Dán API token BeatConnect tại đây...",
       "beatconnectTokenSave": "Lưu",
       "beatconnectTokenCancel": "Hủy",
       "beatconnectTokenSaved": "Đã cấu hình & mã hóa token",
-      "beatconnectTokenActiveHint": "Quyền Patreon VIP đang hoạt động • Tối đa 5 luồng",
+      "beatconnectTokenActiveHint": "API access đang hoạt động • Tối đa 5 luồng",
       "beatconnectTokenChange": "Đổi",
       "beatconnectTokenClear": "Xóa",
-      "beatconnectPatreonLink": "Lấy Token trên Patreon",
-      "mirrorsNetwork": "Trạng thái mạng lưới Mirror",
+      "beatconnectPatreonLink": "Nhận API token",
+      "mirrorsNetwork": "Trạng thái Beatmap Mirror",
       "mirrorsNetworkHelp": "Trạng thái trực tiếp của các máy chủ mirror beatmap. Ứng dụng tự động chia tải qua các mirror đang hoạt động để tránh bị chặn.",
       "mirrorsNetworkSubtitle": "Tự động chuyển tiếp đa nguồn với trần luồng an toàn cho từng mirror.",
       "mirrorsRefresh": "Làm mới trạng thái mirror",
@@ -114,13 +114,13 @@
       "mergeByName": "Gộp các Bộ sưu tập trùng tên",
       "syncNow": "Đồng bộ beatmap còn thiếu",
       "secondsShort": "giây",
+      "loading": "Đang tải collection...",
       "empty": "Không tìm thấy collection theo nguồn đã chọn.",
       "successStats": "Đã sao lưu {count} beatmap (chờ đồng bộ: {pending}, thiếu local: {missing}, api không thấy: {notFound})",
       "status": {
         "resolved": "có sẵn",
         "pending": "chờ đồng bộ",
         "notFound": "không tìm thấy",
-        "failed": "thất bại",
         "missingLocal": "thiếu local"
       },
       "sources": {
@@ -163,7 +163,6 @@
       "discardFailed": "Không thể bỏ hàng đợi đã lưu"
     },
     "errors": {
-      "invalidFile": "Định dạng file không hợp lệ. Chỉ cho phép file .bbak",
       "getFilePath": "Không thể lấy đường dẫn file",
       "downloadPathNotExist": "Đường dẫn tải xuống không tồn tại",
       "downloadPathNotDirectory": "Đường dẫn tải xuống không phải là thư mục",
@@ -172,12 +171,6 @@
       "allBeatmapsExist": "Tất cả beatmap trong file sao lưu đã có sẵn trên máy của bạn"
     },
     "manager": {
-      "title": "Quản lý Tải xuống",
-      "emptyState": {
-        "title": "Không có Tải xuống nào",
-        "description": "Đi đến trang Tải xuống để bắt đầu tải beatmap",
-        "action": "Đi đến Tải xuống"
-      },
       "queueOverview": "Hàng đợi Tải xuống",
       "running": "Đang tải xuống",
       "paused": "Đang tạm dừng",
@@ -189,7 +182,6 @@
       "failedDownloads": "Tải thất bại",
       "noActiveDownloads": "Hiện không có tệp nào đang tải",
       "noCompletedDownloads": "Chưa có tệp nào tải xong",
-      "noFailedDownloads": "Không có tệp nào bị lỗi",
       "retryFailed": "Thử lại bài lỗi",
       "retryStarted": "Đang thử tải lại {count} bài lỗi...",
       "exportFailed": "Xuất file .bbak bài lỗi",
@@ -223,118 +215,57 @@
         "waiting": "Đang chờ",
         "downloading": "Đang tải",
         "completed": "Hoàn thành",
-        "error": "Lỗi",
-        "unknown": "Không xác định"
-      },
-      "preview": {
-        "show": "Hiện Xem trước",
-        "hide": "Ẩn Xem trước"
+        "error": "Lỗi"
       }
     }
   },
   "filter": {
     "title": "Lọc Beatmap",
-    "gameMode": "Chế độ (Game Mode)",
-    "difficulty": "Độ khó (Difficulty)",
+    "criteriaTitle": "Tiêu chí lọc",
+    "gameMode": "Chế độ",
+    "difficulty": "Độ khó & Thông số",
     "status": "Trạng thái",
     "statusOptions": {
       "any": "Bất kỳ",
-      "ranked": "Đã được xếp hạng",
-      "loved": "Được yêu thích",
       "hasLeaderboard": "Có Bảng xếp hạng",
-      "approved": "Được chấp nhận",
-      "qualified": "Đủ điều kiện",
-      "unranked": "Chưa được xếp hạng",
-      "wip": "Chưa hoàn thành",
-      "pending": "Đang chờ",
-      "graveyard": "Đắp mộ"
+      "ranked": "Ranked",
+      "loved": "Loved",
+      "approved": "Approved",
+      "qualified": "Qualified",
+      "unranked": "Unranked"
     },
-    "stars": "Độ khó (Stars)",
-    "bpm": "Nhịp độ (BPM)",
+    "stars": "Số sao",
+    "bpm": "BPM",
     "cs": "CS",
     "keys": "Số phím",
+    "keysRange": "{min}K - {max}K",
     "ar": "AR",
     "hp": "HP",
     "od": "OD",
-    "beatmapInfo": "Thông tin Beatmap",
-    "generalSearch": "Tìm kiếm chung",
-    "generalSearchHint": "Khớp bất kỳ từ nào trong nghệ sĩ, tiêu đề, mapper, nguồn hoặc thẻ (cách nhau bởi dấu cách)",
-    "artist": "Nghệ sĩ",
-    "mapTitle": "Tiêu đề",
-    "mapper": "Người tạo map",
     "length": "Thời lượng",
-    "drainLength": "Thời gian chơi (Drain)",
-    "maxCombo": "Combo tối đa",
-    "metadata": "Siêu dữ liệu (Metadata)",
-    "genre": "Thể loại",
-    "language": "Ngôn ngữ",
-    "source": "Nguồn",
-    "tags": "Thẻ (Tags)",
-    "genreOptions": {
-      "any": "Bất kỳ",
-      "unspecified": "Không chỉ định",
-      "videoGame": "Video Game",
-      "anime": "Anime",
-      "rock": "Rock",
-      "pop": "Pop",
-      "other": "Khác",
-      "novelty": "Novelty",
-      "hipHop": "Hip Hop",
-      "electronic": "Electronic",
-      "metal": "Metal",
-      "classical": "Classical",
-      "folk": "Folk",
-      "jazz": "Jazz"
-    },
-    "languageOptions": {
-      "any": "Bất kỳ",
-      "english": "Tiếng Anh",
-      "japanese": "Tiếng Nhật",
-      "chinese": "Tiếng Trung",
-      "instrumental": "Nhạc cụ",
-      "korean": "Tiếng Hàn",
-      "french": "Tiếng Pháp",
-      "german": "Tiếng Đức",
-      "swedish": "Tiếng Thụy Điển",
-      "spanish": "Tiếng Tây Ban Nha",
-      "italian": "Tiếng Ý",
-      "russian": "Tiếng Nga",
-      "polish": "Tiếng Ba Lan",
-      "other": "Khác"
-    },
-    "resetAll": "Khôi phục gốc",
-    "applyFilter": "Áp dụng",
-    "modeLabels": {
-      "osu": "osu!",
-      "taiko": "Taiko",
-      "fruits": "Catch",
-      "mania": "Mania"
-    },
+    "search": "Tìm kiếm (Bài hát, Nghệ sĩ, Mapper, Tags...)",
+    "searchPlaceholder": "Nhập từ khóa tìm kiếm...",
+    "resetAll": "Đặt lại",
     "results": {
       "title": "Kết quả",
       "summary": "{beatmaps} beatmap · {sets} beatmapset · {ms} ms",
-      "empty": "Không có beatmap khớp bộ lọc.",
-      "error": "Không thể chạy bộ lọc.",
-      "loading": "Đang tìm…",
+      "empty": "Không tìm thấy beatmap nào khớp với bộ lọc.",
+      "loading": "Đang lọc dữ liệu...",
+      "unicodeTooltip": "Hiển thị metadata của beatmap bằng ngôn ngữ gốc ",
+      "export": "Xuất file Backup (.bbak)",
+      "exporting": "Đang xuất...",
+      "exportSuccess": "Đã xuất {count} beatmapset ID ra file",
+      "exportError": "Không thể xuất file backup",
       "pageSize": "Mỗi trang",
       "columns": {
-        "artist": "Nghệ sĩ",
-        "title": "Tiêu đề",
-        "creator": "Mapper",
+        "title": "Tiêu đề / Nghệ sĩ",
         "version": "Độ khó",
-        "mode": "Chế độ",
-        "stars": "Sao",
+        "stars": "Stars",
         "bpm": "BPM",
-        "length": "Thời lượng",
-        "status": "Trạng thái",
-        "source": "Nguồn"
+        "stats": "CS / AR / HP / OD",
+        "length": "Độ dài"
       }
-    },
-    "min": "Tối thiểu",
-    "max": "Tối đa",
-    "seconds": "s",
-    "addTag": "Thêm thẻ...",
-    "addTagHint": "Nhấn Enter để thêm thẻ"
+    }
   },
   "language": {
     "title": "Ngôn ngữ"
@@ -342,7 +273,8 @@
   "navigation": {
     "settings": "Thiết lập",
     "backup": "Sao lưu",
-    "download": "Tải xuống"
+    "download": "Tải xuống",
+    "beatmapFilter": "Lọc beatmap"
   },
   "theme": {
     "dark": "Chế độ tối",
@@ -364,32 +296,20 @@
     }
   },
   "updater": {
-    "title": "Kiểm tra cập nhật",
     "checkUpdate": "Kiểm tra cập nhật",
-    "currentVersion": "Phiên bản hiện tại: v{version}",
     "checking": "Đang kiểm tra bản cập nhật...",
-    "checkingHint": "Đang kết nối tới GitHub Releases để kiểm tra phiên bản mới.",
     "upToDate": "Đã là phiên bản mới nhất!",
-    "upToDateHint": "Beatmap Backup v{version} hiện là phiên bản mới nhất.",
     "newVersionAvailable": "Đã có bản cập nhật mới",
     "portableNotice": "Bạn đang sử dụng bản Portable. Vui lòng mở trang GitHub Releases để tải file zip mới và thay thế thư mục hiện tại.",
     "linuxNotice": "Nhấn bên dưới để tải trực tiếp file AppImage mới nhất về thư mục Downloads.",
     "changelog": "Có gì mới:",
     "downloading": "Đang tải bản cập nhật...",
-    "readyToInstall": "Đã tải xong bản cập nhật. Khởi động lại ứng dụng để áp dụng.",
-    "linuxDownloaded": "Đã tải xong file AppImage vào thư mục Downloads của bạn.",
-    "errorTitle": "Kiểm tra cập nhật thất bại",
     "defaultError": "Không thể kiểm tra cập nhật. Vui lòng kiểm tra lại kết nối mạng.",
-    "viewOnGitHub": "Xem trên GitHub",
-    "later": "Để sau",
     "cancel": "Hủy",
-    "retry": "Thử lại",
     "downloadAndInstall": "Cập nhật ngay",
     "goToRelease": "Đến trang tải về",
     "downloadAppImage": "Tải AppImage",
     "restartAndInstall": "Khởi động lại & Cài đặt",
-    "toastUpdateAvailable": "Đã có bản cập nhật Beatmap Backup v{version} mới!",
-    "view": "Xem",
     "checkingShort": "Đang kiểm tra...",
     "upToDateShort": "Đã cập nhật",
     "downloadNow": "Cập nhật ngay",
@@ -400,12 +320,6 @@
     "installConflictTitle": "Đang có tiến trình tải xuống",
     "installConflictMsg": "Còn {count} beatmap đang được tải xuống.",
     "installConflictDetail": "Tiến trình sẽ được lưu lại và bạn có thể tiếp tục tải khi mở lại ứng dụng.",
-    "installConflictConfirm": "Khởi động lại & Cài đặt",
-    "dist": {
-      "winInstaller": "Bản cài đặt",
-      "winPortable": "Bản Portable",
-      "linuxAppImage": "Linux AppImage",
-      "linux": "Linux"
-    }
+    "installConflictConfirm": "Khởi động lại & Cài đặt"
   }
 }

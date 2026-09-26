@@ -6,8 +6,8 @@
     permanent
     absolute
     class="app-sidebar"
-    @mouseenter="rail = false"
-    @mouseleave="rail = true"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
   >
     <!-- Navigation Items -->
     <v-list density="compact" nav class="sidebar-nav-list">
@@ -33,7 +33,7 @@
           :prepend-icon="themeIcon"
           :title="rail ? '' : themeLabel"
           :lang="currentLocale"
-          @click="$emit('toggle-theme')"
+          @click="handleThemeClick"
         />
       </v-list>
     </template>
@@ -41,23 +41,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { routes } from '../../router'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     themeIcon?: string
     themeLabel?: string
+    isThemeTransitioning?: boolean
   }>(),
   {
     themeIcon: '$weatherNight',
-    themeLabel: ''
+    themeLabel: '',
+    isThemeTransitioning: false
   }
 )
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'toggle-theme'): void
 }>()
 
@@ -66,8 +68,64 @@ const { locale } = useI18n()
 const drawer = ref(true)
 const rail = ref(true)
 
+let lastMouseX = -1
+let lastMouseY = -1
+
+const updateMousePos = (e: MouseEvent): void => {
+  lastMouseX = e.clientX
+  lastMouseY = e.clientY
+}
+
+const isMouseInSidebar = (): boolean => {
+  if (lastMouseX < 0 || lastMouseY < 0) return false
+  return (
+    lastMouseX >= 0 && lastMouseX <= 230 && lastMouseY >= 38 && lastMouseY <= window.innerHeight
+  )
+}
+
 const currentLocale = computed(() => locale.value)
 const navItems = computed(() => routes)
+
+const handleMouseEnter = (e?: Event): void => {
+  if (e && 'clientX' in e && typeof e.clientX === 'number') {
+    updateMousePos(e as MouseEvent)
+  }
+  rail.value = false
+}
+
+const handleMouseLeave = (e?: Event): void => {
+  if (e && 'clientX' in e && typeof e.clientX === 'number') {
+    updateMousePos(e as MouseEvent)
+  }
+  if (props.isThemeTransitioning) return
+  rail.value = true
+}
+
+const handleThemeClick = (e?: Event): void => {
+  if (e && 'clientX' in e && typeof e.clientX === 'number') {
+    updateMousePos(e as MouseEvent)
+  }
+  emit('toggle-theme')
+}
+
+watch(
+  () => props.isThemeTransitioning,
+  (transitioning) => {
+    if (!transitioning) {
+      if (!isMouseInSidebar()) {
+        rail.value = true
+      }
+    }
+  }
+)
+
+onMounted(() => {
+  window.addEventListener('mousemove', updateMousePos, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', updateMousePos)
+})
 
 const handleNavigate = (path: string): void => {
   if (router.currentRoute.value.path !== path) {

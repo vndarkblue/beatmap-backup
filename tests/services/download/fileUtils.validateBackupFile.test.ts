@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateBackupFile } from '../../../src/services/download/fileUtils'
+import { validateBackupFile } from '../../../src/services/download/downloadTargetValidator'
 
 const VALID_HEADER = `# Beatmap Backup File
 # Format: One beatmapset ID per line

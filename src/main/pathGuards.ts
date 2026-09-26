@@ -1,5 +1,35 @@
 import path from 'path'
-import { promises as fs } from 'fs'
+import fs from 'fs'
+
+export function isValidExternalUrl(rawUrl: string): boolean {
+  if (typeof rawUrl !== 'string') return false
+  try {
+    const parsed = new URL(rawUrl)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+export function isSafeDirectoryToOpen(targetPath: string): boolean {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) return false
+  try {
+    const resolved = path.resolve(targetPath.trim())
+    return fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+export function isSafePathToShow(targetPath: string): boolean {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) return false
+  try {
+    const resolved = path.resolve(targetPath.trim())
+    return fs.existsSync(resolved)
+  } catch {
+    return false
+  }
+}
 
 const DISALLOWED_SUB_PATH_CHARS = /[*?<>|"]/
 
@@ -74,8 +104,8 @@ export async function resolveExistingPathWithinRoot(
   }
 
   try {
-    const resolvedRoot = await fs.realpath(path.resolve(rootDir))
-    const resolvedTarget = await fs.realpath(safePath.joinedPath)
+    const resolvedRoot = await fs.promises.realpath(path.resolve(rootDir))
+    const resolvedTarget = await fs.promises.realpath(safePath.joinedPath)
     const relativeToRoot = path.relative(resolvedRoot, resolvedTarget)
     const escapesRoot = relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)
 

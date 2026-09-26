@@ -29,13 +29,13 @@ export const routes: RouteItem[] = [
     icon: '$download',
     to: '/download',
     name: 'download'
+  },
+  {
+    title: 'navigation.beatmapFilter',
+    icon: '$filterVariant',
+    to: '/filter',
+    name: 'filter'
   }
-  // {
-  //   title: 'navigation.beatmapFilter',
-  //   icon: 'mdi-filter-variant',
-  //   to: '/filter',
-  //   name: 'filter'
-  // }
 ]
 
 const router = createRouter({
@@ -59,12 +59,12 @@ const router = createRouter({
       path: '/download',
       name: 'download',
       component: () => import('./components/Download.vue')
+    },
+    {
+      path: '/filter',
+      name: 'filter',
+      component: () => import('./components/BeatmapFilter.vue')
     }
-    // {
-    //   path: '/filter',
-    //   name: 'filter',
-    //   component: BeatmapFilter
-    // }
   ]
 })
 

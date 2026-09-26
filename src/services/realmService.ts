@@ -431,9 +431,14 @@ export const realmService = {
             0,
             Math.floor(Number(readProperty(beatmap, ['Length', 'TotalLength']) ?? 0) / 1000)
           ),
-          hitLength: Number(readProperty(beatmap, ['HitLength']) ?? 0),
+          hitLength: Math.max(
+            0,
+            Math.floor(Number(readProperty(beatmap, ['Length', 'TotalLength']) ?? 0) / 1000)
+          ),
           version: String(readProperty(beatmap, ['Version', 'DifficultyName']) ?? ''),
-          stars: Number(readProperty(beatmap, ['StarRating', 'Difficulty']) ?? 0),
+          stars:
+            Math.round(Number(readProperty(beatmap, ['StarRating', 'starRating']) ?? 0) * 100) /
+            100,
           status: normalizeRankStatus(beatmapStatus ?? setStatus ?? 'unranked'),
           artist: String(readProperty(metadataObject, ['Artist', 'artist']) ?? ''),
           artistUnicode: String(

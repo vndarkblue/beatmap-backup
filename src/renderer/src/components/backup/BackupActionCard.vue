@@ -1,26 +1,22 @@
 <template>
   <div class="backup-action-container">
     <!-- Estimate Information Alert -->
-    <v-alert
-      v-if="estimateMessage"
-      :type="estimateError ? 'warning' : 'info'"
-      variant="tonal"
-      density="comfortable"
-      class="mb-3"
-      :lang="currentLocale"
-    >
-      {{ estimateMessage }}
-    </v-alert>
-
-    <!-- Estimating Progress -->
-    <v-progress-linear
-      v-if="isEstimating"
-      indeterminate
-      color="primary"
-      class="mb-3 anim-striped-bar"
-      height="6"
-      rounded
-    ></v-progress-linear>
+    <v-expand-transition>
+      <div v-if="estimateMessage || isEstimating" class="estimate-alert-wrapper mb-3">
+        <v-alert
+          :type="estimateError ? 'warning' : 'info'"
+          variant="tonal"
+          density="comfortable"
+          class="estimate-alert"
+          :class="{ 'estimate-alert--loading': isEstimating }"
+          :lang="currentLocale"
+        >
+          <div class="estimate-text">
+            {{ estimateMessage || '...' }}
+          </div>
+        </v-alert>
+      </div>
+    </v-expand-transition>
 
     <!-- Main Export Button -->
     <v-btn
@@ -105,6 +101,41 @@ defineEmits<{
 <style scoped>
 .backup-action-container {
   margin-top: -12px;
+}
+
+.estimate-alert-wrapper {
+  margin: 0;
+  padding: 0;
+}
+
+.estimate-alert-wrapper.expand-transition-enter-active,
+.estimate-alert-wrapper.expand-transition-leave-active {
+  transition:
+    height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease !important;
+}
+
+.estimate-alert-wrapper.expand-transition-enter-from,
+.estimate-alert-wrapper.expand-transition-leave-to {
+  opacity: 0;
+}
+
+.estimate-alert {
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 10px !important;
+}
+
+.estimate-text {
+  min-height: 20px;
+  transition:
+    opacity 0.25s ease,
+    filter 0.25s ease;
+}
+
+.estimate-alert--loading .estimate-text {
+  opacity: 0.45;
+  filter: blur(0.4px);
 }
 
 .backup-submit-btn {

@@ -1,6 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import Store from 'electron-store'
-import { WINDOW_CONFIG } from '../config/backendConstants'
+import { WINDOW_CONFIG } from '../config/appConstants'
 import { logger } from '../services/logger'
 
 export interface WindowState {

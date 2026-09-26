@@ -117,7 +117,7 @@
           size="small"
           color="primary"
           class="patreon-btn text-caption text-none font-weight-semibold px-3"
-          @click="openExternalUrl('https://www.patreon.com/beatconnect')"
+          @click="openExternalUrl('https://beatconnect.io/api-info')"
         >
           {{ $t('settings.downloadOptions.beatconnectPatreonLink') }}
           <v-icon icon="$openInNew" end size="14" />
@@ -289,7 +289,7 @@
                   v-if="mirror.name === 'BeatConnect'"
                   class="text-caption text-medium-emphasis text-truncate"
                 >
-                  {{ hasBeatconnectToken ? 'Patreon VIP (5x)' : 'Community Free (2x)' }}
+                  {{ hasBeatconnectToken ? 'BeatConnect API (5x)' : 'Community Free (2x)' }}
                 </span>
               </div>
             </div>

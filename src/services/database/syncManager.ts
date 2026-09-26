@@ -6,7 +6,7 @@ import { importFromLazerRealm } from './lazerImporter'
 import { realmService } from '../realmService'
 import { getOsuLazerPath, getOsuStablePath } from '../settingsStore'
 import type { DatabaseStatus, SyncProgressEvent, SyncSource } from './types'
-import { startupMark } from '../startupTrace'
+import { startupMark } from '../logger'
 import { isOsuProcessRunning } from '../processDetector'
 
 class SyncManager extends EventEmitter {

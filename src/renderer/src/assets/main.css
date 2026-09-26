@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&family=Noto+Sans+JP:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Quicksand:wght@300..700&family=Noto+Sans+JP:wght@300..700&display=swap');
 *,
 *::before,
 *::after {
@@ -48,6 +48,28 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'osu-extra';
+  src: url('./fonts/extra.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.mode-icon,
+.v-application .mode-icon,
+.v-application [class*='text-'].mode-icon,
+[class*='text-'].mode-icon,
+[class*='text-'] .mode-icon {
+  font-family: 'osu-extra' !important;
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+:root,
+html.theme-light,
 .v-theme--light {
   --card-bg-color: #ffffff;
   --card-border-color: rgba(0, 0, 0, 0.08);
@@ -65,8 +87,8 @@
   --scrollbar-track-hover-bg: rgba(0, 0, 0, 0.04);
 }
 
-.v-theme--dark,
-html.theme-dark {
+html.theme-dark,
+.v-theme--dark {
   --card-bg-color: rgba(255, 255, 255, 0.04);
   --card-border-color: rgba(255, 255, 255, 0.11);
   --main-bg-color: #121316;
@@ -81,6 +103,42 @@ html.theme-dark {
   --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.55);
   --scrollbar-thumb-active-color: rgba(255, 255, 255, 0.75);
   --scrollbar-track-hover-bg: rgba(255, 255, 255, 0.04);
+}
+
+/* Disable CSS transitions during theme switching so all elements update simultaneously
+   without any cascading or staggered color delays */
+html.disable-theme-transitions,
+html.disable-theme-transitions *,
+html.disable-theme-transitions *::before,
+html.disable-theme-transitions *::after {
+  transition: none !important;
+}
+
+/* View Transitions API: Circular reveal base configuration */
+::view-transition,
+::view-transition-group(root),
+::view-transition-image-pair(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal !important;
+  pointer-events: none !important;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+    clip-path: none !important;
+  }
 }
 
 .v-list-item:hover,
@@ -100,6 +158,11 @@ html.theme-dark {
   --font-default-ja:
     'Torus Notched', 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI',
     'Yu Gothic', Meiryo, 'MS PGothic', sans-serif;
+
+  /* Fixed font stack for Results table: stays identical across all app languages and cleanly renders full Unicode */
+  --font-results-table:
+    'Inter', 'Noto Sans JP', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto,
+    'Helvetica Neue', Arial, 'Microsoft YaHei', 'PingFang SC', sans-serif;
 
   --font-family: var(--font-default);
 
@@ -169,6 +232,30 @@ textarea,
   font-family: var(--font-family) !important;
 }
 
+/* Ensure osu mode icons are never overridden by text typography */
+.mode-icon,
+.v-application .mode-icon,
+.v-application [class*='text-'].mode-icon,
+[class*='text-'].mode-icon,
+[class*='text-'] .mode-icon {
+  font-family: 'osu-extra' !important;
+}
+
+/* Fixed typography for Beatmap Filter Results Table */
+.results-table,
+.results-table th,
+.results-table td,
+.results-table [class*='text-'],
+.results-table .v-chip,
+.results-table span,
+.results-table div {
+  font-family: var(--font-results-table) !important;
+}
+
+.results-table .mode-icon {
+  font-family: 'osu-extra' !important;
+}
+
 .v-overlay__scrim {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -225,6 +312,8 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden !important;
+  background-color: var(--main-bg-color);
+  color: var(--main-text-color);
 }
 
 /* Add styles for v-application layout */
@@ -260,7 +349,7 @@ body,
   align-items: center;
   justify-content: flex-start;
   padding-top: 24px;
-  padding-bottom: 40px;
+  padding-bottom: 0;
   min-height: 100%;
 }
 

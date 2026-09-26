@@ -39,7 +39,9 @@ describe('getExistingBeatmapsetIds', () => {
     mockHasSyncedData.mockReturnValue(true)
     mockGetExistingBeatmapsetIds.mockReturnValue(new Set([101, 102, 201]))
 
-    const { getExistingBeatmapsetIds } = await import('../../../src/services/download/fileUtils')
+    const { getExistingBeatmapsetIds } = await import(
+      '../../../src/services/download/downloadTargetValidator'
+    )
 
     const result = await getExistingBeatmapsetIds({
       removeFromStable: true,
@@ -59,7 +61,9 @@ describe('getExistingBeatmapsetIds', () => {
     mockHasSyncedData.mockReturnValue(false)
     mockIsOsuProcessRunning.mockResolvedValue({ running: true, client: 'lazer' })
 
-    const { getExistingBeatmapsetIds } = await import('../../../src/services/download/fileUtils')
+    const { getExistingBeatmapsetIds } = await import(
+      '../../../src/services/download/downloadTargetValidator'
+    )
 
     await expect(
       getExistingBeatmapsetIds({
@@ -77,7 +81,9 @@ describe('getExistingBeatmapsetIds', () => {
     mockIsOsuProcessRunning.mockResolvedValue({ running: false })
     mockGetBeatmapsetIds.mockRejectedValue(new Error('Realm file is locked'))
 
-    const { getExistingBeatmapsetIds } = await import('../../../src/services/download/fileUtils')
+    const { getExistingBeatmapsetIds } = await import(
+      '../../../src/services/download/downloadTargetValidator'
+    )
 
     await expect(
       getExistingBeatmapsetIds({

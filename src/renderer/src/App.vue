@@ -13,7 +13,12 @@
     />
 
     <v-layout class="app-layout-body">
-      <AppSidebar :theme-icon="themeIcon" :theme-label="themeLabel" @toggle-theme="toggleTheme" />
+      <AppSidebar
+        :theme-icon="themeIcon"
+        :theme-label="themeLabel"
+        :is-theme-transitioning="isThemeTransitioning"
+        @toggle-theme="toggleTheme"
+      />
 
       <v-main class="main-bg">
         <SimpleBar ref="scrollHostRef" class="simplebar-container">
@@ -42,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted, computed, watch } from 'vue'
+import { ref, onBeforeUnmount, onMounted, computed, watch, nextTick } from 'vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -106,7 +111,7 @@ const showToast = (
 }
 
 const setupGlobalDatabaseSyncListener = (): void => {
-  if (unsubscribeDatabaseSync) return
+  if (unsubscribeDatabaseSync || !window.electronAPI?.database?.onSyncProgress) return
   unsubscribeDatabaseSync = window.electronAPI.database.onSyncProgress((progress) => {
     if (progress.phase === 'error') {
       showToast(
@@ -136,9 +141,11 @@ const themeLabel = computed(() =>
 )
 
 const syncThemeFromLocalPreference = (): void => {
-  const nextTheme = localStorage.getItem(THEME_PREF_KEY) === 'dark' ? 'dark' : 'light'
+  const isDark = localStorage.getItem(THEME_PREF_KEY) === 'dark'
+  const nextTheme = isDark ? 'dark' : 'light'
   theme.global.name.value = nextTheme
-  document.documentElement.classList.toggle('theme-dark', nextTheme === 'dark')
+  document.documentElement.classList.toggle('theme-dark', isDark)
+  document.documentElement.classList.toggle('theme-light', !isDark)
 }
 
 const validateOsuPaths = async (): Promise<void> => {
@@ -218,16 +225,76 @@ const setupRouteScrollMemory = (): void => {
   }, 0)
 }
 
+const isThemeTransitioning = ref(false)
+
 const saveDarkMode = (isDark: boolean): void => {
   const nextTheme = isDark ? 'dark' : 'light'
   localStorage.setItem(THEME_PREF_KEY, nextTheme)
   document.documentElement.classList.toggle('theme-dark', isDark)
+  document.documentElement.classList.toggle('theme-light', !isDark)
 }
 
-const toggleTheme = (): void => {
+const toggleTheme = async (): Promise<void> => {
+  if (isThemeTransitioning.value) return
   const isDark = !theme.global.current.value.dark
-  theme.global.name.value = isDark ? 'dark' : 'light'
-  saveDarkMode(isDark)
+
+  const applyTheme = (): void => {
+    theme.global.name.value = isDark ? 'dark' : 'light'
+    saveDarkMode(isDark)
+  }
+
+  const doc = typeof document !== 'undefined' ? document : null
+  const supportsViewTransition = Boolean(
+    doc &&
+      typeof doc.startViewTransition === 'function' &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+
+  isThemeTransitioning.value = true
+  // Immediately suppress individual CSS transitions across all elements
+  // to prevent staggered/cascading color shifts
+  document.documentElement.classList.add('disable-theme-transitions')
+
+  if (!supportsViewTransition) {
+    applyTheme()
+    void document.documentElement.offsetHeight
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove('disable-theme-transitions')
+        isThemeTransitioning.value = false
+      })
+    })
+    return
+  }
+
+  try {
+    const transition = doc!.startViewTransition(async () => {
+      applyTheme()
+      await nextTick()
+    })
+
+    await transition.ready
+
+    const endRadius = Math.hypot(window.innerWidth, window.innerHeight)
+
+    const animation = document.documentElement.animate(
+      {
+        clipPath: ['circle(0px at 0% 100%)', `circle(${endRadius}px at 0% 100%)`]
+      },
+      {
+        duration: 380,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        pseudoElement: '::view-transition-new(root)'
+      }
+    )
+
+    await animation.finished
+  } catch (error) {
+    console.debug('Theme view transition interrupted:', error)
+  } finally {
+    document.documentElement.classList.remove('disable-theme-transitions')
+    isThemeTransitioning.value = false
+  }
 }
 
 onMounted(() => {
@@ -243,6 +310,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.documentElement.classList.remove('disable-theme-transitions')
   saveRouteScrollPosition(router.currentRoute.value.fullPath)
   removeBeforeEachGuard?.()
   removeAfterEachHook?.()
@@ -295,6 +363,6 @@ onBeforeUnmount(() => {
 .container-bg {
   background: transparent !important;
   min-height: 100%;
-  padding-bottom: 32px;
+  padding-bottom: 0 !important;
 }
 </style>

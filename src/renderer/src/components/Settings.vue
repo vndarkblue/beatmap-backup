@@ -91,25 +91,21 @@
         <!-- 4. About & Updates -->
         <v-window-item value="about">
           <SettingsAboutCard :current-locale="currentLocale" />
-          <v-row class="mt-4">
-            <v-col cols="12" md="6">
-              <SettingsDiagnosticCard :current-locale="currentLocale" />
-            </v-col>
-            <v-col cols="12" md="6">
-              <SettingsResetCard
-                :current-locale="currentLocale"
-                :reset-feedback-message="resetFeedbackMessage"
-                :reset-feedback-class="resetFeedbackClass"
-                :show-reset-all-confirm="showResetAllConfirm"
-                :is-resetting="isResetting"
-                :confirm-hold-style="confirmHoldStyle"
-                @cancel-reset-all="cancelResetAllConfirm"
-                @request-reset-all="requestResetAllConfirm"
-                @start-reset-all-hold="startResetAllHold"
-                @cancel-reset-all-hold="cancelResetAllHold"
-              />
-            </v-col>
-          </v-row>
+          <div class="settings-about-subcards">
+            <SettingsDiagnosticCard :current-locale="currentLocale" />
+            <SettingsResetCard
+              :current-locale="currentLocale"
+              :reset-feedback-message="resetFeedbackMessage"
+              :reset-feedback-class="resetFeedbackClass"
+              :show-reset-all-confirm="showResetAllConfirm"
+              :is-resetting="isResetting"
+              :confirm-hold-style="confirmHoldStyle"
+              @cancel-reset-all="cancelResetAllConfirm"
+              @request-reset-all="requestResetAllConfirm"
+              @start-reset-all-hold="startResetAllHold"
+              @cancel-reset-all-hold="cancelResetAllHold"
+            />
+          </div>
         </v-window-item>
       </v-window>
     </div>
@@ -124,7 +120,7 @@ import {
   FRONTEND_TIMINGS_MS,
   STORAGE_KEYS
 } from '../../../config/frontendConstants'
-import { languageNames, languageFlags } from '../i18n/languageProperties'
+import { languageNames, languageFlags } from '../i18n'
 import { useDownloadSettings } from '../composables/useDownloadSettings'
 import AppViewShell from './common/AppViewShell.vue'
 import SettingsPathsCard from './settings/SettingsPathsCard.vue'
@@ -487,7 +483,7 @@ const performResetAllSettings = async (): Promise<void> => {
   } catch (error) {
     console.error('Failed to reset all settings:', error)
     resetFeedbackClass.value = 'text-error'
-    resetFeedbackMessage.value = t('settings.reset.error')
+    resetFeedbackMessage.value = t('settings.reset.failed')
   } finally {
     isResetting.value = false
     cancelResetAllHold()
@@ -598,5 +594,28 @@ onBeforeUnmount(() => {
 
 .settings-window {
   width: 100%;
+}
+
+.settings-about-subcards {
+  width: 90%;
+  max-width: 920px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .settings-about-subcards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-about-subcards :deep(.view-card) {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  height: 100% !important;
 }
 </style>

@@ -107,8 +107,8 @@
             </div>
             <div
               class="release-notes-content text-caption"
-              v-html="sanitizedReleaseNotes"
               @click="handleChangelogClick"
+              v-html="sanitizedReleaseNotes"
             ></div>
           </div>
 
@@ -513,7 +513,7 @@ body[lang='ja'] .about-dist-chip :deep(.v-chip__content),
   align-items: center;
   line-height: 1;
   position: relative;
-  top: -0.5px;
+  top: 1px;
 }
 
 :root[lang='ja'] .update-action-btn-text,
@@ -521,6 +521,6 @@ html[lang='ja'] .update-action-btn-text,
 body[lang='ja'] .update-action-btn-text,
 .v-application[lang='ja'] .update-action-btn-text,
 [lang='ja'] .update-action-btn-text {
-  top: -1.5px;
+  top: 0;
 }
 </style>

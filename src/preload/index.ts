@@ -50,7 +50,9 @@ const electronAPI: ElectronApi = {
     syncCollections: () => ipcRenderer.invoke('database:sync-collections'),
     getCollectionStatus: () => ipcRenderer.invoke('database:get-collection-status'),
     filterBeatmaps: (filter: Record<string, unknown>) =>
-      ipcRenderer.invoke('database:filter-beatmaps', filter),
+      ipcRenderer.invoke('database:filter-beatmaps', JSON.parse(JSON.stringify(filter))),
+    exportFilteredBackup: (filter: Record<string, unknown>) =>
+      ipcRenderer.invoke('database:export-filtered-backup', JSON.parse(JSON.stringify(filter))),
     onSyncProgress: (listener: (progress: SyncProgressEvent) => void) => {
       const handler = (_: IpcRendererEvent, progress: SyncProgressEvent): void => listener(progress)
       ipcRenderer.on('database:sync-progress', handler)

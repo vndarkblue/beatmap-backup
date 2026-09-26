@@ -8,115 +8,14 @@ const UI_MODE_TO_DB: Record<string, string> = {
   mania: 'mania'
 }
 
-const GENRE_KEY_TO_ID: Record<string, number> = {
-  unspecified: 1,
-  videoGame: 2,
-  anime: 3,
-  rock: 4,
-  pop: 5,
-  other: 6,
-  novelty: 7,
-  hipHop: 9,
-  electronic: 10,
-  metal: 11,
-  classical: 12,
-  folk: 13,
-  jazz: 14
-}
-
-const LANGUAGE_KEY_TO_ID: Record<string, number> = {
-  unspecified: 1,
-  english: 2,
-  japanese: 3,
-  chinese: 4,
-  instrumental: 5,
-  korean: 6,
-  french: 7,
-  german: 8,
-  swedish: 9,
-  spanish: 10,
-  italian: 11,
-  russian: 12,
-  polish: 13,
-  other: 14
-}
-
-/** osu! API–style labels for matching general-search tokens against `genre_id` */
-const GENRE_ID_TO_LABEL: Record<number, string> = {
-  1: 'unspecified',
-  2: 'video game',
-  3: 'anime',
-  4: 'rock',
-  5: 'pop',
-  6: 'other',
-  7: 'novelty',
-  9: 'hip hop',
-  10: 'electronic',
-  11: 'metal',
-  12: 'classical',
-  13: 'folk',
-  14: 'jazz'
-}
-
-/** osu! API–style labels for matching general-search tokens against `language_id` */
-const LANGUAGE_ID_TO_LABEL: Record<number, string> = {
-  1: 'unspecified',
-  2: 'english',
-  3: 'japanese',
-  4: 'chinese',
-  5: 'instrumental',
-  6: 'korean',
-  7: 'french',
-  8: 'german',
-  9: 'swedish',
-  10: 'spanish',
-  11: 'italian',
-  12: 'russian',
-  13: 'polish',
-  14: 'other'
-}
-
-function genreIdsMatchingToken(token: string): number[] {
-  const t = token.toLowerCase()
-  if (!t) return []
-  const ids: number[] = []
-  for (const [idStr, label] of Object.entries(GENRE_ID_TO_LABEL)) {
-    const L = label.toLowerCase()
-    if (L.includes(t)) {
-      ids.push(Number(idStr))
-      continue
-    }
-    if (L.split(/[\s-]+/).some((w) => w.includes(t) || (t.length >= 2 && w.startsWith(t)))) {
-      ids.push(Number(idStr))
-    }
-  }
-  return ids
-}
-
-function languageIdsMatchingToken(token: string): number[] {
-  const t = token.toLowerCase()
-  if (!t) return []
-  const ids: number[] = []
-  for (const [idStr, label] of Object.entries(LANGUAGE_ID_TO_LABEL)) {
-    const L = label.toLowerCase()
-    if (L.includes(t)) {
-      ids.push(Number(idStr))
-      continue
-    }
-    if (L.split(/[\s-]+/).some((w) => w.includes(t) || (t.length >= 2 && w.startsWith(t)))) {
-      ids.push(Number(idStr))
-    }
-  }
-  return ids
-}
-
-function likePattern(raw: string): string {
-  return `%${raw.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
+function escapeWildcards(raw: string): string {
+  return raw.replace(/%/g, '\\%').replace(/_/g, '\\_')
 }
 
 /**
  * Mỗi token: OR trên các field metadata chưa bị filter riêng ghi đè.
  * Nhiều token: OR với nhau (khớp một trong các từ là đủ).
+ * Sử dụng hàm custom NORMALIZE_TEXT trong SQLite để tìm kiếm không dấu và không phân biệt hoa thường.
  */
 function buildGeneralSearchClause(
   parsed: BeatmapFilterRequestBody,
@@ -128,59 +27,54 @@ function buildGeneralSearchClause(
   const useTitle = !(parsed.title ?? '').trim()
   const useCreator = !(parsed.creator ?? '').trim()
   const useSource = !(parsed.source ?? '').trim()
-  const useGenre = parsed.genre === 'any'
-  const useLanguage = parsed.language === 'any'
   const useTags = !(parsed.tags ?? []).some((x) => typeof x === 'string' && x.trim())
 
   const tokenSqlParts: string[] = []
   const tokenParams: unknown[] = []
 
   for (const rawTok of tokens) {
-    const tok = rawTok.trim()
+    const tok = escapeWildcards(rawTok.trim())
     if (!tok) continue
 
-    const like = likePattern(tok)
     const parts: string[] = []
     const params: unknown[] = []
 
     if (useArtist) {
       parts.push(
-        "(LOWER(s.artist) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.artist_unicode) LIKE LOWER(?) ESCAPE '\\')"
+        "(NORMALIZE_TEXT(s.artist) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.artist_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\')"
       )
-      params.push(like, like)
+      params.push(tok, tok)
     }
     if (useTitle) {
       parts.push(
-        "(LOWER(s.title) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.title_unicode) LIKE LOWER(?) ESCAPE '\\')"
+        "(NORMALIZE_TEXT(s.title) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.title_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\')"
       )
-      params.push(like, like)
+      params.push(tok, tok)
     }
     if (useCreator) {
-      parts.push("LOWER(s.creator) LIKE LOWER(?) ESCAPE '\\'")
-      params.push(like)
+      parts.push("NORMALIZE_TEXT(s.creator) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+      params.push(tok)
     }
     if (useSource) {
-      parts.push("LOWER(s.source) LIKE LOWER(?) ESCAPE '\\'")
-      params.push(like)
+      parts.push("NORMALIZE_TEXT(s.source) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+      params.push(tok)
     }
     if (useTags) {
-      parts.push("LOWER(s.tags) LIKE LOWER(?) ESCAPE '\\'")
-      params.push(like)
+      parts.push("NORMALIZE_TEXT(s.tags) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+      params.push(tok)
     }
 
-    if (useGenre) {
-      const gids = genreIdsMatchingToken(tok)
-      if (gids.length > 0) {
-        parts.push(`s.genre_id IN (${gids.map(() => '?').join(',')})`)
-        params.push(...gids)
-      }
-    }
+    // Match Difficulty / Version name
+    parts.push("NORMALIZE_TEXT(b.version) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+    params.push(tok)
 
-    if (useLanguage) {
-      const lids = languageIdsMatchingToken(tok)
-      if (lids.length > 0) {
-        parts.push(`s.language_id IN (${lids.map(() => '?').join(',')})`)
-        params.push(...lids)
+    // Match numeric ID against beatmap_id or beatmapset_id (osu!lazer number catch-all)
+    const trimmedTok = rawTok.trim()
+    if (/^\d{1,10}$/.test(trimmedTok)) {
+      const numVal = parseInt(trimmedTok, 10)
+      if (!isNaN(numVal) && numVal > 0) {
+        parts.push('(b.id = ? OR s.id = ?)')
+        params.push(numVal, numVal)
       }
     }
 
@@ -193,7 +87,7 @@ function buildGeneralSearchClause(
   if (tokenSqlParts.length === 0) return null
 
   return {
-    sql: `(${tokenSqlParts.join(' OR ')})`,
+    sql: `(${tokenSqlParts.join(' AND ')})`,
     params: tokenParams
   }
 }
@@ -215,14 +109,24 @@ export type BeatmapFilterRequestBody = {
   title?: string
   creator?: string
   lengthRange: [number, number]
-  useDrainLength: boolean
-  genre: string
-  language: string
+  useDrainLength?: boolean
+  genre?: string
+  language?: string
   source?: string
   tags?: string[]
   /** Tìm kiếm chung: các từ cách nhau bởi khoảng trắng; OR giữa các từ; OR giữa các field chưa bị filter riêng */
   generalSearch?: string
-  sortBy?: 'title' | 'artist' | 'difficulty' | 'ranked'
+  sortBy?:
+    | 'title'
+    | 'artist'
+    | 'difficulty'
+    | 'ranked'
+    | 'stars'
+    | 'bpm'
+    | 'length'
+    | 'version'
+    | 'relevance'
+  sortOrder?: 'asc' | 'desc'
   page?: number
   pageSize?: number
 }
@@ -294,7 +198,7 @@ const STAT_COLUMN: Record<keyof StatRanges, string> = {
   od: 'od'
 }
 
-/** Which stats apply per UI mode (matches BeatmapFilter.vue statConfigs showIn) */
+/** Which stats apply per UI mode */
 const STAT_SHOW_IN: Record<keyof StatRanges, string[]> = {
   stars: ['osu', 'taiko', 'catch', 'mania'],
   bpm: ['osu', 'taiko', 'catch', 'mania'],
@@ -360,14 +264,7 @@ function parseFilterBody(body: unknown): BeatmapFilterRequestBody | null {
   const o = body as Record<string, unknown>
   if (!Array.isArray(o.modes) || typeof o.status !== 'string' || typeof o.modeStats !== 'object')
     return null
-  if (
-    !Array.isArray(o.lengthRange) ||
-    o.lengthRange.length !== 2 ||
-    typeof o.useDrainLength !== 'boolean' ||
-    typeof o.genre !== 'string' ||
-    typeof o.language !== 'string'
-  )
-    return null
+  if (!Array.isArray(o.lengthRange) || o.lengthRange.length !== 2) return null
 
   return {
     modes: o.modes.filter((m): m is string => typeof m === 'string'),
@@ -377,9 +274,9 @@ function parseFilterBody(body: unknown): BeatmapFilterRequestBody | null {
     title: typeof o.title === 'string' ? o.title : '',
     creator: typeof o.creator === 'string' ? o.creator : '',
     lengthRange: [Number(o.lengthRange[0]), Number(o.lengthRange[1])],
-    useDrainLength: o.useDrainLength,
-    genre: o.genre,
-    language: o.language,
+    useDrainLength: typeof o.useDrainLength === 'boolean' ? o.useDrainLength : false,
+    genre: typeof o.genre === 'string' ? o.genre : 'any',
+    language: typeof o.language === 'string' ? o.language : 'any',
     source: typeof o.source === 'string' ? o.source : '',
     tags: Array.isArray(o.tags) ? o.tags.filter((t): t is string => typeof t === 'string') : [],
     generalSearch: typeof o.generalSearch === 'string' ? o.generalSearch : '',
@@ -387,24 +284,24 @@ function parseFilterBody(body: unknown): BeatmapFilterRequestBody | null {
       o.sortBy === 'title' ||
       o.sortBy === 'artist' ||
       o.sortBy === 'difficulty' ||
-      o.sortBy === 'ranked'
+      o.sortBy === 'ranked' ||
+      o.sortBy === 'stars' ||
+      o.sortBy === 'bpm' ||
+      o.sortBy === 'length' ||
+      o.sortBy === 'version' ||
+      o.sortBy === 'relevance'
         ? o.sortBy
-        : 'difficulty',
+        : 'title',
+    sortOrder: o.sortOrder === 'desc' ? 'desc' : 'asc',
     page: typeof o.page === 'number' ? o.page : 1,
-    pageSize: typeof o.pageSize === 'number' ? o.pageSize : 50
+    pageSize: typeof o.pageSize === 'number' ? o.pageSize : 25
   }
 }
 
-export function runBeatmapFilter(db: Database.Database, rawBody: unknown): BeatmapFilterResult {
-  const parsed = parseFilterBody(rawBody)
-  if (!parsed) {
-    throw new Error('Invalid filter body')
-  }
-
-  const page = Math.max(1, Math.floor(parsed.page ?? 1))
-  const pageSize = Math.min(100, Math.max(1, Math.floor(parsed.pageSize ?? 50)))
-  const offset = (page - 1) * pageSize
-
+function buildFilterWhereClause(parsed: BeatmapFilterRequestBody): {
+  whereSql: string
+  params: unknown[]
+} {
   const where: string[] = []
   const params: unknown[] = []
 
@@ -418,64 +315,47 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
     params.push(...st.params)
   }
 
-  const lenCol = parsed.useDrainLength ? 'b.hit_length' : 'b.total_length'
-  where.push(`${lenCol} BETWEEN ? AND ?`)
+  where.push('b.total_length BETWEEN ? AND ?')
   params.push(parsed.lengthRange[0], parsed.lengthRange[1])
 
   const artist = (parsed.artist ?? '').trim()
   if (artist) {
-    const like = `%${artist.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
+    const escaped = escapeWildcards(artist)
     where.push(
-      "(LOWER(s.artist) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.artist_unicode) LIKE LOWER(?) ESCAPE '\\')"
+      "(NORMALIZE_TEXT(s.artist) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.artist_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\')"
     )
-    params.push(like, like)
+    params.push(escaped, escaped)
   }
 
   const title = (parsed.title ?? '').trim()
   if (title) {
-    const like = `%${title.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
+    const escaped = escapeWildcards(title)
     where.push(
-      "(LOWER(s.title) LIKE LOWER(?) ESCAPE '\\' OR LOWER(s.title_unicode) LIKE LOWER(?) ESCAPE '\\')"
+      "(NORMALIZE_TEXT(s.title) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.title_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\')"
     )
-    params.push(like, like)
+    params.push(escaped, escaped)
   }
 
   const creator = (parsed.creator ?? '').trim()
   if (creator) {
-    const like = `%${creator.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-    where.push("LOWER(s.creator) LIKE LOWER(?) ESCAPE '\\'")
-    params.push(like)
+    const escaped = escapeWildcards(creator)
+    where.push("NORMALIZE_TEXT(s.creator) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+    params.push(escaped)
   }
 
   const source = (parsed.source ?? '').trim()
   if (source) {
-    const like = `%${source.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-    where.push("LOWER(s.source) LIKE LOWER(?) ESCAPE '\\'")
-    params.push(like)
-  }
-
-  if (parsed.genre !== 'any') {
-    const gid = GENRE_KEY_TO_ID[parsed.genre]
-    if (gid !== undefined) {
-      where.push('s.genre_id = ?')
-      params.push(gid)
-    }
-  }
-
-  if (parsed.language !== 'any') {
-    const lid = LANGUAGE_KEY_TO_ID[parsed.language]
-    if (lid !== undefined) {
-      where.push('s.language_id = ?')
-      params.push(lid)
-    }
+    const escaped = escapeWildcards(source)
+    where.push("NORMALIZE_TEXT(s.source) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+    params.push(escaped)
   }
 
   for (const tag of parsed.tags ?? []) {
     const t = tag.trim()
     if (!t) continue
-    const like = `%${t.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-    where.push("LOWER(s.tags) LIKE LOWER(?) ESCAPE '\\'")
-    params.push(like)
+    const escaped = escapeWildcards(t)
+    where.push("NORMALIZE_TEXT(s.tags) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\'")
+    params.push(escaped)
   }
 
   const generalTokens = (parsed.generalSearch ?? '')
@@ -489,19 +369,203 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
   }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
-  const orderBySql = (() => {
+  return { whereSql, params }
+}
+
+export function getFilteredBeatmapsetIds(db: Database.Database, rawBody: unknown): number[] {
+  const parsed = parseFilterBody(rawBody)
+  if (!parsed) return []
+  const { whereSql, params } = buildFilterWhereClause(parsed)
+  const sql = `
+    SELECT DISTINCT b.beatmapset_id AS id
+    FROM beatmaps b
+    INNER JOIN beatmapsets s ON s.id = b.beatmapset_id
+    ${whereSql}
+    ORDER BY b.beatmapset_id ASC
+  `
+  const rows = db.prepare(sql).all(...params) as { id: number }[]
+  return rows.map((r) => r.id).filter((id) => typeof id === 'number' && id > 0)
+}
+
+function buildRelevanceOrderBy(parsed: BeatmapFilterRequestBody): {
+  orderBySql: string
+  orderParams: unknown[]
+} {
+  const rawSearch = (parsed.generalSearch ?? '').trim()
+  if (!rawSearch) {
+    return {
+      orderBySql: `b.difficulty_rating DESC, b.beatmapset_id DESC, b.version ASC, b.id ASC`,
+      orderParams: []
+    }
+  }
+
+  const orderParams: unknown[] = []
+  const scoreParts: string[] = []
+
+  const escapedPhrase = escapeWildcards(rawSearch)
+
+  // 0. Exact match Beatmap ID or BeatmapSet ID (+200)
+  if (/^\d{1,10}$/.test(rawSearch)) {
+    const numVal = parseInt(rawSearch, 10)
+    if (!isNaN(numVal) && numVal > 0) {
+      scoreParts.push(`(CASE WHEN b.id = ? OR s.id = ? THEN 200 ELSE 0 END)`)
+      orderParams.push(numVal, numVal)
+    }
+  }
+
+  // 1. Exact match Title (+100)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.title) = NORMALIZE_TEXT(?) OR NORMALIZE_TEXT(s.title_unicode) = NORMALIZE_TEXT(?) THEN 100 ELSE 0 END)`
+  )
+  orderParams.push(rawSearch, rawSearch)
+
+  // 2. Exact match Artist (+90)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.artist) = NORMALIZE_TEXT(?) OR NORMALIZE_TEXT(s.artist_unicode) = NORMALIZE_TEXT(?) THEN 90 ELSE 0 END)`
+  )
+  orderParams.push(rawSearch, rawSearch)
+
+  // 3. Prefix match Title (+70)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.title) LIKE NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.title_unicode) LIKE NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 70 ELSE 0 END)`
+  )
+  orderParams.push(escapedPhrase, escapedPhrase)
+
+  // 4. Prefix match Artist (+60)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.artist) LIKE NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.artist_unicode) LIKE NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 60 ELSE 0 END)`
+  )
+  orderParams.push(escapedPhrase, escapedPhrase)
+
+  // 5. Contains Phrase Title (+50)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.title) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.title_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 50 ELSE 0 END)`
+  )
+  orderParams.push(escapedPhrase, escapedPhrase)
+
+  // 6. Contains Phrase Artist (+40)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.artist) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.artist_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 40 ELSE 0 END)`
+  )
+  orderParams.push(escapedPhrase, escapedPhrase)
+
+  // 7. Contains Phrase Creator (+30)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(s.creator) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 30 ELSE 0 END)`
+  )
+  orderParams.push(escapedPhrase)
+
+  // 8. Exact match Version / Diff (+40)
+  scoreParts.push(`(CASE WHEN NORMALIZE_TEXT(b.version) = NORMALIZE_TEXT(?) THEN 40 ELSE 0 END)`)
+  orderParams.push(rawSearch)
+
+  // 9. Contains Phrase Version / Diff (+25)
+  scoreParts.push(
+    `(CASE WHEN NORMALIZE_TEXT(b.version) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 25 ELSE 0 END)`
+  )
+  orderParams.push(escapedPhrase)
+
+  // 10. Tokens scoring if multiple tokens
+  const tokens = rawSearch.split(/\s+/).filter((t) => t.length > 0)
+  if (tokens.length > 1) {
+    for (const tok of tokens) {
+      const escapedTok = escapeWildcards(tok)
+
+      if (/^\d{1,10}$/.test(tok)) {
+        const numVal = parseInt(tok, 10)
+        if (!isNaN(numVal) && numVal > 0) {
+          scoreParts.push(`(CASE WHEN b.id = ? OR s.id = ? THEN 100 ELSE 0 END)`)
+          orderParams.push(numVal, numVal)
+        }
+      }
+
+      scoreParts.push(
+        `(CASE WHEN NORMALIZE_TEXT(s.title) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.title_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 15 ELSE 0 END)`
+      )
+      orderParams.push(escapedTok, escapedTok)
+
+      scoreParts.push(
+        `(CASE WHEN NORMALIZE_TEXT(s.artist) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.artist_unicode) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 12 ELSE 0 END)`
+      )
+      orderParams.push(escapedTok, escapedTok)
+
+      scoreParts.push(
+        `(CASE WHEN NORMALIZE_TEXT(s.creator) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 8 ELSE 0 END)`
+      )
+      orderParams.push(escapedTok)
+
+      scoreParts.push(
+        `(CASE WHEN NORMALIZE_TEXT(b.version) = NORMALIZE_TEXT(?) THEN 15 ELSE 0 END)`
+      )
+      orderParams.push(tok)
+
+      scoreParts.push(
+        `(CASE WHEN NORMALIZE_TEXT(b.version) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 6 ELSE 0 END)`
+      )
+      orderParams.push(escapedTok)
+
+      scoreParts.push(
+        `(CASE WHEN NORMALIZE_TEXT(s.tags) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' OR NORMALIZE_TEXT(s.source) LIKE '%' || NORMALIZE_TEXT(?) || '%' ESCAPE '\\' THEN 2 ELSE 0 END)`
+      )
+      orderParams.push(escapedTok, escapedTok)
+    }
+  }
+
+  const scoreSql = `(${scoreParts.join(' + ')})`
+  return {
+    orderBySql: `${scoreSql} DESC, b.difficulty_rating DESC, b.beatmapset_id DESC, b.version ASC, b.id ASC`,
+    orderParams
+  }
+}
+
+export function runBeatmapFilter(db: Database.Database, rawBody: unknown): BeatmapFilterResult {
+  const parsed = parseFilterBody(rawBody)
+  if (!parsed) {
+    throw new Error('Invalid filter body')
+  }
+
+  const page = Math.max(1, Math.floor(parsed.page ?? 1))
+  const pageSize = Math.min(100, Math.max(1, Math.floor(parsed.pageSize ?? 50)))
+  const offset = (page - 1) * pageSize
+
+  const { whereSql, params } = buildFilterWhereClause(parsed)
+  const order = parsed.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  let orderBySql: string
+  let orderParams: unknown[] = []
+
+  if (parsed.sortBy === 'relevance') {
+    const rel = buildRelevanceOrderBy(parsed)
+    orderBySql = rel.orderBySql
+    orderParams = rel.orderParams
+  } else {
     switch (parsed.sortBy) {
       case 'title':
-        return 'LOWER(s.title) ASC, LOWER(s.artist) ASC, b.beatmapset_id ASC, b.version ASC'
+        orderBySql = `LOWER(s.title) ${order}, LOWER(s.artist) ${order}, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
       case 'artist':
-        return 'LOWER(s.artist) ASC, LOWER(s.title) ASC, b.beatmapset_id ASC, b.version ASC'
+        orderBySql = `LOWER(s.artist) ${order}, LOWER(s.title) ${order}, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
+      case 'version':
+        orderBySql = `LOWER(b.version) ${order}, b.difficulty_rating ${order}, b.beatmapset_id ASC, b.id ASC`
+        break
+      case 'bpm':
+        orderBySql = `b.bpm ${order}, b.difficulty_rating DESC, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
+      case 'length':
+        orderBySql = `b.total_length ${order}, b.difficulty_rating DESC, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
       case 'ranked':
-        return 's.ranked_date DESC, b.difficulty_rating DESC, b.beatmapset_id ASC, b.version ASC'
+        orderBySql = `s.ranked_date ${order}, b.difficulty_rating DESC, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
       case 'difficulty':
+      case 'stars':
+        orderBySql = `b.difficulty_rating ${order}, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
       default:
-        return 'b.difficulty_rating DESC, b.beatmapset_id ASC, b.version ASC'
+        orderBySql = `LOWER(s.title) ${order}, LOWER(s.artist) ${order}, b.beatmapset_id ASC, b.version ASC, b.id ASC`
+        break
     }
-  })()
+  }
 
   const countSql = `
     SELECT COUNT(*) AS c,
@@ -559,7 +623,9 @@ export function runBeatmapFilter(db: Database.Database, rawBody: unknown): Beatm
 
   const t0 = Date.now()
   const countRow = db.prepare(countSql).get(...params) as { c: number; sets: number }
-  const rows = db.prepare(dataSql).all(...params, pageSize, offset) as BeatmapFilterRow[]
+  const rows = db
+    .prepare(dataSql)
+    .all(...params, ...orderParams, pageSize, offset) as BeatmapFilterRow[]
   const durationMs = Date.now() - t0
 
   return {

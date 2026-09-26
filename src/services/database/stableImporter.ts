@@ -30,6 +30,61 @@ type StableBeatmap = {
   slider_velocity?: number
   play_count?: number
   pass_count?: number
+  star_rating_standard?: Record<number | string, number>
+  star_rating_taiko?: Record<number | string, number>
+  star_rating_ctb?: Record<number | string, number>
+  star_rating_mania?: Record<number | string, number>
+  timing_points?: [number, number, boolean][]
+}
+
+export function getNoModStars(bm: StableBeatmap, modeInt: number): number {
+  const modeMaps = [
+    bm.star_rating_standard,
+    bm.star_rating_taiko,
+    bm.star_rating_ctb,
+    bm.star_rating_mania
+  ]
+  const starsDict = modeMaps[modeInt] ?? modeMaps[0]
+  if (starsDict && typeof starsDict === 'object') {
+    const nomod = starsDict[0] ?? starsDict['0']
+    if (typeof nomod === 'number' && !isNaN(nomod)) {
+      return Math.round(nomod * 100) / 100
+    }
+  }
+  return 0
+}
+
+export function calculateMainBpmFromTimingPoints(
+  timingPoints: [number, number, boolean][] | undefined,
+  totalTimeMs: number
+): number {
+  if (!timingPoints || timingPoints.length === 0) return 0
+  const bpmTimes = new Map<number, number>()
+  let currentBpm = 0
+  let lastTime = totalTimeMs
+
+  for (let i = timingPoints.length - 1; i >= 0; i--) {
+    const [beatLength, offset, inheritsBpm] = timingPoints[i]
+    if (inheritsBpm && beatLength > 0) {
+      currentBpm = Math.round(60000 / beatLength)
+    }
+    if (currentBpm <= 0 || offset > lastTime) continue
+    const segmentStart = i === 0 ? 0 : offset
+    const duration = Math.max(0, lastTime - segmentStart)
+    bpmTimes.set(currentBpm, (bpmTimes.get(currentBpm) ?? 0) + duration)
+    lastTime = offset
+  }
+
+  if (bpmTimes.size === 0) return 0
+  let maxDuration = -1
+  let mainBpm = 0
+  for (const [bpm, dur] of bpmTimes.entries()) {
+    if (dur > maxDuration) {
+      maxDuration = dur
+      mainBpm = bpm
+    }
+  }
+  return mainBpm
 }
 
 type StableDbData = {
@@ -139,6 +194,8 @@ export async function importFromStableDb(
     const modeInt = bm.mode ?? 0
     const mode = modeFromInt(modeInt)
     const status = statusFromRankedStatus(bm.ranked_status ?? 0)
+    const bpm = calculateMainBpmFromTimingPoints(bm.timing_points, bm.total_time ?? 0)
+    const stars = getNoModStars(bm, modeInt)
 
     if (!setMap.has(beatmapsetId)) {
       setMap.set(beatmapsetId, {
@@ -151,7 +208,7 @@ export async function importFromStableDb(
         source: bm.song_source ?? '',
         tags: bm.song_tags ?? '',
         status,
-        bpm: bm.bpm ?? 0,
+        bpm,
         rankedDate: null,
         submittedDate: null,
         lastUpdated: null,
@@ -174,10 +231,10 @@ export async function importFromStableDb(
       mode,
       status,
       version: bm.difficulty ?? '',
-      difficultyRating: bm.slider_velocity ?? 0,
+      difficultyRating: stars,
       totalLength: Math.max(0, Math.floor((bm.total_time ?? 0) / 1000)),
       hitLength: bm.drain_time ?? 0,
-      bpm: bm.bpm ?? 0,
+      bpm,
       cs: bm.circle_size ?? 0,
       ar: bm.approach_rate ?? bm.diff_approach ?? 0,
       hp: bm.hp_drain ?? 0,

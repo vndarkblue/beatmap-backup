@@ -1,5 +1,9 @@
 <template>
-  <AppIsland icon="$backupRestore" card-class="h-100 d-flex flex-column">
+  <AppIsland
+    icon="$backupRestore"
+    card-class="h-100 d-flex flex-column"
+    content-class="d-flex flex-column flex-grow-1"
+  >
     <template #title>
       <div class="d-flex align-center justify-space-between w-100">
         <span>{{ $t('settings.reset.all') }}</span>

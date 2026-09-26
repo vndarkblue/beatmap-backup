@@ -105,12 +105,15 @@
           const raw = localStorage.getItem('theme.preference.v1')
           if (raw === 'dark') {
             document.documentElement.classList.add('theme-dark')
+            document.documentElement.classList.remove('theme-light')
           } else {
             document.documentElement.classList.remove('theme-dark')
+            document.documentElement.classList.add('theme-light')
           }
         } catch {
           document.documentElement.classList.add('booting')
           document.documentElement.classList.remove('theme-dark')
+          document.documentElement.classList.add('theme-light')
         }
       })()
     </script>

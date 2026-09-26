@@ -13,6 +13,7 @@
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "build:portable": "npm run build && npx electron-builder --win portable",
     "postinstall": "electron-builder install-app-deps",
     "rebuild:native": "electron-rebuild -f -o better-sqlite3 --build-from-source",
     "build:unpack": "npm run build && electron-builder --dir",

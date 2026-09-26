@@ -1,6 +1,0 @@
-export const WINDOW_CONFIG = {
-  DEFAULT_WIDTH: 1080,
-  DEFAULT_HEIGHT: 720,
-  MIN_WIDTH: 800,
-  MIN_HEIGHT: 540
-} as const

@@ -54,3 +54,11 @@ export function canSyncDatabaseSource(
   if (!isConfigured) return false
   return status ? status.fileExists : true
 }
+
+export type AutoDetectStatusPayload = {
+  showWarning?: unknown
+}
+
+export function shouldShowAutoDetectWarning(payload: AutoDetectStatusPayload | null): boolean {
+  return Boolean(payload && payload.showWarning === true)
+}

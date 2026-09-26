@@ -4,7 +4,7 @@ import CollectionSyncService from '../services/collection/collectionSyncService'
 import updateService from '../services/updateService'
 import { runStartupAutoDetect } from '../services/startupAutoDetect'
 import { setStartupAutoDetectResult } from './ipc/registerIpcHandlers'
-import { startupMark } from '../services/startupTrace'
+import { startupMark } from '../services/logger'
 
 export function initEarlyServices(): void {
   try {

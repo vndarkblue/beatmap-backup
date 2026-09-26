@@ -3,7 +3,8 @@ export const STORAGE_KEYS = {
   LOCALE: 'locale',
   DOWNLOAD_SETTINGS: 'downloadSettings',
   BACKUP_TOGGLE_STATE: 'backup.toggle.state.v1',
-  BACKUP_COLLECTION_PREVIEW_SNAPSHOT: 'backup.collection.preview.snapshot.v1'
+  BACKUP_COLLECTION_PREVIEW_SNAPSHOT: 'backup.collection.preview.snapshot.v1',
+  PREFER_UNICODE_METADATA: 'filter.preferUnicodeMetadata.v1'
 } as const
 
 export const THEME_PREF_KEY = STORAGE_KEYS.THEME_PREFERENCE

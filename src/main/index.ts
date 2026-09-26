@@ -1,15 +1,13 @@
 import './initPortable'
-import { logger } from '../services/logger'
+import { logger, startupMark } from '../services/logger'
 logger.init()
 
 import { app, shell, BrowserWindow } from 'electron'
 import path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../renderer/src/assets/logo.ico?asset'
-import { APP_NAME, APP_ID } from '../config/sharedConstants'
-import { WINDOW_CONFIG } from '../config/backendConstants'
+import { APP_NAME, APP_ID, WINDOW_CONFIG } from '../config/appConstants'
 import { restoreWindowState, manageWindowState } from './windowState'
-import { startupMark } from '../services/startupTrace'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import {
   initEarlyServices,
@@ -62,7 +60,8 @@ function createWindow(): BrowserWindow {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      spellcheck: false
     }
   })
 

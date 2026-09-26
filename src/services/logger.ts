@@ -264,5 +264,17 @@ class AppLogger {
   }
 }
 
+import { is } from '../utils/env'
+
+const START_MS = Date.now()
+
+export function startupMark(label: string, extra?: Record<string, unknown>): void {
+  if (!is.dev) return
+
+  const deltaMs = Date.now() - START_MS
+  const suffix = extra && Object.keys(extra).length > 0 ? ` ${JSON.stringify(extra)}` : ''
+  console.log(`[startup +${deltaMs}ms] ${label}${suffix}`)
+}
+
 export const logger = AppLogger.getInstance()
 export default logger

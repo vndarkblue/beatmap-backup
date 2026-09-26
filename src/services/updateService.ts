@@ -9,7 +9,7 @@ import type {
   UpdateCheckResult,
   UpdatePushEvent
 } from '../preload/electronApiTypes'
-import { GITHUB_CONFIG } from '../config/sharedConstants'
+import { GITHUB_CONFIG } from '../config/appConstants'
 import { isPortableMode } from '../main/portable'
 
 type UpdateEventListener = (event: UpdatePushEvent) => void

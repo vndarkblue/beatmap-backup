@@ -1,5 +1,9 @@
 <template>
-  <AppIsland icon="$fileDocument" card-class="h-100 d-flex flex-column">
+  <AppIsland
+    icon="$fileDocument"
+    card-class="h-100 d-flex flex-column"
+    content-class="d-flex flex-column flex-grow-1"
+  >
     <template #title>
       <div class="d-flex align-center justify-space-between w-100">
         <span>{{ $t('settings.diagnostic.title') }}</span>
@@ -38,7 +42,7 @@
         :loading="isCopying"
         @click="copyDiagnosticInfo"
       >
-        <v-icon :icon="copied ? '$check' : '$contentSaveOutline'" start size="16" />
+        <v-icon :icon="copied ? '$check' : '$contentCopy'" start size="16" />
         {{ copied ? $t('settings.diagnostic.copied') : $t('settings.diagnostic.copyInfo') }}
       </v-btn>
     </div>

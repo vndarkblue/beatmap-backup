@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getDatabaseSourceStatus,
   canSyncDatabaseSource,
+  shouldShowAutoDetectWarning,
   type DatabaseSourceStatus
 } from '../../src/renderer/src/utils/databaseStatus'
 
@@ -135,6 +136,14 @@ describe('databaseStatus utils', () => {
           'C:/osu'
         )
       ).toBe(true)
+    })
+  })
+
+  describe('shouldShowAutoDetectWarning', () => {
+    it('returns true only for explicit showWarning=true', () => {
+      expect(shouldShowAutoDetectWarning({ showWarning: true })).toBe(true)
+      expect(shouldShowAutoDetectWarning({ showWarning: false })).toBe(false)
+      expect(shouldShowAutoDetectWarning(null)).toBe(false)
     })
   })
 })

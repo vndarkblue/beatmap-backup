@@ -4,7 +4,7 @@ import {
   isVisibleOnAnyDisplay,
   WindowDisplay
 } from '../../src/main/windowState'
-import { WINDOW_CONFIG } from '../../src/config/backendConstants'
+import { WINDOW_CONFIG } from '../../src/config/appConstants'
 
 describe('windowState logic', () => {
   const primaryDisplay: WindowDisplay = {
@@ -16,35 +16,27 @@ describe('windowState logic', () => {
 
   describe('isVisibleOnAnyDisplay', () => {
     it('returns false when display list is empty', () => {
-      expect(
-        isVisibleOnAnyDisplay({ x: 100, y: 100, width: 1080, height: 720 }, [])
-      ).toBe(false)
+      expect(isVisibleOnAnyDisplay({ x: 100, y: 100, width: 1080, height: 720 }, [])).toBe(false)
     })
 
     it('returns true when window is well inside primary display', () => {
       expect(
-        isVisibleOnAnyDisplay(
-          { x: 100, y: 100, width: 1080, height: 720 },
-          [primaryDisplay]
-        )
+        isVisibleOnAnyDisplay({ x: 100, y: 100, width: 1080, height: 720 }, [primaryDisplay])
       ).toBe(true)
     })
 
     it('returns true when window is on secondary display', () => {
       expect(
-        isVisibleOnAnyDisplay(
-          { x: 2000, y: 100, width: 1080, height: 720 },
-          [primaryDisplay, secondaryDisplay]
-        )
+        isVisibleOnAnyDisplay({ x: 2000, y: 100, width: 1080, height: 720 }, [
+          primaryDisplay,
+          secondaryDisplay
+        ])
       ).toBe(true)
     })
 
     it('returns false when window is far offscreen (e.g. unplugged monitor)', () => {
       expect(
-        isVisibleOnAnyDisplay(
-          { x: 5000, y: 5000, width: 1080, height: 720 },
-          [primaryDisplay]
-        )
+        isVisibleOnAnyDisplay({ x: 5000, y: 5000, width: 1080, height: 720 }, [primaryDisplay])
       ).toBe(false)
     })
 

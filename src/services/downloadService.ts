@@ -12,7 +12,7 @@ import {
   validateDownloadPath,
   validateBackupFile,
   getExistingBeatmapsetIds
-} from './download/fileUtils'
+} from './download/downloadTargetValidator'
 import { downloadFile, DownloadHttpError, MirrorHealth } from './download/httpDownloader'
 import fs from 'fs'
 import path from 'path'

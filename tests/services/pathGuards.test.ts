@@ -5,10 +5,89 @@ import path from 'node:path'
 import {
   validateRelativeSubPath,
   safeJoinWithinRoot,
-  resolveExistingPathWithinRoot
+  resolveExistingPathWithinRoot,
+  isValidExternalUrl,
+  isSafeDirectoryToOpen,
+  isSafePathToShow
 } from '../../src/main/pathGuards'
 
 describe('pathGuards', () => {
+  describe('isValidExternalUrl', () => {
+    it('accepts valid http and https URLs', () => {
+      expect(isValidExternalUrl('https://osu.ppy.sh')).toBe(true)
+      expect(isValidExternalUrl('http://example.com/test?a=1')).toBe(true)
+    })
+
+    it('rejects invalid protocols, ill-formed URLs, and non-strings', () => {
+      expect(isValidExternalUrl('javascript:alert(1)')).toBe(false)
+      expect(isValidExternalUrl('file:///C:/Windows/notepad.exe')).toBe(false)
+      expect(isValidExternalUrl('data:text/html,<h1>hi</h1>')).toBe(false)
+      expect(isValidExternalUrl('not-a-valid-url')).toBe(false)
+      expect(isValidExternalUrl('')).toBe(false)
+      expect(isValidExternalUrl('   ')).toBe(false)
+      expect(isValidExternalUrl(null as unknown as string)).toBe(false)
+      expect(isValidExternalUrl(undefined as unknown as string)).toBe(false)
+      expect(isValidExternalUrl(123 as unknown as string)).toBe(false)
+    })
+  })
+
+  describe('isSafeDirectoryToOpen', () => {
+    it('returns true for an existing directory', async () => {
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'safe-dir-test-'))
+      try {
+        expect(isSafeDirectoryToOpen(tempDir)).toBe(true)
+      } finally {
+        await fs.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it('returns false for files or non-existent directories', async () => {
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'safe-dir-test-'))
+      const tempFile = path.join(tempDir, 'test.txt')
+      await fs.writeFile(tempFile, 'hello')
+      try {
+        expect(isSafeDirectoryToOpen(tempFile)).toBe(false)
+        expect(isSafeDirectoryToOpen(path.join(tempDir, 'non_existent'))).toBe(false)
+      } finally {
+        await fs.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it('returns false for invalid or empty inputs', () => {
+      expect(isSafeDirectoryToOpen('')).toBe(false)
+      expect(isSafeDirectoryToOpen('   ')).toBe(false)
+      expect(isSafeDirectoryToOpen(null as unknown as string)).toBe(false)
+      expect(isSafeDirectoryToOpen(undefined as unknown as string)).toBe(false)
+    })
+  })
+
+  describe('isSafePathToShow', () => {
+    it('returns true for existing files and directories', async () => {
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'safe-show-test-'))
+      const tempFile = path.join(tempDir, 'file.txt')
+      await fs.writeFile(tempFile, 'data')
+      try {
+        expect(isSafePathToShow(tempDir)).toBe(true)
+        expect(isSafePathToShow(tempFile)).toBe(true)
+      } finally {
+        await fs.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    it('returns false for non-existent paths', () => {
+      expect(isSafePathToShow(path.join(os.tmpdir(), 'totally_non_existent_file_xyz_123'))).toBe(
+        false
+      )
+    })
+
+    it('returns false for invalid or empty inputs', () => {
+      expect(isSafePathToShow('')).toBe(false)
+      expect(isSafePathToShow('   ')).toBe(false)
+      expect(isSafePathToShow(null as unknown as string)).toBe(false)
+      expect(isSafePathToShow(undefined as unknown as string)).toBe(false)
+    })
+  })
+
   describe('validateRelativeSubPath', () => {
     it('accepts valid relative subpaths', () => {
       expect(validateRelativeSubPath('Songs').valid).toBe(true)
@@ -89,6 +168,11 @@ describe('pathGuards', () => {
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true })
       }
+    })
+
+    it('returns valid: false when safeJoinWithinRoot fails', async () => {
+      const resolved = await resolveExistingPathWithinRoot('', 'Songs')
+      expect(resolved.valid).toBe(false)
     })
 
     // Symlink traversal hardening is relevant for Unix-like filesystems

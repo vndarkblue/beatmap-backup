@@ -5,59 +5,60 @@ globs: src/services/database/**/*.ts,src/services/collection/**/*.ts,src/service
 
 # osu! Data Access & Database Integrity Rules
 
-Dự án tương tác trực tiếp với dữ liệu nhị phân của hai phiên bản game osu! khác biệt: **osu!stable** (tệp nhị phân `.db`) và **osu!lazer** (cơ sở dữ liệu NoSQL `client.realm`), sau đó hợp nhất vào SQLite cục bộ (`beatmaps.db`).
+The application directly interfaces with binary game data across two distinct osu! architectures: **osu!stable** (proprietary `.db` binary format) and **osu!lazer** (`client.realm` NoSQL database), consolidating both into a local SQLite database (`beatmaps.db`).
 
-## 1. Luật Chặn Tiến Trình (Process Locking Guard)
+## 1. Process Locking Guard
 
-> [!CAUTION] > **BẮT BUỘC KIỂM TRA TIẾN TRÌNH TRƯỚC KHI TRUY CẬP DỮ LIỆU GAME!**
+> [!CAUTION]
+> **MANDATORY PROCESS CHECK PRIOR TO ACCESSING GAME DATA!**
 
-1. Trước khi parse `osu!.db`, `collection.db`, hoặc mở `client.realm`, bắt buộc phải gọi:
+1. Prior to parsing `osu!.db`, `collection.db`, or opening `client.realm`, you must call:
    ```ts
    const proc = await isOsuProcessRunning(source) // 'stable' | 'lazer' | 'any'
    if (proc.running) {
-     // Bỏ qua hoặc cảnh báo người dùng tắt game
+     // Abort, skip, or prompt the user to close the game
    }
    ```
-2. **Lý do**:
-   - Khi game đang chạy, game giữ file lock trên `osu!.db` và `client.realm`.
-   - Việc đọc/ghi đồng thời có thể gây sai lệch dữ liệu, khóa chết I/O (deadlock), hoặc làm crash game của người dùng.
-3. Không cố gắng vượt qua cơ chế này bằng các cờ ép buộc đọc khi tiến trình còn sống.
+2. **Rationale**:
+   - Running games maintain exclusive file locks on `osu!.db` and `client.realm`.
+   - Concurrent read/write access can cause data corruption, I/O deadlocks, or crash the user's game.
+3. Never attempt to circumvent this safeguard using force-read flags while the game process is active.
 
-## 2. Truy Cập Dữ Liệu osu!stable
+## 2. osu!stable Data Access
 
-1. **`osu!.db` (Danh mục Beatmaps)**:
-   - Định dạng nhị phân độc quyền của osu!. Sử dụng thư viện `osu-db-parser`.
-   - Vì tệp `osu!.db` có thể chứa hàng chục nghìn beatmap và tiêu tốn hàng trăm MB RAM khi parse nhị phân, thao tác này **bắt buộc chạy trong worker thread** (`src/services/workers/stableImportWorker.ts`) để tránh làm đơ Event Loop của Main process.
-2. **`collection.db` (Bộ sưu tập)**:
-   - Đọc qua `stableCollectionParser.ts`.
-   - Chứa danh sách MD5 hashes của từng bài hát trong bộ sưu tập.
-3. **Thư mục Songs**:
-   - Thư mục chứa các tệp `.osz` giải nén. Khi backup hoặc export local, luôn dùng `safeJoinWithinRoot` khi duyệt bài hát.
+1. **`osu!.db` (Beatmap Catalog)**:
+   - Proprietary osu! binary stream parsed using `osu-db-parser`.
+   - Since `osu!.db` may contain tens of thousands of beatmaps and consume hundreds of MBs of memory during binary parsing, this operation **must execute inside a worker thread** (`src/services/workers/stableImportWorker.ts`) to avoid freezing the Main process Event Loop.
+2. **`collection.db` (User Collections)**:
+   - Parsed via `stableCollectionParser.ts`.
+   - Stores individual MD5 hashes for each difficulty in a collection.
+3. **`Songs` Folder**:
+   - Directory containing uncompressed beatmap sets. When generating backups or exporting locally, always traverse files using `safeJoinWithinRoot`.
 
-## 3. Truy Cập Dữ Liệu osu!lazer
+## 3. osu!lazer Data Access
 
 1. **`client.realm`**:
-   - Cơ sở dữ liệu nhị phân Realm của osu!lazer.
-   - Quản lý qua `realmService.ts` (`realm 12.6.0`).
-   - Mở ở chế độ **read-only** (`readOnly: true`), dùng dynamic schema inspection để linh hoạt thích ứng với các bản cập nhật schema của osu!lazer.
-   - Tuyệt đối không thực hiện bất kỳ thao tác ghi (`write`) nào vào `client.realm`.
-2. **Kho lưu trữ tệp (Files sharding)**:
-   - File trong lazer không lưu theo thư mục tên bài hát mà được hash (SHA-256) và phân mảnh vào `files/ab/abcdef...`.
-   - Dịch vụ `localBeatmapExport.ts` tổng hợp các file thành phần dựa trên metadata của Realm để tạo lại file `.osz` chuẩn.
+   - osu!lazer's Realm binary database.
+   - Handled through `realmService.ts` (`realm 12.6.0`).
+   - Must be opened strictly in **read-only** mode (`readOnly: true`), utilizing dynamic schema inspection to stay resilient across upstream schema updates.
+   - Never execute write operations against `client.realm`.
+2. **Sharded File Storage**:
+   - Lazer does not organize files by song folder names; all constituent files are SHA-256 hashed and sharded into paths like `files/ab/abcdef...`.
+   - `localBeatmapExport.ts` reassembles these files based on Realm metadata into standard `.osz` archives.
 
-## 4. Cơ Sở Dữ Liệu Cục Bộ Ứng Dụng (`beatmaps.db`)
+## 4. Local Application Database (`beatmaps.db`)
 
-1. **Cấu hình SQLite (`better-sqlite3`)**:
-   - Lưu trữ tại `userData/beatmaps.db`.
-   - Luôn kích hoạt WAL mode (`PRAGMA journal_mode = WAL`) và foreign keys (`PRAGMA foreign_keys = ON`).
-   - Đăng ký hàm tùy biến `NORMALIZE_TEXT` hỗ trợ tìm kiếm không dấu, loại bỏ ký tự Unicode phức tạp.
-2. **Ưu tiên hợp nhất dữ liệu (Upsert Priority)**:
-   - Khi cả Stable và Lazer cùng đồng bộ bài hát, tuân thủ logic độ ưu tiên quy định tại `upsertPriority.ts` để tránh ghi đè dữ liệu mới hơn bằng dữ liệu cũ hơn.
-3. **Quản lý kết nối**:
-   - Chỉ `DatabaseService.getInstance()` được phép giữ kết nối SQLite. Không khởi tạo kết nối mới song song.
+1. **SQLite Configuration (`better-sqlite3`)**:
+   - Located at `userData/beatmaps.db`.
+   - Always enforce WAL mode (`PRAGMA journal_mode = WAL`) and foreign keys (`PRAGMA foreign_keys = ON`).
+   - Register custom scalar function `NORMALIZE_TEXT` for accent-insensitive search and Unicode normalization.
+2. **Upsert Priority**:
+   - When synchronizing songs from both Stable and Lazer, respect precedence rules defined in `upsertPriority.ts` to prevent stale data from overwriting newer entries.
+3. **Connection Management**:
+   - Only `DatabaseService.getInstance()` is permitted to maintain the SQLite database handle. Never create concurrent SQLite connections.
 
-## 5. Lưu Ý Về Phiên Bản ABI Của Native Addon
+## 5. Native Addon ABI Notes
 
-1. `better-sqlite3` và `realm` là C++ native addons, được biên dịch theo ABI của Electron 35 (`NODE_MODULE_VERSION 133`).
-2. Không tự ý chỉnh sửa script `postinstall` trong `package.json` (`electron-builder install-app-deps`).
-3. Khi test trên Node máy chủ (ABI khác), cần mock hoặc chạy môi trường đã rebuild tương thích (xem chi tiết tại `rules/workflow-tests.md`).
+1. `better-sqlite3` and `realm` are C++ native addons compiled against Electron 35 ABI (`NODE_MODULE_VERSION 133`).
+2. Never tamper with the `postinstall` script in `package.json` (`electron-builder install-app-deps`).
+3. When running tests under host Node.js (different ABI), mock native layers or test compatible modules (see `rules/workflow-tests.md`).

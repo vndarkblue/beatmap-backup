@@ -1,145 +1,145 @@
 # Directory Map: osu! Beatmap Backup
 
-Bản đồ cấu trúc chi tiết toàn bộ thư mục và trách nhiệm của từng tệp trong repository.
+Detailed architectural structure and responsibility map for every file and folder in the repository.
 
 ```
 osu-beatmap-backup/
-├── .agents/                        # Chỉ dẫn, quy tắc và kỹ năng cho AI agents
-│   ├── rules/                      # Các file quy ước lập trình (tự nạp theo glob)
-│   ├── context/                    # Tài liệu ngữ cảnh sâu về hệ thống
-│   └── skills/                     # Quy trình thao tác chuẩn (runbooks)
-├── scripts/                        # Các script tiện ích hỗ trợ bảo trì dự án
-│   ├── i18n-export-csv.js          # Xuất từ điển JSON sang bảng tính CSV
-│   ├── i18n-import-csv.js          # Nhập từ bảng tính CSV trở lại JSON
-│   └── test-compare-databases.js   # Script chẩn đoán kiểm tra độ lệch schema DB
+├── .agents/                        # AI agent guidelines, rules, and operational runbooks
+│   ├── rules/                      # Coding convention rules (auto-loaded via glob)
+│   ├── context/                    # In-depth architectural and operational context
+│   └── skills/                     # Standard operational runbooks
+├── scripts/                        # Maintenance and utility automation scripts
+│   ├── i18n-export-csv.js          # Exports JSON translation dictionaries to CSV spreadsheet
+│   ├── i18n-import-csv.js          # Imports translated CSV spreadsheets back into JSON files
+│   └── test-compare-databases.js   # Diagnostic script checking DB schema parity
 ├── src/
-│   ├── config/                     # Hằng số và cấu hình dùng chung giữa các tầng
-│   │   ├── appConstants.ts         # Hằng số tầng Main & App (kích thước cửa sổ, app ID)
-│   │   ├── beatmapMirrors.ts       # Danh sách cấu hình 5 mirror tải beatmap và headers
-│   │   └── frontendConstants.ts    # Hằng số tầng Renderer (Storage keys, thời gian timing UI)
-│   ├── main/                       # Tiến trình Main (Node.js/Electron)
-│   │   ├── backgroundServices.ts   # Vòng đời tác vụ chạy nền (DB sync, updater, process watcher)
-│   │   ├── index.ts                # Điểm vào chính của ứng dụng (window setup, lifecycle)
-│   │   ├── initPortable.ts         # Khởi tạo chế độ portable (dòng đầu tiên của index.ts)
-│   │   ├── pathGuards.ts           # Chốt chặn bảo mật Shell, Path Traversal, URL validation
-│   │   ├── portable.ts             # Logic phát hiện và chuyển hướng thư mục userData cho portable
-│   │   ├── windowState.ts          # Lưu và khôi phục kích thước, vị trí cửa sổ
-│   │   └── ipc/                    # Đăng ký các kênh IPC Main-side theo domain
-│   │       ├── backupIpc.ts        # Kênh IPC cho preview, ước tính và export backup
-│   │       ├── databaseIpc.ts      # Kênh IPC cho sync database, trạng thái collection, tìm kiếm
-│   │       ├── downloadIpc.ts      # Kênh IPC cho engine tải xuống, kiểm soát hàng đợi, recovery
-│   │       ├── registerIpcHandlers.ts # Gộp toàn bộ đăng ký IPC và quản lý teardown
-│   │       ├── settingsIpc.ts      # Kênh IPC cho cấu hình ứng dụng và Beatconnect token
-│   │       ├── systemIpc.ts        # Kênh IPC cho thao tác hệ thống (chọn file, mở folder, log)
-│   │       └── updaterIpc.ts       # Kênh IPC cho tự động kiểm tra và cài đặt bản cập nhật
-│   ├── preload/                    # Cầu nối an toàn ContextBridge (Preload script)
-│   │   ├── electronApiTypes.ts     # Nguồn sự thật duy nhất về kiểu dữ liệu IPC Main ↔ Renderer
-│   │   ├── index.d.ts              # Định nghĩa toàn cục window.electronAPI cho TypeScript
-│   │   └── index.ts                # Phơi bày window.electronAPI có kiểu chặt chẽ vào renderer
-│   ├── services/                   # Nghiệp vụ cốt lõi (chạy trên Main Process)
-│   │   ├── backupNaming.ts         # Tạo tên tệp backup chuẩn hóa theo thời gian và bộ lọc
-│   │   ├── beatmapMirrorService.ts # Giám sát trạng thái hoạt động (health check) của các mirror
-│   │   ├── downloadService.ts      # Engine tải beatmap đa luồng, smart rate limit, event dispatcher
-│   │   ├── exportService.ts        # Logic trích xuất danh sách beatmap và ghi tệp .bbak
-│   │   ├── localBeatmapExport.ts   # Tạo tệp .osz từ các tệp thô trong thư mục osu! hoặc Lazer files
-│   │   ├── logger.ts               # Ghi log xoay vòng (app.log/app.old.log), ring-buffer, crash dump
-│   │   ├── pathAutoDetect.ts       # Tự động quét tìm đường dẫn cài đặt osu!stable và osu!lazer
-│   │   ├── processDetector.ts      # Quét tiến trình đang chạy để phát hiện game osu! (Windows/Linux/Mac)
-│   │   ├── realmService.ts         # Mở và truy vấn cơ sở dữ liệu client.realm của osu!lazer (Read-only)
-│   │   ├── settingsStore.ts        # Quản lý electron-store và mã hóa token qua safeStorage
-│   │   ├── startupAutoDetect.ts    # Tự động phát hiện môi trường game khi khởi động lần đầu
-│   │   ├── updateService.ts        # Kiểm tra bản cập nhật mới từ GitHub Releases qua electron-updater
-│   │   ├── collection/             # Xử lý bộ sưu tập bài hát (Collections)
-│   │   │   ├── collectionService.ts     # Phân tích collection và ghép metadata beatmapset
-│   │   │   ├── collectionSyncService.ts # Đồng bộ collection giữa stable, lazer và SQLite
-│   │   │   ├── osuDirectService.ts      # Tìm kiếm bổ sung beatmapset ID từ osu!direct API
-│   │   │   ├── stableCollectionParser.ts # Parse định dạng nhị phân collection.db của osu!stable
-│   │   │   └── types.ts                 # Kiểu dữ liệu về collection, merge mode, stats
-│   │   ├── database/               # Quản lý cơ sở dữ liệu SQLite cục bộ (beatmaps.db)
-│   │   │   ├── beatmapFilterQuery.ts    # Xây dựng câu truy vấn SQL tìm kiếm beatmap động
-│   │   │   ├── databaseService.ts       # Quản lý kết nối SQLite, migrations, CRUD beatmaps
-│   │   │   ├── lazerImporter.ts         # Đồng bộ beatmaps từ client.realm vào SQLite
-│   │   │   ├── schema.ts                # Schema DDL và cấu trúc bảng beatmaps/beatmapsets
-│   │   │   ├── stableDbParserUtils.ts   # Tiện ích chuyển đổi dữ liệu từ raw osu!.db sang schema chuẩn
-│   │   │   ├── stableImporter.ts        # Khởi chạy worker thread để đồng bộ osu!.db
-│   │   │   ├── syncManager.ts           # Điều phối toàn bộ quá trình đồng bộ định kỳ/khởi động
-│   │   │   └── types.ts                 # Định nghĩa kiểu dữ liệu database và sự kiện đồng bộ
-│   │   ├── download/               # Các module phụ trợ cho engine tải
-│   │   │   ├── downloadTargetValidator.ts # Kiểm tra dung lượng đĩa và tính hợp lệ của thư mục tải
-│   │   │   ├── httpDownloader.ts        # Tải stream HTTP/HTTPS với cơ chế retry và pipeline
-│   │   │   ├── oszMetadata.ts           # Kiểm tra cấu trúc ZIP và đọc thông tin .osz tải về
-│   │   │   ├── queuePersistence.ts      # Lưu và khôi phục snapshot hàng đợi tải dở dang
-│   │   │   └── types.ts                 # Kiểu dữ liệu tác vụ tải (DownloadTask, DownloadOptions)
-│   │   ├── types/                  # Kiểu dữ liệu chia sẻ của services
-│   │   │   └── beatmapset.ts       # Định nghĩa đối tượng Beatmapset
-│   │   └── workers/                # Luồng Worker Threads cho tác vụ nặng
-│   │       └── stableImportWorker.ts # Worker thread chuyên phân tích nhị phân file osu!.db lớn
-│   ├── utils/                      # Tiện ích đa môi trường (không phụ thuộc tầng trên)
-│   │   ├── beatmapTitle.ts         # Parse tên bài hát, nghệ sĩ từ tên file .osz
-│   │   ├── env.ts                  # Tiện ích phát hiện môi trường dev/production
-│   │   └── fileUtils.ts            # Ghi file nguyên tử (atomicWriteFile)
-│   └── renderer/                   # Giao diện người dùng (Chromium / Vue 3)
-│       ├── index.html              # HTML shell (chứa loading skeleton ban đầu)
+│   ├── config/                     # Shared constants and configurations across process boundaries
+│   │   ├── appConstants.ts         # Main process & app-level constants (window dimensions, app ID)
+│   │   ├── beatmapMirrors.ts       # 5 download mirrors configuration and request headers
+│   │   └── frontendConstants.ts    # Renderer constants (Storage keys, UI timing intervals)
+│   ├── main/                       # Main Process (Node.js/Electron)
+│   │   ├── backgroundServices.ts   # Lifecycle of background services (DB sync, updater, process watcher)
+│   │   ├── index.ts                # Application entry point (window setup, lifecycle hooks)
+│   │   ├── initPortable.ts         # Portable mode initialization (first line of index.ts)
+│   │   ├── pathGuards.ts           # Security checkpoints for Shell calls, Path Traversal, URL validation
+│   │   ├── portable.ts             # Detection and redirection of userData directory for portable mode
+│   │   ├── windowState.ts          # Window position and dimension persistence
+│   │   └── ipc/                    # Main-side IPC channel registration by domain
+│   │       ├── backupIpc.ts        # IPC channels for backup preview, estimation, and export
+│   │       ├── databaseIpc.ts      # IPC channels for database sync, collection status, beatmap search
+│   │       ├── downloadIpc.ts      # IPC channels for download engine, queue management, recovery
+│   │       ├── registerIpcHandlers.ts # Aggregates all IPC registrations and manages teardowns
+│   │       ├── settingsIpc.ts      # IPC channels for application settings and Beatconnect token
+│   │       ├── systemIpc.ts        # IPC channels for system dialogs, file revealing, logs
+│   │       └── updaterIpc.ts       # IPC channels for update checks and installation
+│   ├── preload/                    # Safe ContextBridge bridge layer (Preload script)
+│   │   ├── electronApiTypes.ts     # Single source of truth for IPC types between Main and Renderer
+│   │   ├── index.d.ts              # Global TypeScript declaration for window.electronAPI
+│   │   └── index.ts                # Exposes typed window.electronAPI into renderer
+│   ├── services/                   # Core business logic (Runs in Main Process)
+│   │   ├── backupNaming.ts         # Generates standardized backup file names with timestamps and filters
+│   │   ├── beatmapMirrorService.ts # Monitors operational health checks of download mirrors
+│   │   ├── downloadService.ts      # Multi-threaded download engine, smart rate limiting, event dispatcher
+│   │   ├── exportService.ts        # Beatmap list extraction and .bbak file generation
+│   │   ├── localBeatmapExport.ts   # Packages raw beatmap files from disk or Lazer into .osz archives
+│   │   ├── logger.ts               # Rotating file logger (app.log/app.old.log), ring-buffer, crash dumps
+│   │   ├── pathAutoDetect.ts       # Auto-detects installation directories for osu!stable and osu!lazer
+│   │   ├── processDetector.ts      # Process scanner detecting running osu! instances (Windows/Linux/Mac)
+│   │   ├── realmService.ts         # Opens and inspects osu!lazer client.realm (Read-only)
+│   │   ├── settingsStore.ts        # Manages electron-store and safeStorage token encryption
+│   │   ├── startupAutoDetect.ts    # Auto-detects game paths upon first launch
+│   │   ├── updateService.ts        # Checks for updates from GitHub Releases via electron-updater
+│   │   ├── collection/             # Beatmap collection processing
+│   │   │   ├── collectionService.ts     # Parses collections and matches beatmapset metadata
+│   │   │   ├── collectionSyncService.ts # Synchronizes collections between stable, lazer, and SQLite
+│   │   │   ├── osuDirectService.ts      # Lookups missing beatmapset IDs via osu!direct API
+│   │   │   ├── stableCollectionParser.ts # Parses osu!stable binary collection.db format
+│   │   │   └── types.ts                 # Collection types, merge modes, and statistics
+│   │   ├── database/               # Local SQLite management (beatmaps.db)
+│   │   │   ├── beatmapFilterQuery.ts    # Constructs dynamic SQL search queries
+│   │   │   ├── databaseService.ts       # SQLite handle management, migrations, beatmaps CRUD
+│   │   │   ├── lazerImporter.ts         # Imports beatmaps from client.realm into SQLite
+│   │   │   ├── schema.ts                # DDL schema for beatmaps and beatmapsets tables
+│   │   │   ├── stableDbParserUtils.ts   # Transforms raw osu!.db binary data into standardized schema
+│   │   │   ├── stableImporter.ts        # Spawns worker thread for osu!.db binary sync
+│   │   │   ├── syncManager.ts           # Coordinates startup and periodic database synchronization
+│   │   │   └── types.ts                 # Database types and synchronization progress events
+│   │   ├── download/               # Download engine auxiliary modules
+│   │   │   ├── downloadTargetValidator.ts # Validates disk space and destination directory safety
+│   │   │   ├── httpDownloader.ts        # HTTP/HTTPS stream downloader with retry and pipeline logic
+│   │   │   ├── oszMetadata.ts           # Validates ZIP integrity and reads .osu headers
+│   │   │   ├── queuePersistence.ts      # Persists and restores interrupted download queue snapshots
+│   │   │   └── types.ts                 # Download task and options data types
+│   │   ├── types/                  # Shared service types
+│   │   │   └── beatmapset.ts       # Beatmapset object definition
+│   │   └── workers/                # Background Worker Threads
+│   │       └── stableImportWorker.ts # Dedicated worker thread parsing large binary osu!.db files
+│   ├── utils/                      # Cross-environment utilities
+│   │   ├── beatmapTitle.ts         # Parses song title and artist from .osz filename
+│   │   ├── env.ts                  # Development vs production environment helpers
+│   │   └── fileUtils.ts            # Atomic disk writing (atomicWriteFile)
+│   └── renderer/                   # User Interface (Chromium / Vue 3)
+│       ├── index.html              # Shell HTML with initial loading skeleton
 │       └── src/
-│           ├── App.vue             # Root component (chứa Layout chính, Titlebar, Sidebar, Router view)
-│           ├── env.d.ts            # Khai báo môi trường client Vite
-│           ├── main.ts             # Khởi tạo Vue app, Vuetify, Icon aliases, Vue I18n, Error hooks
-│           ├── router.ts           # Cấu hình Vue Router (WebHashHistory)
-│           ├── assets/             # Tài nguyên tĩnh
-│           │   ├── main.css        # CSS toàn cục, CSS tokens, tùy biến Vuetify & SimpleBar
-│           │   └── fonts/          # Font Torus Notched nội bộ
-│           ├── components/         # Các View chính và component thành phần
-│           │   ├── Backup.vue      # Màn hình Sao lưu Beatmap
-│           │   ├── BeatmapFilter.vue # Màn hình Lọc và Tìm kiếm Beatmap
-│           │   ├── Download.vue    # Màn hình Quản lý Tải xuống & Hàng đợi
-│           │   ├── Settings.vue    # Màn hình Cài đặt Ứng dụng
-│           │   ├── backup/         # Card con của màn hình Backup
-│           │   │   ├── BackupActionCard.vue      # Nút bấm hành động và thanh tiến độ
-│           │   │   ├── BackupCollectionsCard.vue # Danh sách chọn bộ sưu tập để backup
-│           │   │   └── BackupSourcesCard.vue     # Chọn nguồn (Stable, Lazer, All)
-│           │   ├── common/         # Component dùng chung
-│           │   │   ├── AppForm.vue               # Khung form chuẩn
-│           │   │   ├── AppIsland.vue             # Khung thẻ nền bo tròn có hiệu ứng kính
-│           │   │   ├── AppViewShell.vue          # Khung trang chuẩn có tiêu đề và mô tả
-│           │   │   └── PathField.vue             # Ô nhập đường dẫn kèm nút duyệt file/thư mục
-│           │   ├── download/       # Card con của màn hình Download
-│           │   │   ├── DownloadActiveTable.vue   # Bảng hiển thị danh sách bài đang tải/hoàn tất
-│           │   │   ├── DownloadQueueOverview.vue # Thống kê tiến độ hàng đợi, tốc độ, nút điều khiển
-│           │   │   ├── DownloadRecoveryDialog.vue# Hộp thoại khôi phục hàng đợi khi mở lại app
-│           │   │   └── DownloadSetupCard.vue     # Khởi tạo tác vụ tải mới từ file .bbak
-│           │   ├── filter/         # Card con của màn hình Lọc
-│           │   │   ├── FilterCriteriaCard.vue    # Các tiêu chí lọc (Chế độ chơi, Star, BPM, Rank)
-│           │   │   ├── FilterResultsCard.vue     # Danh sách kết quả và nút xuất backup
-│           │   │   └── types.ts                  # Kiểu dữ liệu filter tiêu chí
-│           │   ├── layout/         # Thành phần bố cục cố định
-│           │   │   ├── AppSidebar.vue            # Thanh điều hướng bên trái
-│           │   │   └── AppTitlebar.vue           # Thanh tiêu đề frameless (kèm nút min/max/close)
-│           │   └── settings/       # Card con của màn hình Settings
-│           │       ├── SettingsAboutCard.vue     # Thông tin phiên bản, bản quyền, liên kết
-│           │       ├── SettingsDatabaseCard.vue  # Quản lý đồng bộ database và collection
-│           │       ├── SettingsDiagnosticCard.vue# Xem log, xuất chẩn đoán lỗi
-│           │       ├── SettingsDownloadCard.vue  # Cấu hình luồng tải, mirror, Beatconnect token
-│           │       ├── SettingsPathsCard.vue     # Cấu hình đường dẫn osu!stable, lazer, Songs
-│           │       └── SettingsResetCard.vue     # Khôi phục cài đặt gốc
-│           ├── composables/        # Quản lý logic nghiệp vụ và state phản ứng phía UI
-│           │   ├── useBackupWorkflow.ts   # Luồng chuẩn bị, ước tính và xuất backup
-│           │   ├── useDownloadQueue.ts    # Luồng quản lý hàng đợi tải, flush buffer, phục hồi
-│           │   ├── useDownloadSettings.ts # Cài đặt tải xuống và lưu trữ cấu hình
-│           │   └── useUpdater.ts          # Luồng thông báo và cập nhật phiên bản mới
-│           ├── i18n/               # Hệ thống đa ngôn ngữ
-│           │   ├── index.ts        # Cấu hình Vue I18n
-│           │   └── locales/        # Từ điển ngôn ngữ (en.json, vi.json, ja.json)
-│           └── utils/              # Tiện ích phía renderer
-│               └── databaseStatus.ts      # Format trạng thái đồng bộ cơ sở dữ liệu
-├── tests/                          # Toàn bộ test suite Vitest (phản chiếu thư mục src/)
-│   ├── config/                     # Test hằng số và danh sách mirror
-│   ├── main/                       # Test lưu/khôi phục kích thước cửa sổ
-│   ├── renderer/                   # Test tính nhất quán i18n và tiện ích hiển thị
-│   └── services/                   # Test nghiệp vụ cốt lõi, pathGuards, database, downloader
-├── package.json                    # Cấu hình dự án, dependencies và npm scripts
-├── electron.vite.config.ts         # Cấu hình build electron-vite cho main, preload, renderer
-├── electron-builder.yml            # Cấu hình đóng gói installer & portable cho Windows/Linux/Mac
+│           ├── App.vue             # Root component (main layout, titlebar, sidebar, router view)
+│           ├── env.d.ts            # Vite client environment types
+│           ├── main.ts             # Vue application setup, Vuetify, icon aliases, i18n, error handlers
+│           ├── router.ts           # Vue Router configuration (WebHashHistory)
+│           ├── assets/             # Static resources
+│           │   ├── main.css        # Global styles, CSS tokens, Vuetify & SimpleBar customizations
+│           │   └── fonts/          # Bundled Torus Notched fonts
+│           ├── components/         # Main Views and subcomponents
+│           │   ├── Backup.vue      # Beatmap Backup View
+│           │   ├── BeatmapFilter.vue # Beatmap Filter & Search View
+│           │   ├── Download.vue    # Download Manager & Queue View
+│           │   ├── Settings.vue    # Application Settings View
+│           │   ├── backup/         # Subcards for Backup screen
+│           │   │   ├── BackupActionCard.vue      # Action buttons and progress bars
+│           │   │   ├── BackupCollectionsCard.vue # Collection selection list
+│           │   │   └── BackupSourcesCard.vue     # Source selection (Stable, Lazer, All)
+│           │   ├── common/         # Shared reusable components
+│           │   │   ├── AppForm.vue               # Standardized form wrapper
+│           │   │   ├── AppIsland.vue             # Rounded glassmorphism card container
+│           │   │   ├── AppViewShell.vue          # Page shell with title and subtitle
+│           │   │   └── PathField.vue             # Path input field with directory/file picker button
+│           │   ├── download/       # Subcards for Download screen
+│           │   │   ├── DownloadActiveTable.vue   # Active and completed downloads table
+│           │   │   ├── DownloadQueueOverview.vue # Queue stats, transfer speed, control buttons
+│           │   │   ├── DownloadRecoveryDialog.vue# Dialog for resuming interrupted downloads
+│           │   │   └── DownloadSetupCard.vue     # Initialize new downloads from .bbak file
+│           │   ├── filter/         # Subcards for Filter screen
+│           │   │   ├── FilterCriteriaCard.vue    # Filter criteria inputs (Mode, Stars, BPM, Status)
+│           │   │   ├── FilterResultsCard.vue     # Filter results list and export trigger
+│           │   │   └── types.ts                  # Filter criteria data types
+│           │   ├── layout/         # Layout structural components
+│           │   │   ├── AppSidebar.vue            # Left navigation sidebar
+│           │   │   └── AppTitlebar.vue           # Frameless window titlebar with window controls
+│           │   └── settings/       # Subcards for Settings screen
+│           │       ├── SettingsAboutCard.vue     # Version details, licenses, links
+│           │       ├── SettingsDatabaseCard.vue  # Database and collection sync controls
+│           │       ├── SettingsDiagnosticCard.vue# Log viewer, diagnostic export
+│           │       ├── SettingsDownloadCard.vue  # Concurrency, mirrors, Beatconnect token
+│           │       ├── SettingsPathsCard.vue     # Directory paths for stable, lazer, Songs
+│           │       └── SettingsResetCard.vue     # Factory settings reset
+│           ├── composables/        # Business logic and reactive UI state
+│           │   ├── useBackupWorkflow.ts   # Backup estimation, preparation, and export flow
+│           │   ├── useDownloadQueue.ts    # Download queue management, buffer flushing, recovery
+│           │   ├── useDownloadSettings.ts # Download settings state and persistence
+│           │   └── useUpdater.ts          # Application update notifications and download flow
+│           ├── i18n/               # Internationalization system
+│           │   ├── index.ts        # Vue I18n initialization
+│           │   └── locales/        # Dictionaries (en.json, vi.json, ja.json)
+│           └── utils/              # Renderer utilities
+│               └── databaseStatus.ts      # Formatter for database sync status
+├── tests/                          # Vitest test suites (mirroring src/)
+│   ├── config/                     # Constants and mirror configuration tests
+│   ├── main/                       # Window state persistence tests
+│   ├── renderer/                   # i18n parity and UI utility tests
+│   └── services/                   # Core services, pathGuards, database, downloader tests
+├── package.json                    # Project configuration, dependencies, and npm scripts
+├── electron.vite.config.ts         # electron-vite build configuration for main, preload, renderer
+├── electron-builder.yml            # Packaging configuration for Windows/Linux/Mac (Installer & Portable)
 ├── eslint.config.mjs               # Flat ESLint config (TypeScript, Vue, Prettier)
-├── vitest.config.ts                # Cấu hình Vitest và ngưỡng coverage cứng
-└── ARCHITECTURAL_DIGEST.md         # Bản đặc tả tóm tắt kỹ thuật gốc của codebase
+├── vitest.config.ts                # Vitest configuration and strict coverage thresholds
+└── ARCHITECTURAL_DIGEST.md         # Original technical architectural digest of the codebase
 ```

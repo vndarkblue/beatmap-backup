@@ -3,11 +3,11 @@ trigger: glob
 globs: src/services/**/*.ts,src/utils/**/*.ts,src/config/**/*.ts
 ---
 
-# Services Layer (chạy trong Main process)
+# Services Layer (Runs in Main Process)
 
-## 1. Singleton
+## 1. Singleton Pattern
 
-Service có state/tài nguyên (DB connection, queue, EventEmitter) dùng Singleton:
+Services maintaining persistent state or resources (DB connection, queue, EventEmitter) must implement the Singleton pattern:
 
 ```ts
 class XxxService extends EventEmitter {
@@ -23,63 +23,62 @@ class XxxService extends EventEmitter {
 export default XxxService
 ```
 
-- Hiện có: `DownloadService`, `DatabaseService`, `SyncManager`, `BeatmapMirrorService`,
-  `CollectionSyncService`, `UpdateService`, `AppLogger` (export `logger`). `realmService` là
-  object hằng số được export — giữ nguyên kiểu đó.
-- Không `new` service ở nơi khác; luôn `getInstance()`. Không tạo singleton thứ hai cho cùng tài
-  nguyên (vd. mở thêm kết nối SQLite tới `beatmaps.db`).
-- Module **không state** (parser, helper thuần như `stableDbParserUtils.ts`, `backupNaming.ts`,
-  `oszMetadata.ts`) → export function, không cần class. Ưu tiên hàm thuần để dễ test.
+- Existing Singletons: `DownloadService`, `DatabaseService`, `SyncManager`, `BeatmapMirrorService`,
+  `CollectionSyncService`, `UpdateService`, `AppLogger` (exports `logger`). `realmService` is an exported
+  constant object — preserve this structure.
+- Never instantiate services using `new` externally; always call `getInstance()`. Never establish a second
+  singleton instance for the same resource (e.g., opening an additional SQLite handle to `beatmaps.db`).
+- **Stateless modules** (parsers, pure helpers like `stableDbParserUtils.ts`, `backupNaming.ts`,
+  `oszMetadata.ts`) should export pure functions rather than classes to facilitate unit testing.
 
-## 2. Event push
+## 2. Event Push Architecture
 
-- Service phát sự kiện bằng `EventEmitter`; tên sự kiện là hằng/enum (vd `DownloadEvent.TASK_ADDED`).
-- Service **không biết** `BrowserWindow`/`webContents`. Việc chuyển event sang renderer là của
-  module `src/main/ipc/*`.
-- Ai `on(...)` thì phải có đường `removeListener(...)` tương ứng (thường trong teardown IPC).
+- Services emit events using `EventEmitter`; event names must be typed constants or enums (e.g., `DownloadEvent.TASK_ADDED`).
+- Services **have no knowledge** of `BrowserWindow` or `webContents`. Bridging events to the renderer is the
+  responsibility of `src/main/ipc/*` modules.
+- Every `on(...)` subscription must have a matching `removeListener(...)` teardown (typically inside IPC teardown).
 
-## 3. File system
+## 3. File System Operations
 
-- Ghi file người dùng quan tâm (`.bbak`, snapshot hàng đợi, file export, settings tự quản) →
-  `atomicWriteFile(targetPath, content, options?)` từ `src/utils/fileUtils.ts`. Không
-  `fs.writeFile` trực tiếp vào đích cuối.
-- Dùng `fs.promises` (async) cho I/O lớn; tránh `*Sync` trong luồng nóng (trừ khởi tạo nhỏ đã có).
-- Path ghép từ input bên ngoài → `safeJoinWithinRoot()` / `validateRelativeSubPath()`
-  (xem rule `security-paths`).
-- Vị trí dữ liệu: luôn dựa trên `app.getPath('userData')` (đã được portable mode điều hướng).
-  Không hardcode `%APPDATA%` hay đường dẫn tuyệt đối.
+- User-facing data (`.bbak`, queue snapshots, export archives, self-managed settings) must be written using
+  `atomicWriteFile(targetPath, content, options?)` from `src/utils/fileUtils.ts`. Never use raw `fs.writeFile` on target paths.
+- Use `fs.promises` (asynchronous) for heavy I/O; avoid `*Sync` methods in hot execution paths (outside existing startup code).
+- Paths joined from external input must use `safeJoinWithinRoot()` / `validateRelativeSubPath()`
+  (refer to rule `security-paths`).
+- User data paths must always derive from `app.getPath('userData')` (which portable mode redirects).
+  Never hardcode `%APPDATA%` or absolute filesystem paths.
 
-## 4. Logging & lỗi
+## 4. Logging & Error Reporting
 
-- `import { logger } from './logger'` (chỉnh đường dẫn tương đối). API: `logger.info|warn|error(
-message, ...meta)`; `Error` truyền vào sẽ được log kèm stack. Tiền tố tag ngữ cảnh:
+- Import logger via `import { logger } from './logger'` (relative path). API: `logger.info|warn|error(message, ...meta)`.
+  Passed `Error` instances are automatically logged with stack traces. Use contextual tags:
   ``logger.warn(`[BeatConnect] ...`)``.
-- `logger` đã hook `console.*` nên console không mất, nhưng luồng trọng yếu (sync, download,
-  export, update) phải dùng `logger` trực tiếp.
-- **Không bao giờ log** token Beatconnect, header `Token`, hay nội dung settings đã mã hoá.
-- Đánh dấu mốc khởi động bằng `startupMark('scope:event')` khi thêm bước vào startup.
-- Phân loại lỗi rõ ràng thay vì nuốt lỗi; `catch {}` rỗng chỉ chấp nhận khi có comment lý do.
+- `logger` captures standard `console.*` output, but critical workflows (sync, download, export, update) must invoke
+  `logger` directly.
+- **Never log** Beatconnect API tokens, `Token` headers, or encrypted settings values.
+- Record startup benchmarks using `startupMark('scope:event')` when adding steps to initialization.
+- Categorize errors explicitly instead of swallowing them; empty `catch {}` blocks are only acceptable with documented reasoning.
 
-## 5. Settings & bí mật
+## 5. Settings & Secrets
 
-- Đọc/ghi settings qua `src/services/settingsStore.ts` (electron-store, file `settings.json`).
-  Thêm field mới phải sửa **đủ 3 chỗ** trong file đó: interface `Settings`, object
-  `defaultSettings`, và mapping tường minh trong `getSettings()` (field không có ở đây sẽ không bao
-  giờ tới được renderer). Kiểm tra thêm `updateSettings()` nếu field cần validate/chuẩn hoá.
-  `Settings` được re-export là `AppSettings` trong `electronApiTypes.ts`.
-- Bí mật (Beatconnect token) mã hoá bằng `safeStorage`; không trả token thô qua IPC; runtime dùng
-  `setBeatconnectRuntimeToken()` / `getBeatconnectRuntimeToken()` trong `config/beatmapMirrors.ts`.
+- Read and persist settings via `src/services/settingsStore.ts` (`electron-store`, storing `settings.json`).
+  Adding a new configuration property requires updating **all 3 locations** in that file: the `Settings` interface,
+  the `defaultSettings` object, and the explicit property mapping in `getSettings()` (unmapped properties will
+  never reach the renderer). Check `updateSettings()` if validation or sanitization is required.
+  `Settings` is re-exported as `AppSettings` in `electronApiTypes.ts`.
+- Secrets (Beatconnect tokens) are encrypted via `safeStorage`; never pass raw tokens over IPC; runtime access is managed
+  via `setBeatconnectRuntimeToken()` / `getBeatconnectRuntimeToken()` in `config/beatmapMirrors.ts`.
 
-## 6. CPU-bound & worker
+## 6. CPU-Bound Tasks & Worker Threads
 
-- Parse nhị phân lớn (`osu!.db`) chạy trong `worker_threads` (`src/services/workers/
-stableImportWorker.ts`, khởi chạy từ `stableImporter.ts`). Worker không import `electron`.
-- Worker mới ⇒ thêm entry trong `electron.vite.config.ts` (`main.build.rollupOptions.input`).
+- Heavy binary parsing (`osu!.db`) executes in `worker_threads` (`src/services/workers/stableImportWorker.ts`,
+  spawned from `stableImporter.ts`). Worker threads must not import `electron`.
+- Adding a new worker thread requires registering an entry in `electron.vite.config.ts` (`main.build.rollupOptions.input`).
 
-## 7. Config & utils
+## 7. Config & Utilities
 
-- `src/config/appConstants.ts`: hằng số main/app (window size, app id, …).
-- `src/config/frontendConstants.ts`: hằng số UI, `STORAGE_KEYS`, timing. Có hằng chết
-  `DOWNLOAD_SSE_RECONNECT` (xem known-gaps) — không dùng.
-- `src/config/beatmapMirrors.ts`: danh sách mirror (coverage 95/95 — đổi gì cũng phải test).
-- `src/utils/*` phải không phụ thuộc service. File dùng bởi renderer không được import Node.
+- `src/config/appConstants.ts`: Main/app level constants (window dimensions, application ID, etc.).
+- `src/config/frontendConstants.ts`: UI constants, `STORAGE_KEYS`, timings. Contains legacy constant
+  `DOWNLOAD_SSE_RECONNECT` (see `known-gaps`) — do not use.
+- `src/config/beatmapMirrors.ts`: Mirror definitions (enforces 95/95 coverage — any modification requires testing).
+- `src/utils/*`: Must remain decoupled from service layers. Files imported by the renderer must not import Node modules.

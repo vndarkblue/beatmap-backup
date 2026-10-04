@@ -5,24 +5,25 @@ globs: tests/**/*.ts,vitest.config.ts,package.json
 
 # Workflow & Testing Verification Rules
 
-Mọi thay đổi trong codebase phải được xác minh nghiêm ngặt trước khi báo cáo hoàn thành cho người dùng. Không được bàn giao mã nguồn khi chưa chạy các bước kiểm tra tương ứng.
+All codebase modifications must be rigorously verified before reporting completion to the user.
+Never hand over code without executing corresponding verification steps.
 
-## 1. Danh Mục Lệnh Chuẩn & Ý Nghĩa
+## 1. Standard Commands & Pass Criteria
 
-Môi trường shell mặc định của người dùng là **PowerShell trên Windows**.
+The user's default shell environment is **PowerShell on Windows**.
 
-| Mục đích                        | Lệnh thực thi                   | Tiêu chí vượt qua (Pass Criteria)                                 |
+| Objective                       | Command                         | Pass Criteria                                                     |
 | :------------------------------ | :------------------------------ | :---------------------------------------------------------------- |
-| **Kiểm tra Lint**               | `npm run lint`                  | 0 errors. Không tạo thêm cảnh báo mới.                            |
-| **Kiểm tra Kiểu (Toàn diện)**   | `npm run typecheck`             | Pass cả `typecheck:node` (`tsc`) lẫn `typecheck:web` (`vue-tsc`). |
-| **Chạy Test cụ thể**            | `npx vitest run <path_to_test>` | Toàn bộ assertion trong test suite đều pass.                      |
-| **Chạy Toàn Bộ Test**           | `npm run test`                  | Chạy toàn bộ file test trong thư mục `tests/`.                    |
-| **Kiểm tra Test kèm Coverage**  | `npm run test:coverage`         | Vượt qua tất cả ngưỡng tối thiểu trong `vitest.config.ts`.        |
-| **Kiểm tra Tổng Thể Cuối Cùng** | `npm run check`                 | Liên hoàn `lint` + `typecheck` + `test:coverage`.                 |
+| **Linting Check**               | `npm run lint`                  | 0 errors. No new warnings introduced.                             |
+| **Typecheck (Comprehensive)**   | `npm run typecheck`             | Passes both `typecheck:node` (`tsc`) and `typecheck:web` (`vue-tsc`). |
+| **Run Specific Test**           | `npx vitest run <path_to_test>` | All assertions in the test suite pass.                            |
+| **Run All Tests**               | `npm run test`                  | Executes all test files across `tests/`.                          |
+| **Run Tests with Coverage**     | `npm run test:coverage`         | Passes all minimum thresholds declared in `vitest.config.ts`.     |
+| **Comprehensive Final Check**   | `npm run check`                 | Sequential run of `lint` + `typecheck` + `test:coverage`.         |
 
-## 2. Ngưỡng Phủ Mã Nguồn Cứng (Coverage Thresholds)
+## 2. Hard Code Coverage Thresholds
 
-Tệp `vitest.config.ts` quy định ngưỡng tối thiểu bắt buộc đối với các module trọng yếu:
+`vitest.config.ts` enforces mandatory minimum thresholds for critical modules:
 
 - `src/config/beatmapMirrors.ts`: Statement ≥ 95%, Branch ≥ 95%
 - `src/services/beatmapMirrorService.ts`: Statement ≥ 90%, Branch ≥ 75%
@@ -33,27 +34,41 @@ Tệp `vitest.config.ts` quy định ngưỡng tối thiểu bắt buộc đối
 - `src/main/pathGuards.ts`: Statement ≥ 87%, Branch ≥ 84%
 
 > [!WARNING]
-> Nếu bạn thay đổi logic trong bất kỳ file nào thuộc danh sách trên, **bắt buộc phải bổ sung test tương ứng** trong `tests/` để không làm tụt độ phủ dưới ngưỡng. Tuyệt đối không tự ý hạ thấp ngưỡng trong `vitest.config.ts` để qua mặt kiểm tra.
+> If you modify logic in any of the modules listed above, **you must write or update corresponding tests**
+> in `tests/` to prevent coverage regression below required thresholds. Never reduce threshold percentages
+> in `vitest.config.ts` to bypass checks.
 
-## 3. Xử Lý Vấn Đề Native Module ABI Mismatch
+## 3. Handling Native Module ABI Mismatches
 
-Khi chạy test trên máy phát triển bằng Node.js thuần (Node 22 - ABI 137), các native addon C++ (`better-sqlite3`, `realm`) đã được biên dịch theo ABI của Electron 35 (`NODE_MODULE_VERSION 133`).
+When running tests in local host Node.js (e.g., Node 22 - ABI 137), native C++ addons (`better-sqlite3`, `realm`)
+are compiled against the Electron 35 ABI (`NODE_MODULE_VERSION 133`).
 
-- **Hiện tượng**:
-  - Chạy `npm run test` có thể gặp lỗi `NODE_MODULE_VERSION mismatch` tại 2 file test nạp binary trực tiếp: `databaseService.test.ts` và `beatmapFilter.test.ts`.
-  - Các bài test khác (pathGuards, download, mirrors, i18n, export, fileUtils, parser utils...) vẫn chạy bình thường 100%.
-- **Quy tắc ứng xử**:
-  - Không tự ý xóa script `postinstall` hay gỡ `better-sqlite3`.
-  - Khi thực hiện task không can thiệp SQLite C++ bindings, hãy chạy các test suite liên quan trực tiếp đến tính năng đang làm (ví dụ `npx vitest run tests/services/pathGuards.test.ts`).
-  - Trong báo cáo hoàn thành, nêu rõ trạng thái các bài test đã chạy và giải thích nguyên nhân ABI nếu 2 file test database không nạp được trên môi trường Node của host.
+- **Symptoms**:
+  - Running `npm run test` may report a `NODE_MODULE_VERSION mismatch` in tests that load native binaries directly:
+    `databaseService.test.ts` and `beatmapFilter.test.ts`.
+  - All other tests (pathGuards, download, mirrors, i18n, export, fileUtils, parser utils...) run 100% cleanly.
+- **Handling Rules**:
+  - Never delete the `postinstall` script or uninstall `better-sqlite3`.
+  - For tasks not modifying SQLite C++ bindings, run the test suites directly targeted at the active feature
+    (e.g., `npx vitest run tests/services/pathGuards.test.ts`).
+  - In the completion summary, state test execution status clearly and document ABI mismatch limitations if
+    native database tests could not run on the host Node environment.
 
-## 4. Trình Tự Xác Minh Chuẩn (Step-by-Step Verification)
+## 4. Step-by-Step Verification Sequence
 
-Trước khi kết thúc task:
+Prior to concluding a task:
 
-1. **Format**: Chạy `npx prettier --write <các_file_đã_sửa>` để code chuẩn convention.
-2. **Lint**: Chạy `npm run lint`. Sửa hết mọi lỗi type hoặc syntax mới phát sinh.
-3. **Typecheck**: Chạy `npm run typecheck`. Đảm bảo cả code Vue lẫn Node không có lỗi TypeScript.
-4. **Test**: Chạy bài test đơn vị của module vừa chỉnh sửa. Nếu sửa logic thuộc phạm vi coverage, chạy `npm run test:coverage`.
-5. **i18n (nếu có đổi giao diện)**: Chạy `npx vitest run tests/renderer/i18n.test.ts`.
-6. **Tổng hợp**: Chạy `npm run check` (nếu môi trường hỗ trợ đầy đủ) hoặc báo cáo chi tiết các bước đã kiểm tra thành công.
+1. **Format**: Run `npx prettier --write <modified_files>` to conform to project style.
+2. **Lint**: Run `npm run lint`. Resolve all newly introduced syntax and type errors.
+3. **Typecheck**: Run `npm run typecheck`. Confirm both Vue and Node code pass with zero TypeScript errors.
+4. **Test**: Run unit tests for modified modules. If modifying code under coverage enforcement, run `npm run test:coverage`.
+5. **i18n (if UI modified)**: Run `npx vitest run tests/renderer/i18n.test.ts`.
+6. **Aggregate**: Run `npm run check` (if fully supported by host environment) or report step results in detail.
+
+## 5. Git Commit Protocol
+
+When the agent is tasked with or considers performing a Git commit (`git commit`):
+
+1. **No Automatic/Silent Commits**: Never run `git commit` without explicit prior confirmation from the user.
+2. **Present Commit Message**: Clearly display the proposed commit message (conventional format title and bulleted summary) in the response for user review.
+3. **Await User Approval**: Only execute `git commit` after the user has approved the proposed message.

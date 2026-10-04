@@ -4,18 +4,19 @@ description: >-
   Use this skill when adding or modifying an IPC communication channel between the Electron Main process and the Vue Renderer.
 ---
 
-# Runbook: Thêm Endpoint IPC Mới (End-to-End)
+# Runbook: Adding a New IPC Endpoint (End-to-End)
 
-Mọi endpoint giao tiếp giữa Renderer và Main process phải tuân thủ nghiêm ngặt **hợp đồng 4 điểm**. Thiếu bất kỳ điểm nào cũng sẽ dẫn đến lỗi runtime, thiếu kiểm soát kiểu TypeScript hoặc rò rỉ bộ nhớ (memory leak).
+Every communication channel between the Renderer and Main process must strictly adhere to the **4-point contract**.
+Omitting any point can result in runtime exceptions, lack of TypeScript safety, or memory leaks.
 
 ---
 
-## Bước 1: Định Nghĩa Kiểu Dữ Liệu (`src/preload/electronApiTypes.ts`)
+## Step 1: Define Types (`src/preload/electronApiTypes.ts`)
 
-Mọi kiểu truyền tải qua IPC bắt buộc phải được khai báo tại tệp này:
+All types transmitted across IPC must be declared in this file:
 
-1. Thêm định nghĩa hàm vào interface domain tương ứng (`SettingsApi`, `DownloadApi`, `DatabaseApi`, `BackupApi`, `SystemApi`, `UpdaterApi`, `WindowControlsApi`).
-2. Khai báo kiểu request payload và response trả về:
+1. Add the method signature to the corresponding domain interface (`SettingsApi`, `DownloadApi`, `DatabaseApi`, `BackupApi`, `SystemApi`, `UpdaterApi`, `WindowControlsApi`).
+2. Declare request payload and response interfaces:
 
    ```ts
    export interface MyNewPayload {
@@ -30,30 +31,30 @@ Mọi kiểu truyền tải qua IPC bắt buộc phải được khai báo tại
    }
    ```
 
-3. Cập nhật vào interface domain:
+3. Update the domain interface:
    ```ts
    export interface DatabaseApi {
-     // ... các hàm cũ
+     // ... existing methods
      myNewAction: (payload: MyNewPayload) => Promise<MyNewResult>
    }
    ```
 
 ---
 
-## Bước 2: Cài Đặt Cầu Nối Preload (`src/preload/index.ts`)
+## Step 2: Implement Preload Bridge (`src/preload/index.ts`)
 
-Triển khai phương thức trong đối tượng `electronAPI`:
+Implement the method within the `electronAPI` bridge object:
 
-- **Nếu là hàm Request - Response (có giá trị trả về hoặc cần await)**:
+- **For Request - Response calls (async/await)**:
 
   ```ts
   myNewAction: (payload: MyNewPayload) => ipcRenderer.invoke('database:my-new-action', payload),
   ```
 
-  _(Lưu ý: Nếu payload là object phức tạp từ Vue state, hãy clone sạch: `JSON.parse(JSON.stringify(payload))`)_
+  _(Note: If payload comes from reactive Vue state, clone it cleanly: `JSON.parse(JSON.stringify(payload))`.)_
 
-- **Nếu là hàm Đăng ký Sự kiện (Event Push)**:
-  Bắt buộc trả về hàm hủy đăng ký (`unsubscribe`):
+- **For Event Push Subscriptions**:
+  Must return an `unsubscribe` callback:
   ```ts
   onMyProgress: (listener: (data: MyProgressEvent) => void) => {
     const handler = (_: IpcRendererEvent, data: MyProgressEvent): void => listener(data)
@@ -66,28 +67,28 @@ Triển khai phương thức trong đối tượng `electronAPI`:
 
 ---
 
-## Bước 3: Đăng Ký Handler Phía Main Process (`src/main/ipc/<domain>Ipc.ts`)
+## Step 3: Register Main Process Handler (`src/main/ipc/<domain>Ipc.ts`)
 
-1. Thêm tên kênh vào danh sách `channels` để đảm bảo tính idempotent và cleanup:
+1. Add the channel identifier to the `channels` array for idempotent cleanup:
    ```ts
    const channels = [
-     // ... các channel cũ
+     // ... existing channels
      'database:my-new-action'
    ]
    ```
-2. Đăng ký handler bằng `ipcMain.handle`:
+2. Register the handler using `ipcMain.handle`:
 
    ```ts
    ipcMain.handle('database:my-new-action', async (_event, payload: MyNewPayload) => {
-     // 1. Thẩm định chặt chẽ input từ Renderer
+     // 1. Strictly validate input from Renderer
      if (!payload || typeof payload.targetId !== 'string' || !payload.targetId.trim()) {
        throw new Error('Invalid targetId provided')
      }
 
-     // 2. Gọi logic xử lý từ Service Singleton
+     // 2. Delegate execution to Singleton Service
      const result = await databaseService.doSomething(payload.targetId, payload.force)
 
-     // 3. Trả về kết quả có thể clone được (structured clone)
+     // 3. Return structured-cloneable result
      return {
        success: true,
        itemCount: result.count
@@ -97,31 +98,31 @@ Triển khai phương thức trong đối tượng `electronAPI`:
 
 ---
 
-## Bước 4: Kiểm Tra Cơ Chế Dọn Dẹp (Teardown Verification)
+## Step 4: Verify Teardown Cleanup
 
-Kiểm tra cuối hàm `register<Domain>Ipc(mainWindow)`:
+Examine the return of `register<Domain>Ipc(mainWindow)`:
 
-- Đảm bảo hàm trả về một callback `() => void`.
-- Callback đó phải lặp qua toàn bộ `channels` để gọi `ipcMain.removeHandler(ch)`.
-- Nếu có listener sự kiện từ Service, phải gọi `service.removeListener(...)`.
-- Nếu có bộ đếm giờ (`setTimeout`, `setInterval`), phải gọi `clearTimeout/clearInterval`.
-- Kiểm tra tệp `src/main/ipc/registerIpcHandlers.ts` đã bao bọc teardown này khi cửa sổ chính đóng.
+- Confirm the function returns a `() => void` teardown callback.
+- The callback must iterate over all `channels` to invoke `ipcMain.removeHandler(ch)`.
+- If subscribed to Service events, invoke `service.removeListener(...)`.
+- If timers were created (`setTimeout`, `setInterval`), call `clearTimeout/clearInterval`.
+- Ensure `src/main/ipc/registerIpcHandlers.ts` invokes this teardown when the main window closes.
 
 ---
 
-## Bước 5: Gọi Từ Phía Renderer (Composable / Component)
+## Step 5: Consume in Renderer (Composable / Component)
 
-Trong Composable Vue (`src/renderer/src/composables/useXxx.ts`):
+Inside a Vue Composable (`src/renderer/src/composables/useXxx.ts`):
 
 ```ts
 const performAction = async (id: string): Promise<void> => {
   try {
     const response = await window.electronAPI.database.myNewAction({ targetId: id })
     if (!response.success) {
-      // Xử lý lỗi nghiệp vụ
+      // Handle business failure
     }
   } catch (err) {
-    // Bắt lỗi hệ thống hoặc reject IPC
+    // Handle system failure or IPC rejection
     console.error('IPC call failed:', err)
   }
 }
@@ -129,12 +130,12 @@ const performAction = async (id: string): Promise<void> => {
 
 ---
 
-## Bước 6: Kiểm Tra & Xác Nhận (Verification)
+## Step 6: Verification
 
-Chạy kiểm tra kiểu dữ liệu để đảm bảo toàn bộ chuỗi khớp 100%:
+Run TypeScript compilation check to verify full end-to-end type safety:
 
 ```powershell
 npm run typecheck
 ```
 
-Nếu không có bất kỳ lỗi typecheck nào, endpoint đã sẵn sàng sử dụng.
+If typecheck succeeds with zero errors, the endpoint is complete and ready for production use.

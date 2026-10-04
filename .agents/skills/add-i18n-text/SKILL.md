@@ -4,31 +4,32 @@ description: >-
   Use this skill when adding, modifying, or deleting user-facing strings or translation keys across English, Vietnamese, and Japanese locales.
 ---
 
-# Runbook: Thêm / Sửa Chuỗi Đa Ngôn Ngữ (i18n Text)
+# Runbook: Adding / Modifying Multilingual UI Strings (i18n Text)
 
-Toàn bộ chuỗi hiển thị trên giao diện người dùng phải được bản địa hóa cho 3 ngôn ngữ: Tiếng Anh (`en`), Tiếng Việt (`vi`), và Tiếng Nhật (`ja`). Bộ test suite `tests/renderer/i18n.test.ts` sẽ tự động từ chối nếu có bất kỳ sự lệch pha nào về danh sách khóa hoặc tên biến nội suy.
-
----
-
-## Bước 1: Xác Định Khóa Ngữ Nghĩa (Semantic Key)
-
-Xác định vị trí phân nhóm trong cây JSON phù hợp với chức năng:
-
-- `common`: Các nhãn dùng chung (OK, Cancel, Close, Save, Error, Loading...).
-- `nav`: Các mục menu điều hướng bên thanh bên (Sidebar).
-- `backup`: Toàn bộ chuỗi của màn hình Sao lưu beatmap.
-- `download`: Toàn bộ chuỗi của màn hình Quản lý tải xuống và hàng đợi.
-- `filter`: Tiêu chí lọc, nhãn xếp hạng, chế độ chơi.
-- `settings`: Cài đặt đường dẫn, cấu hình mirror, chẩn đoán lỗi.
-
-Ví dụ: Bạn muốn thêm nút "Dọn dẹp bộ nhớ đệm" trong card Cài đặt Database:
-Khóa sẽ là: `settings.database.clear_cache_btn`.
+All user-facing strings must be localized across 3 languages: English (`en`), Vietnamese (`vi`), and Japanese (`ja`).
+The test suite `tests/renderer/i18n.test.ts` automatically enforces strict parity across key structures and interpolation variables.
 
 ---
 
-## Bước 2: Cập Nhật Đồng Thời Cả 3 Tệp Ngôn Ngữ
+## Step 1: Define a Semantic Key
 
-Mở cả 3 tệp sau trong thư mục `src/renderer/src/i18n/locales/`:
+Choose an appropriate namespace within the JSON hierarchy matching the feature:
+
+- `common`: Reusable labels (OK, Cancel, Close, Save, Error, Loading...).
+- `nav`: Left navigation sidebar menu items.
+- `backup`: Strings dedicated to the Beatmap Backup screen.
+- `download`: Strings dedicated to the Download Manager and Queue.
+- `filter`: Search criteria, rating categories, and game modes.
+- `settings`: Application configuration, paths, mirror management, diagnostics.
+
+For example, to add a "Clear Cache" button within Database Settings:
+The key would be: `settings.database.clear_cache_btn`.
+
+---
+
+## Step 2: Concurrently Update All 3 Locale Files
+
+Open all 3 files under `src/renderer/src/i18n/locales/`:
 
 1. **`en.json`**:
    ```json
@@ -58,14 +59,15 @@ Mở cả 3 tệp sau trong thư mục `src/renderer/src/i18n/locales/`:
    }
    ```
 
-> [!CAUTION] > **Quy tắc bất di bất dịch về Placeholder**:
-> Nếu trong chuỗi tiếng Anh có chứa biến `{size}`, thì cả chuỗi tiếng Việt và tiếng Nhật **bắt buộc phải chứa đúng biến `{size}`**. Không được đổi thành `{dung_luong}` hay `{kich_thuoc}`.
+> [!CAUTION]
+> **Strict Placeholder Rule**:
+> If `{size}` appears in the English string, both Vietnamese and Japanese strings **must retain the exact placeholder name `{size}`**. Never translate placeholder names (e.g., do not rename to `{dung_luong}`).
 
 ---
 
-## Bước 3: Sử Dụng Trong Giao Diện Vue
+## Step 3: Implement in Vue Components
 
-### Trong phần `<template>`:
+### In `<template>`:
 
 ```html
 <v-btn color="primary"> {{ $t('settings.database.clear_cache_btn') }} </v-btn>
@@ -73,7 +75,7 @@ Mở cả 3 tệp sau trong thư mục `src/renderer/src/i18n/locales/`:
 <p>{{ $t('settings.database.clear_cache_desc', { size: cacheSizeMb }) }}</p>
 ```
 
-### Trong phần `<script setup lang="ts">`:
+### In `<script setup lang="ts">`:
 
 ```ts
 import { useI18n } from 'vue-i18n'
@@ -88,18 +90,18 @@ const handleSuccess = (): void => {
 
 ---
 
-## Bước 4: Chạy Bài Test Xác Minh Tính Nhất Quán (Verification)
+## Step 4: Verification Check
 
-Chạy ngay bài kiểm thử i18n chuyên biệt:
+Execute the dedicated i18n test suite:
 
 ```powershell
 npx vitest run tests/renderer/i18n.test.ts
 ```
 
-Bài test sẽ tự động xác minh 3 điều kiện:
+The test asserts three invariants:
 
-1. `en`, `vi`, `ja` có tập hợp khóa hoàn toàn trùng khớp 100%.
-2. Không có bất kỳ khóa nào bị bỏ trống chuỗi (`""`).
-3. Mọi placeholder `{variable}` trong 3 file hoàn toàn khớp nhau.
+1. `en`, `vi`, and `ja` contain identical key sets (100% parity).
+2. No translation key contains an empty string (`""`).
+3. All interpolation placeholders `{variable}` match across all 3 locale dictionaries.
 
-Nếu test báo xanh (PASS), bạn đã hoàn thành việc thêm chuỗi i18n an toàn!
+Passing this test confirms your translation additions are properly integrated and regression-free.

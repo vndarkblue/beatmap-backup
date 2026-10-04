@@ -5,62 +5,59 @@ globs: src/main/pathGuards.ts,src/main/ipc/systemIpc.ts,src/services/updateServi
 
 # Security & Path Safety Rules
 
-Hệ thống desktop Electron có quyền truy cập hệ điều hành cao. Mọi thao tác I/O đường dẫn, gọi shell hệ thống và xử lý thông tin nhạy cảm bắt buộc phải tuân theo các chốt chặn bảo mật dưới đây.
+The Electron desktop application operates with elevated operating system privileges. All filesystem path I/O,
+system shell executions, and handling of sensitive credentials must strictly adhere to the security checkpoints below.
 
 ## 1. Shell Execution & File Revelation Guards
 
-Tuyệt đối không gọi trực tiếp các hàm Electron `shell` với đường dẫn hoặc URL chưa qua thẩm định:
+Never invoke Electron `shell` methods with unvalidated paths or URLs:
 
 1. **`shell.openPath(targetPath)`**:
-
-   - Bắt buộc kiểm tra bằng `isSafeDirectoryToOpen(targetPath)`.
-   - Hàm này xác thực: chuỗi không rỗng, đường dẫn tồn tại trên đĩa và bắt buộc phải là **thư mục** (`isDirectory()`).
-   - Ngăn chặn người dùng/tệp độc hại kích hoạt thực thi trực tiếp các tệp `.exe`, `.bat`, `.cmd` hoặc binary ngoài ý muốn.
+   - Must validate using `isSafeDirectoryToOpen(targetPath)`.
+   - Validates that the string is non-empty, exists on disk, and is strictly a **directory** (`isDirectory()`).
+   - Prevents users or malicious files from directly executing arbitrary `.exe`, `.bat`, `.cmd`, or binary payloads.
 
 2. **`shell.showItemInFolder(targetPath)`**:
-
-   - Bắt buộc kiểm tra bằng `isSafePathToShow(targetPath)`.
-   - Xác thực: đường dẫn hợp lệ và file/thư mục thực sự tồn tại trước khi mở File Explorer.
+   - Must validate using `isSafePathToShow(targetPath)`.
+   - Validates that the path string is safe and the file/directory actually exists on disk before launching File Explorer.
 
 3. **`shell.openExternal(url)`**:
-   - Bắt buộc kiểm tra bằng `isValidExternalUrl(url)`.
-   - Chỉ cho phép giao thức `http:` và `https:`.
-   - Chặn tuyệt đối `javascript:`, `file:`, `data:`, `vbscript:`, hoặc các custom URI scheme độc hại.
-   - Khi renderer mở liên kết ngoài (`webContents.setWindowOpenHandler` hoặc IPC), luôn dùng guard này.
+   - Must validate using `isValidExternalUrl(url)`.
+   - Exclusively permits `http:` and `https:` protocols.
+   - Strictly rejects `javascript:`, `file:`, `data:`, `vbscript:`, and malicious custom URI schemes.
+   - Always apply this guard when renderer opens external links (`webContents.setWindowOpenHandler` or IPC).
 
 ## 2. Path Traversal & Subpath Joining
 
-Khi ứng dụng xử lý file con do người dùng nhập hoặc từ dữ liệu backup/beatmap:
+When handling subpaths supplied by user input or parsed from beatmap/backup metadata:
 
 1. **`validateRelativeSubPath(subPath)`**:
-
-   - Kiểm tra chuỗi con không rỗng.
-   - Chặn các ký tự wildcard/nguy hiểm: `* ? < > | "`.
-   - Chặn đường dẫn tuyệt đối (cả POSIX `/` lẫn Windows `C:\` hoặc `\\unc`).
-   - Chặn kỹ thuật Directory Traversal (`..` trong bất kỳ phân đoạn nào).
+   - Validates non-empty strings.
+   - Rejects wildcard/illegal characters: `* ? < > | "`.
+   - Rejects absolute paths (both POSIX `/` and Windows drive letters or `\\unc` paths).
+   - Prevents Directory Traversal attacks (`..` in any path segment).
 
 2. **`safeJoinWithinRoot(rootDir, subPath)`**:
-
-   - Sử dụng khi cần ghép thư mục gốc đã định với tên file/thư mục con.
-   - Kiểm tra `relative(normalizedRoot, targetPath)` không bắt đầu bằng `..` và không thoát ra khỏi `rootDir`.
+   - Used when joining a trusted base root with a relative subpath.
+   - Verifies that `relative(normalizedRoot, targetPath)` does not begin with `..` and does not escape `rootDir`.
 
 3. **`resolveExistingPathWithinRoot(rootDir, subPath)`**:
-   - Sử dụng `fs.promises.realpath` để giải quyết triệt để symlink/junction trỏ ra ngoài thư mục gốc.
+   - Uses `fs.promises.realpath` to resolve and prevent symlinks or directory junctions from traversing outside the root directory.
 
-## 3. Bảo Vệ Dữ Liệu Nhạy Cảm (Credentials & Tokens)
+## 3. Protecting Sensitive Data (Credentials & Tokens)
 
 1. **Beatconnect API Token**:
-   - Người dùng nhập token qua Settings → Main process lưu token mã hóa qua `safeStorage.encryptString(token)` và lưu vào `electron-store`.
-   - Phía Renderer **tuyệt đối không bao giờ** nhận token thô. Renderer chỉ được gọi `hasBeatconnectToken()` trả về boolean.
-   - Main process giải mã runtime qua `safeStorage.decryptString()` và lưu vào bộ nhớ RAM (`_beatconnectRuntimeToken`).
-   - Khi ghi log (`logger.ts`) hoặc bắn lỗi ra màn hình, **không bao giờ** in token hoặc header `Token: ...`.
+   - When entered via Settings, Main process persists the token encrypted using `safeStorage.encryptString(token)` into `electron-store`.
+   - The Renderer **must never** receive raw tokens. It may only call `hasBeatconnectToken()`, which returns a boolean.
+   - The Main process decrypts the token at runtime via `safeStorage.decryptString()` into memory RAM (`_beatconnectRuntimeToken`).
+   - When writing logs (`logger.ts`) or emitting errors, **never** output raw tokens or the `Token: ...` header.
 
-## 4. Ghi Tệp An Toàn (Atomic File Operations)
+## 4. Safe File Writing (Atomic File Operations)
 
 1. **`atomicWriteFile(targetPath, content, options?)`**:
-   - Mọi thao tác lưu dữ liệu quan trọng:
-     - Tệp danh sách backup (`.bbak`).
-     - Tệp snapshot phục hồi hàng đợi (`download-queue.json.tmp`).
-     - Tệp export local beatmap (`.osz`).
-   - Bắt buộc phải qua `atomicWriteFile()`: ghi ra một file tạm ngẫu nhiên `.tmp` cùng thư mục, sau đó gọi `fs.promises.rename()` để ghi đè nguyên tử.
-   - Loại bỏ hoàn toàn rủi ro file bị rỗng (0 KB) hoặc hỏng định dạng khi mất điện đột ngột hoặc crash ứng dụng.
+   - All critical persistence operations:
+     - Backup files (`.bbak`).
+     - Download queue recovery snapshots (`download-queue.json.tmp`).
+     - Exported local beatmaps (`.osz`).
+   - Must be written using `atomicWriteFile()`: writes to a temporary file (`.tmp`) in the same directory, followed by an atomic `fs.promises.rename()`.
+   - Eliminates the risk of zero-byte (0 KB) files or corrupted states during unexpected application crashes or power loss.

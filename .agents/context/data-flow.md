@@ -1,15 +1,15 @@
 # Data Flow & IPC Channel Reference
 
-Tài liệu chi tiết về các luồng dữ liệu chính và toàn bộ danh mục kênh giao tiếp IPC giữa các tiến trình.
+Detailed reference covering core business data flows and the complete catalog of IPC channels.
 
 ---
 
-## 1. Cơ Chế Giao Tiếp Đa Tiến Trình
+## 1. Multi-Process Communication Architecture
 
 ```
 [Renderer (Vue 3)]
-       │  (1) Kéo dữ liệu: await window.electronAPI.<domain>.<method>(payload)
-       │  (2) Đăng ký sự kiện: const unsub = window.electronAPI.<domain>.onXxx(cb)
+       │  (1) Query data: await window.electronAPI.<domain>.<method>(payload)
+       │  (2) Event subscription: const unsub = window.electronAPI.<domain>.onXxx(cb)
        ▼
 [Preload (ContextBridge)]
        │  (1) ipcRenderer.invoke('<channel>', payload)
@@ -25,145 +25,145 @@ Tài liệu chi tiết về các luồng dữ liệu chính và toàn bộ danh 
 
 ---
 
-## 2. Chi Tiết Các Luồng Nghiệp Vụ Chính
+## 2. Core Business Workflows
 
-### Luồng A: Quy Trình Sao Lưu Beatmap (Backup Workflow)
+### Workflow A: Beatmap Backup Workflow
 
-- **Thành phần tham gia**: `Backup.vue`, `useBackupWorkflow.ts`, `backupIpc.ts`, `exportService.ts`, `localBeatmapExport.ts`.
+- **Participating modules**: `Backup.vue`, `useBackupWorkflow.ts`, `backupIpc.ts`, `exportService.ts`, `localBeatmapExport.ts`.
 
-1. **Chọn nguồn & bộ sưu tập**:
-   - Người dùng chọn nguồn (`stable`, `lazer`, hoặc `all`) và có thể lọc theo Collection.
-   - UI gọi `backup.previewCollections(...)` để lấy danh sách bài hát thuộc bộ sưu tập.
-2. **Ước tính (Estimate)**:
-   - UI gọi `backup.estimate(...)` để tính toán số lượng beatmapset và dung lượng ước tính.
-3. **Thực thi xuất (Export)**:
-   - **Chế độ 1 - Xuất danh sách `.bbak`**:
-     - Main process trích xuất danh sách `beatmapsetId` duy nhất từ SQLite.
-     - Tạo header thông tin ngày xuất, số lượng bài hát, bộ lọc áp dụng.
-     - Ghi tệp bằng `atomicWriteFile()` ra đường dẫn người dùng đã chọn.
-   - **Chế độ 2 - Xuất tệp cục bộ `.osz`**:
-     - Quét các tệp trong thư mục Songs của Stable hoặc phân mảnh files trong Lazer.
-     - Gom và đóng gói thành tệp nén `.osz` chuẩn.
-     - Bắn tiến độ liên tục qua kênh `backup:local-export-progress`.
-
----
-
-### Luồng B: Quy Trình Tải Xuống Beatmap (Download Workflow)
-
-- **Thành phần tham gia**: `Download.vue`, `useDownloadQueue.ts`, `downloadIpc.ts`, `downloadService.ts`, `httpDownloader.ts`, `queuePersistence.ts`.
-
-1. **Khởi tạo**:
-   - Người dùng nạp tệp `.bbak` hoặc bấm tải từ kết quả lọc.
-   - Kiểm tra tính hợp lệ của thư mục tải và dung lượng đĩa qua `downloadTargetValidator.ts`.
-   - UI gọi `download.start({ filePath, options, downloadPath })`.
-2. **Nạp hàng đợi & gom lô sự kiện**:
-   - `DownloadService` tạo các `DownloadTask` với trạng thái `waiting`.
-   - Bắn sự kiện `DownloadEvent.TASK_ADDED` theo đợt (chunk 500 tasks, throttle 50ms) để không làm đơ UI Renderer.
-3. **Phân phối luồng tải (Smart Dispatcher)**:
-   - Hàng đợi kiểm tra trạng thái từng mirror:
-     - `catboy.best` (Mino): tối đa 2 luồng song song, giãn cách tối thiểu 600ms, tối đa 60 requests/phút.
-     - `BeatConnect`: tối đa 5 luồng (nếu có token) hoặc 2 luồng / 800ms (nếu không có token).
-     - Các mirror khác: tối đa 3 luồng song song.
-4. **Tải stream & kiểm tra toàn vẹn**:
-   - Tải dữ liệu qua luồng HTTP stream trực tiếp vào file `.osz.download`.
-   - Khi stream kết thúc, gọi `oszMetadata.ts` đọc cấu trúc tệp ZIP và header `.osu`.
-   - Nếu hợp lệ: đổi tên thành `.osz` và đánh dấu `completed`.
-   - Nếu lỗi: chuyển sang mirror tiếp theo; nếu gặp HTTP 429 kích hoạt cooldown mirror; nếu 401 trên BeatConnect thì hạ quyền khách.
-5. **Lưu Checkpoint & Phục Hồi**:
-   - Cứ mỗi khoảng thời gian định kỳ (`queueCheckpointIntervalMs`), lưu trạng thái hàng đợi vào `download-queue.json` bằng `atomicWriteFile`.
-   - Nếu ứng dụng bị đóng đột ngột, khi khởi động lại sẽ phát hiện checkpoint và mở `DownloadRecoveryDialog.vue`.
+1. **Source & Collection Selection**:
+   - The user selects a source (`stable`, `lazer`, or `all`) with optional collection filters.
+   - The UI invokes `backup.previewCollections(...)` to preview beatmaps contained within selected collections.
+2. **Estimation**:
+   - The UI invokes `backup.estimate(...)` to calculate beatmapset totals and approximate output sizes.
+3. **Export Execution**:
+   - **Mode 1 — Export `.bbak` metadata archive**:
+     - The Main process extracts unique `beatmapsetId` records from SQLite.
+     - Generates header metadata including export timestamp, beatmapset count, and applied filter criteria.
+     - Persists the file using `atomicWriteFile()` to the user's selected path.
+   - **Mode 2 — Export local `.osz` packages**:
+     - Traverses files in the Stable `Songs/` directory or resolves sharded files in Lazer.
+     - Assembles and compresses constituent files into standardized `.osz` archives.
+     - Continuously emits progress updates across `backup:local-export-progress`.
 
 ---
 
-### Luồng C: Đồng Bộ Dữ Liệu Game & Lọc Beatmap (Sync & Filter)
+### Workflow B: Beatmap Download Workflow
 
-- **Thành phần tham gia**: `SettingsDatabaseCard.vue`, `BeatmapFilter.vue`, `databaseIpc.ts`, `syncManager.ts`, `stableImporter.ts`, `lazerImporter.ts`, `databaseService.ts`.
+- **Participating modules**: `Download.vue`, `useDownloadQueue.ts`, `downloadIpc.ts`, `downloadService.ts`, `httpDownloader.ts`, `queuePersistence.ts`.
 
-1. **Kiểm tra an toàn tiến trình**:
-   - `isOsuProcessRunning()` quét tiến trình hệ thống. Nếu `osu.exe` đang chạy, quá trình đồng bộ dừng ngay lập tức và báo trạng thái `skipped`.
-2. **Đồng bộ osu!stable**:
-   - `stableImporter.ts` tạo một `Worker` thread (`stableImportWorker.ts`).
-   - Worker đọc nhị phân tệp `osu!.db`, chuẩn hóa dữ liệu beatmap và bắn tiến độ về Main.
-   - Main process thực hiện bulk upsert vào SQLite `beatmaps.db` (WAL mode).
-3. **Đồng bộ osu!lazer**:
-   - `lazerImporter.ts` mở `client.realm` ở chế độ read-only.
-   - Duyệt các đối tượng `BeatmapSet` và import vào SQLite.
-4. **Tìm kiếm & Lọc (Filter Query)**:
-   - Renderer gửi đối tượng bộ lọc (Mode, Star, BPM, Rank, Text, Collection).
-   - Preload clone sạch object qua `JSON.parse(JSON.stringify(filter))`.
-   - `beatmapFilterQuery.ts` tạo câu lệnh SQL tương ứng, sử dụng hàm `NORMALIZE_TEXT` để tìm kiếm không phân biệt dấu tiếng Việt hay chữ hoa chữ thường.
+1. **Initialization**:
+   - The user provides a `.bbak` file or initiates downloads from search/filter results.
+   - Target destination directory accessibility and available disk space are verified via `downloadTargetValidator.ts`.
+   - The UI invokes `download.start({ filePath, options, downloadPath })`.
+2. **Queue Ingestion & Event Throttling**:
+   - `DownloadService` instantiates `DownloadTask` objects initialized to `waiting` status.
+   - Emits `DownloadEvent.TASK_ADDED` in batches (chunk size 500, 50ms throttle) to prevent renderer UI thread starvation.
+3. **Intelligent Concurrency Dispatching**:
+   - The scheduler assesses the health and concurrency limits of each mirror:
+     - `catboy.best` (Mino): Max 2 concurrent streams, minimum 600ms interval, capped at 60 req/min.
+     - `BeatConnect`: Max 5 concurrent streams (with token) or 2 concurrent streams / 800ms interval (guest).
+     - Other mirrors: Max 3 concurrent streams.
+4. **Streaming Download & Integrity Verification**:
+   - Streams data directly into a temporary file (`.osz.download`).
+   - Upon stream completion, calls `oszMetadata.ts` to inspect ZIP headers and `.osu` files.
+   - If valid: renames to `.osz` and marks task as `completed`.
+   - If corrupted/failed: fails over to the next fallback mirror; HTTP 429 triggers cooldown; HTTP 401 on BeatConnect downgrades to guest mode.
+5. **Checkpointing & Recovery**:
+   - Periodically serializes active queue state to `download-queue.json` using `atomicWriteFile`.
+   - In case of an unexpected shutdown, application startup detects existing checkpoints and displays `DownloadRecoveryDialog.vue`.
 
 ---
 
-## 3. Danh Mục Kênh Giao Tiếp IPC (IPC Channels Reference)
+### Workflow C: Game Data Synchronization & Beatmap Filtering
 
-### Kênh Request - Response (`ipcMain.handle` ↔ `ipcRenderer.invoke`)
+- **Participating modules**: `SettingsDatabaseCard.vue`, `BeatmapFilter.vue`, `databaseIpc.ts`, `syncManager.ts`, `stableImporter.ts`, `lazerImporter.ts`, `databaseService.ts`.
 
-| Domain             | Kênh IPC                          | Mục đích                                                            |
+1. **Process Safety Check**:
+   - `isOsuProcessRunning()` inspects running processes. If `osu.exe` is active, synchronization terminates immediately and returns `skipped`.
+2. **osu!stable Synchronization**:
+   - `stableImporter.ts` spawns a background `Worker` thread (`stableImportWorker.ts`).
+   - The worker parses binary `osu!.db`, normalizes beatmap records, and reports progress back to Main.
+   - Main executes bulk upserts into SQLite `beatmaps.db` (WAL mode).
+3. **osu!lazer Synchronization**:
+   - `lazerImporter.ts` opens `client.realm` in read-only mode.
+   - Iterates through `BeatmapSet` objects and upserts them into SQLite.
+4. **Search & Filter Query Execution**:
+   - Renderer submits a filter object (Mode, Star Rating, BPM, Rank Status, Text Query, Collections).
+   - Preload cleanly clones the object via `JSON.parse(JSON.stringify(filter))`.
+   - `beatmapFilterQuery.ts` dynamically builds SQL queries utilizing `NORMALIZE_TEXT` for accent-insensitive search.
+
+---
+
+## 3. IPC Channel Catalog
+
+### Request - Response Channels (`ipcMain.handle` ↔ `ipcRenderer.invoke`)
+
+| Domain             | IPC Channel                       | Description                                                         |
 | :----------------- | :-------------------------------- | :------------------------------------------------------------------ |
-| **settings**       | `settings:get`                    | Đọc toàn bộ cấu hình ứng dụng (`AppSettings`)                       |
-|                    | `settings:update`                 | Cập nhật một phần cấu hình (`patch: Partial<AppSettings>`)          |
-|                    | `settings:reset`                  | Khôi phục toàn bộ cài đặt về mặc định                               |
-|                    | `settings:validate-path`          | Kiểm tra tính hợp lệ của đường dẫn game hoặc thư mục tải            |
-|                    | `settings:get-auto-detect-status` | Lấy kết quả quét tự động phát hiện đường dẫn game                   |
-|                    | `settings:has-beatconnect-token`  | Kiểm tra xem người dùng đã lưu Beatconnect token hay chưa (boolean) |
-|                    | `settings:set-beatconnect-token`  | Mã hóa và lưu Beatconnect token mới                                 |
-| **download**       | `download:start`                  | Khởi chạy phiên tải xuống từ file backup `.bbak`                    |
-|                    | `download:control`                | Tạm dừng (`pause`), tiếp tục (`resume`), hoặc hủy toàn bộ (`stop`)  |
-|                    | `download:get-state`              | Lấy trạng thái runtime và trạng thái checkpoint phục hồi            |
-|                    | `download:handle-recovery`        | Tiếp tục (`resume`) hoặc hủy bỏ (`discard`) checkpoint cũ           |
-|                    | `download:get-tasks`              | Lấy toàn bộ danh sách tác vụ tải hiện có                            |
-|                    | `download:retry-failed`           | Đặt lại trạng thái các bài tải lỗi về `waiting` để thử lại          |
-|                    | `download:clear-queue`            | Dọn dẹp sạch danh sách tác vụ tải                                   |
-|                    | `download:export-failed-backup`   | Xuất các beatmap tải lỗi thành file `.bbak` mới                     |
-| **database**       | `database:get-status`             | Lấy số lượng beatmap, collection và ngày đồng bộ gần nhất           |
-|                    | `database:sync`                   | Kích hoạt đồng bộ thủ công từ stable, lazer hoặc cả hai             |
-|                    | `database:sync-collections`       | Đồng bộ bộ sưu tập bài hát từ game vào cơ sở dữ liệu                |
-|                    | `database:get-collection-status`  | Lấy số lượng collection và thống kê phân bổ                         |
-|                    | `database:filter-beatmaps`        | Tìm kiếm và lọc danh sách beatmap từ SQLite                         |
-|                    | `database:export-filtered-backup` | Xuất kết quả lọc ra file `.bbak`                                    |
-| **backup**         | `backup:preview-collections`      | Xem trước danh sách bài hát trong các collection đã chọn            |
-|                    | `backup:estimate`                 | Ước tính số lượng bài hát và kích thước backup                      |
-|                    | `backup:export`                   | Xuất file backup (`.bbak` hoặc `.osz` local)                        |
-| **system**         | `system:select-directory`         | Mở hộp thoại hệ thống để chọn một thư mục                           |
-|                    | `system:select-backup-file`       | Mở hộp thoại chọn tệp `.bbak`                                       |
-|                    | `system:open-path`                | Mở thư mục trên File Explorer (qua guard `isSafeDirectoryToOpen`)   |
-|                    | `system:open-external`            | Mở liên kết trình duyệt (qua guard `isValidExternalUrl`)            |
-|                    | `system:show-item-in-folder`      | Trỏ tới file trong thư mục (qua guard `isSafePathToShow`)           |
-|                    | `system:get-mirrors-status`       | Lấy trạng thái online/offline của 5 mirror                          |
-|                    | `system:open-log-folder`          | Mở thư mục chứa file log ứng dụng (`app.log`)                       |
-|                    | `system:get-diagnostic-info`      | Lấy thông tin chẩn đoán (OS, RAM, Electron version, DB size)        |
-| **updater**        | `updater:get-app-version`         | Lấy phiên bản ứng dụng hiện tại                                     |
-|                    | `updater:get-distribution-type`   | Kiểm tra gói cài đặt (installed, portable, appimage)                |
-|                    | `updater:get-last-result`         | Lấy kết quả kiểm tra cập nhật gần nhất                              |
-|                    | `updater:get-update-state`        | Lấy trạng thái tải bản cập nhật hiện tại                            |
-|                    | `updater:check`                   | Kiểm tra bản cập nhật mới từ GitHub Releases                        |
-|                    | `updater:download`                | Bắt đầu tải bản cập nhật                                            |
-|                    | `updater:open-release`            | Mở trang GitHub Release trên trình duyệt                            |
-|                    | `updater:download-linux-appimage` | Tải AppImage cho Linux                                              |
-|                    | `updater:show-install-confirm`    | Hiển thị hộp thoại xác nhận khởi động lại để cập nhật               |
-| **windowControls** | `window:is-maximized`             | Kiểm tra xem cửa sổ có đang ở trạng thái phóng to cực đại hay không |
+| **settings**       | `settings:get`                    | Reads complete application configuration (`AppSettings`)            |
+|                    | `settings:update`                 | Applies partial configuration patch (`patch: Partial<AppSettings>`) |
+|                    | `settings:reset`                  | Resets all application settings to defaults                         |
+|                    | `settings:validate-path`          | Validates safety and existence of game paths or download folder     |
+|                    | `settings:get-auto-detect-status` | Retrieves game path auto-detection results                          |
+|                    | `settings:has-beatconnect-token`  | Checks if user has a configured Beatconnect token (boolean)         |
+|                    | `settings:set-beatconnect-token`  | Encrypts and persists a new Beatconnect API token                   |
+| **download**       | `download:start`                  | Initiates a download session from a `.bbak` file                    |
+|                    | `download:control`                | Controls queue: pause (`pause`), resume (`resume`), or abort (`stop`)|
+|                    | `download:get-state`              | Retrieves runtime queue state and recovery checkpoint status        |
+|                    | `download:handle-recovery`        | Resumes (`resume`) or discards (`discard`) an interrupted queue     |
+|                    | `download:get-tasks`              | Retrieves complete list of all download tasks                       |
+|                    | `download:retry-failed`           | Resets failed download tasks to `waiting` for retry                 |
+|                    | `download:clear-queue`            | Clears all tasks from the download queue                            |
+|                    | `download:export-failed-backup`   | Exports failed beatmapset IDs into a new `.bbak` file               |
+| **database**       | `database:get-status`             | Retrieves beatmap count, collection count, and last sync timestamp  |
+|                    | `database:sync`                   | Triggers manual sync from stable, lazer, or both                    |
+|                    | `database:sync-collections`       | Synchronizes user collections from game into SQLite                 |
+|                    | `database:get-collection-status`  | Retrieves collection count and distribution statistics              |
+|                    | `database:filter-beatmaps`        | Queries and filters beatmaps from SQLite                            |
+|                    | `database:export-filtered-backup` | Exports filtered search results to a `.bbak` file                   |
+| **backup**         | `backup:preview-collections`      | Previews beatmaps belonging to selected collections                 |
+|                    | `backup:estimate`                 | Estimates beatmap counts and backup storage size                    |
+|                    | `backup:export`                   | Exports backup (`.bbak` metadata or local `.osz` archives)          |
+| **system**         | `system:select-directory`         | Opens native dialog to select a directory                           |
+|                    | `system:select-backup-file`       | Opens native dialog to select a `.bbak` file                        |
+|                    | `system:open-path`                | Opens folder in File Explorer (via `isSafeDirectoryToOpen` guard)   |
+|                    | `system:open-external`            | Opens external URL in browser (via `isValidExternalUrl` guard)      |
+|                    | `system:show-item-in-folder`      | Highlights file in File Explorer (via `isSafePathToShow` guard)     |
+|                    | `system:get-mirrors-status`       | Retrieves online/offline health status for 5 mirrors                |
+|                    | `system:open-log-folder`          | Opens directory containing application logs (`app.log`)             |
+|                    | `system:get-diagnostic-info`      | Retrieves diagnostic details (OS, RAM, Electron version, DB size)   |
+| **updater**        | `updater:get-app-version`         | Retrieves current application version string                        |
+|                    | `updater:get-distribution-type`   | Checks package distribution type (installed, portable, appimage)    |
+|                    | `updater:get-last-result`         | Retrieves outcome of the most recent update check                   |
+|                    | `updater:get-update-state`        | Retrieves current update download state                             |
+|                    | `updater:check`                   | Checks for new updates from GitHub Releases                         |
+|                    | `updater:download`                | Begins downloading update installer                                 |
+|                    | `updater:open-release`            | Opens GitHub Release page in browser                                |
+|                    | `updater:download-linux-appimage` | Downloads Linux AppImage package                                    |
+|                    | `updater:show-install-confirm`    | Displays confirmation dialog to restart and install update          |
+| **windowControls** | `window:is-maximized`             | Checks whether the application window is currently maximized        |
 
 ---
 
-### Kênh Fire-and-Forget (`ipcMain.on` ↔ `ipcRenderer.send`)
+### Fire-and-Forget Channels (`ipcMain.on` ↔ `ipcRenderer.send`)
 
-| Kênh IPC                       | Mục đích                                                        |
+| IPC Channel                    | Description                                                     |
 | :----------------------------- | :-------------------------------------------------------------- |
-| `window:minimize`              | Thu nhỏ cửa sổ ứng dụng xuống taskbar                           |
-| `window:maximize`              | Phóng to hoặc phục hồi kích thước cửa sổ                        |
-| `window:close`                 | Đóng ứng dụng                                                   |
-| `updater:install`              | Thoát ứng dụng và tiến hành cài đặt bản cập nhật mới            |
-| `system:report-renderer-error` | Renderer báo cáo lỗi JavaScript về Main process để ghi file log |
+| `window:minimize`              | Minimizes the application window to taskbar                     |
+| `window:maximize`              | Toggles window maximize and restore                             |
+| `window:close`                 | Closes the application                                          |
+| `updater:install`              | Exits application and triggers update installation              |
+| `system:report-renderer-error` | Forwards unhandled renderer JavaScript errors to Main log file  |
 
 ---
 
-### Kênh Đẩy Sự Kiện Từ Nền (`webContents.send` ↔ `ipcRenderer.on`)
+### Push Event Channels (`webContents.send` ↔ `ipcRenderer.on`)
 
-| Kênh Push Event                | Kiểu dữ liệu          | Mô tả                                                                 |
-| :----------------------------- | :-------------------- | :-------------------------------------------------------------------- |
-| `download:push-event`          | `DownloadPushEvent`   | Cập nhật tiến độ tải, thêm task, thay đổi trạng thái hàng đợi         |
-| `database:sync-progress`       | `SyncProgressEvent`   | Báo cáo tiến độ phân tích nhị phân và ghi database                    |
-| `backup:local-export-progress` | `LocalExportProgress` | Báo cáo số lượng file `.osz` đã đóng gói khi xuất cục bộ              |
-| `updater:push-event`           | `UpdatePushEvent`     | Báo tiến độ tải bản cập nhật (`downloadProgress`, `updateDownloaded`) |
-| `window:maximize-change`       | `boolean`             | Thông báo thay đổi trạng thái Maximize của cửa sổ                     |
+| Push Channel                   | Data Type             | Description                                                      |
+| :----------------------------- | :-------------------- | :--------------------------------------------------------------- |
+| `download:push-event`          | `DownloadPushEvent`   | Emits download progress, task additions, and queue state changes  |
+| `database:sync-progress`       | `SyncProgressEvent`   | Emits binary parsing and database upsert progress updates        |
+| `backup:local-export-progress` | `LocalExportProgress` | Emits count of packaged `.osz` files during local export         |
+| `updater:push-event`           | `UpdatePushEvent`     | Emits update progress (`downloadProgress`, `updateDownloaded`)   |
+| `window:maximize-change`       | `boolean`             | Notifies renderer when window maximized state toggles            |

@@ -1,27 +1,29 @@
 # Domain Glossary: osu! Concepts & Terminology
 
-Giải thích chi tiết các thuật ngữ đặc thù của hệ sinh thái game **osu!** và cách chúng được mô hình hóa trong codebase **Beatmap Backup**.
+Detailed breakdown of domain-specific terminology within the **osu!** ecosystem and how concepts are modeled
+within the **Beatmap Backup** codebase.
 
 ---
 
-## 1. Beatmap và Beatmapset (Sự Khác Biệt Cốt Lõi)
+## 1. Beatmap vs. Beatmapset (The Core Distinction)
 
-| Khái niệm                     | Định dạng        | Định danh               | Ý nghĩa kỹ thuật                                                                                                                                      |
+| Concept                       | File Format      | Identifiers             | Technical Definition                                                                                                                                  |
 | :---------------------------- | :--------------- | :---------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Beatmap (Difficulty)**      | Tệp `.osu`       | `beatmapId`, `MD5 hash` | Một độ khó cụ thể của một bài nhạc (ví dụ: Easy, Hard, Insane). Chứa vị trí các nốt nhạc (hit objects), timing, và thiết lập độ khó (CS, AR, OD, HP). |
-| **BeatmapSet (Song Package)** | Tệp `.osz` (ZIP) | `beatmapsetId`          | Toàn bộ gói bài hát, bao gồm tất cả các độ khó (các tệp `.osu`), tệp âm thanh (`audio.mp3`), ảnh nền (`bg.jpg`), video và storyboard.                 |
+| **Beatmap (Difficulty)**      | `.osu` file      | `beatmapId`, `MD5 hash` | A specific difficulty level of a song (e.g., Easy, Hard, Insane). Defines hit object coordinates, timing points, and difficulty settings (CS, AR, OD, HP). |
+| **BeatmapSet (Song Package)** | `.osz` file (ZIP)| `beatmapsetId`          | The complete song package containing all constituent difficulties (all `.osu` files), audio tracks (`audio.mp3`), background art (`bg.jpg`), video, and storyboards. |
 
 > [!IMPORTANT]
-> Toàn bộ quy trình Sao lưu (`.bbak`), Tải xuống (Download) và Khôi phục của ứng dụng này đều hoạt động ở cấp độ **BeatmapSet** (`beatmapsetId`). Khi người dùng tải một bài hát, ứng dụng tải trọn vẹn tệp `.osz` chứa mọi độ khó của bài đó.
+> The Backup (`.bbak`), Download, and Restore pipelines in this application operate at the **BeatmapSet** level
+> (`beatmapsetId`). When downloading, the application retrieves complete `.osz` archives containing all difficulty variations.
 
 ---
 
-## 2. Định Dạng Tệp & Lưu Trữ
+## 2. File Formats & Storage
 
-### Tệp `.bbak` (Beatmap Backup File)
+### `.bbak` (Beatmap Backup File)
 
-- **Bản chất**: Tệp văn bản thuần (Plaintext UTF-8) siêu nhẹ do ứng dụng tạo ra.
-- **Cấu trúc**:
+- **Structure**: Lightweight plain text (UTF-8) format produced by the application.
+- **Example Layout**:
   ```text
   # osu! beatmap backup file
   # Exported: 2026-10-04T01:00:00.000Z
@@ -31,50 +33,51 @@ Giải thích chi tiết các thuật ngữ đặc thù của hệ sinh thái ga
   789012
   345678
   ```
-- **Ưu điểm**: Danh sách 50.000 bài hát chỉ tốn chưa đầy 500 KB dung lượng, có thể lưu trữ trên đám mây hoặc gửi qua email cực kỳ nhanh chóng.
+- **Advantages**: A library of 50,000 beatmapsets requires less than 500 KB, making it ideal for cloud storage, git, or instant sharing.
 
-### Tệp `.osz`
+### `.osz` File
 
-- **Bản chất**: Bản chất là một tệp nén định dạng standard ZIP (`PK\x03\x04`), đổi phần mở rộng thành `.osz`.
-- Khi người dùng nhấp đúp vào tệp `.osz`, game osu! sẽ tự động giải nén và nhập bài hát vào thư viện game.
+- **Structure**: Standard ZIP archive (`PK\x03\x04`) using the `.osz` file extension.
+- When double-clicked by the user, the osu! game client automatically decompresses and ingests the archive into its library.
 
 ### No-Video Download (`?noVideo`)
 
-- Tùy chọn tải gói `.osz` đã được máy chủ mirror loại bỏ tệp video (`.mp4`, `.flv`, `.avi`).
-- Giúp giảm từ 50% đến 80% dung lượng tải và tiết kiệm tài nguyên đĩa cứng cho người chơi không có nhu cầu xem video nền.
+- Download query parameter instructing mirrors to omit large video assets (`.mp4`, `.flv`, `.avi`).
+- Yields 50% to 80% bandwidth reduction and preserves disk storage for users who do not require background videos.
 
 ---
 
-## 3. Hệ Thống Bộ Sưu Tập (Collections) & Bài Toán MD5 Hash
+## 3. Collections & The MD5 Hash Lookup Challenge
 
-- **Trong osu!**: Người chơi phân loại bài hát vào các danh sách tùy biến gọi là Collection (ví dụ: "Warmup", "Stream 200BPM", "Favorites").
-- **Độ lệch dữ liệu**:
-  - File `collection.db` của osu!stable lưu bài hát bằng chuỗi **MD5 hash** của từng file độ khó `.osu` đơn lẻ, **không lưu `beatmapsetId`**.
-  - Các máy chủ mirror công cộng chỉ nhận tải theo `beatmapsetId`.
-- **Giải pháp của Beatmap Backup**:
-  - Ứng dụng duy trì chỉ mục (Index) ánh xạ giữa `MD5 Hash ↔ beatmapsetId` trong cơ sở dữ liệu SQLite cục bộ (`beatmaps.db`).
-  - Nếu gặp bài hát mới chưa có trong DB, ứng dụng sử dụng `osuDirectService.ts` để truy vấn ngược từ API osu!direct nhằm lấy `beatmapsetId` chuẩn xác.
-
----
-
-## 4. osu!stable vs osu!lazer (Hai Kiến Trúc Khác Biệt)
-
-### osu!stable (Phiên bản truyền thống)
-
-- **Tệp cơ sở dữ liệu**: `osu!.db` (Danh mục beatmaps) và `collection.db` (Bộ sưu tập). Cả hai đều là định dạng nhị phân độc quyền (Binary stream với các kiểu dữ liệu byte, short, int, long, double, string UTF-8 tiền tố 0x0b).
-- **Thư mục bài hát**: Lưu trữ tại `Songs/` theo thư mục dạng `{beatmapsetId} {Artist} - {Title}`.
-- **Tiến trình**: `osu!.exe`.
-
-### osu!lazer (Phiên bản thế hệ mới)
-
-- **Tệp cơ sở dữ liệu**: `client.realm` (Cơ sở dữ liệu NoSQL Realm của MongoDB).
-- **Lưu trữ tệp (Sharded Files)**: Không lưu theo thư mục tên bài hát. Mọi tệp thành phần (âm thanh, ảnh, `.osu`) được băm SHA-256 và lưu rải rác trong `files/ab/abcdef123456...`.
-- **Tiến trình**: `osu.exe` (hoặc `osu!` trên macOS/Linux).
+- **In osu!**: Players group songs into custom categories called Collections (e.g., "Warmup", "Stream 200BPM", "Favorites").
+- **Data Model Discrepancy**:
+  - osu!stable's `collection.db` indexes songs using the **MD5 hash** of individual `.osu` difficulty files, **not by `beatmapsetId`**.
+  - Public mirror endpoints accept downloads strictly by `beatmapsetId`.
+- **Beatmap Backup Solution**:
+  - The application maintains a bi-directional index mapping `MD5 Hash ↔ beatmapsetId` in its local SQLite database (`beatmaps.db`).
+  - For unindexed beatmaps, `osuDirectService.ts` performs reverse lookups against the osu!direct API to resolve corresponding `beatmapsetId` values.
 
 ---
 
-## 5. Chế Độ Chạy Di Động (Portable Mode)
+## 4. osu!stable vs. osu!lazer (Architectural Differences)
 
-- Ứng dụng cung cấp gói build Portable độc lập cho Windows.
-- Khi tệp thực thi nằm trong môi trường portable, toàn bộ dữ liệu cấu hình, cơ sở dữ liệu SQLite (`beatmaps.db`) và nhật ký log (`logs/`) được chuyển hướng vào thư mục con `data/` ngay cạnh tệp thực thi thay vì lưu vào `%APPDATA%`.
-- Giúp người dùng có thể copy toàn bộ phần mềm vào ổ cứng di động / USB mang sang máy khác sử dụng mà không để lại rác hệ thống.
+### osu!stable (Legacy Client)
+
+- **Database Files**: `osu!.db` (beatmap metadata catalog) and `collection.db` (user collections). Both use proprietary binary serialization.
+- **Song Storage**: Located in `Songs/` organized as `{beatmapsetId} {Artist} - {Title}` directories.
+- **Process Name**: `osu!.exe`.
+
+### osu!lazer (Modern Client)
+
+- **Database File**: `client.realm` (MongoDB Realm NoSQL database).
+- **Sharded File Storage**: Does not use named song folders. Constituent assets (audio, images, `.osu`) are SHA-256 hashed and sharded into `files/ab/abcdef123456...`.
+- **Process Name**: `osu.exe` (or `osu!` on macOS/Linux).
+
+---
+
+## 5. Portable Execution Mode
+
+- The application supports an isolated portable build for Windows.
+- In portable mode, configuration files, the local SQLite database (`beatmaps.db`), and logs (`logs/`) are stored
+  in a `data/` subdirectory adjacent to the executable rather than inside `%APPDATA%`.
+- Enables running from USB flash drives or external drives without leaving system traces on host computers.

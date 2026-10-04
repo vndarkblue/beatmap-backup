@@ -5,28 +5,27 @@ globs: src/main/**/*.ts,src/preload/**/*.ts
 
 # Main Process, IPC & Preload Bridge
 
-## 1. Hợp đồng 4 điểm của mọi IPC endpoint
+## 1. The 4-Point Contract for Every IPC Endpoint
 
-Một endpoint chỉ "tồn tại" khi cả 4 chỗ khớp nhau (dùng skill `add-ipc-endpoint` khi thêm mới):
+An IPC endpoint is only considered complete when all 4 locations are aligned (use skill `add-ipc-endpoint` when adding):
 
-1. **Types** — `src/preload/electronApiTypes.ts`: khai báo method trong interface domain của
-   `ElectronApi` và mọi kiểu payload/response/event. Đây là **nguồn kiểu duy nhất** giữa main ↔
-   renderer; không khai báo lại kiểu IPC ở nơi khác.
-2. **Preload** — `src/preload/index.ts`: `ipcRenderer.invoke('<domain>:<action>', …)` bên trong
-   object `electronAPI: ElectronApi`.
+1. **Types** — `src/preload/electronApiTypes.ts`: Declare the method within the domain interface of
+   `ElectronApi` alongside all payload/response/event types. This is the **single source of truth** for types
+   between main ↔ renderer; never redefine IPC types elsewhere.
+2. **Preload** — `src/preload/index.ts`: `ipcRenderer.invoke('<domain>:<action>', …)` exposed inside
+   the `electronAPI: ElectronApi` bridge object.
 3. **Handler** — `src/main/ipc/<domain>Ipc.ts`: `ipcMain.handle('<domain>:<action>', …)`.
-4. **Teardown** — channel được thêm vào mảng `channels` của module (được `removeHandler` cả lúc
-   đăng ký lẫn trong hàm teardown).
+4. **Teardown** — The channel name is included in the module's `channels` array (unregistered with
+   `removeHandler` during registration for idempotency and within the teardown callback).
 
-`src/preload/index.d.ts` khai báo `window.electronAPI` dựa trên `ElectronApi` — không sửa trừ khi
-đổi tên global.
+`src/preload/index.d.ts` declares `window.electronAPI` based on `ElectronApi` — do not modify unless changing the global identifier.
 
-## 2. Mẫu module IPC (bám theo `downloadIpc.ts`)
+## 2. IPC Module Pattern (Following `downloadIpc.ts`)
 
 ```ts
 export function registerXxxIpc(mainWindow: BrowserWindow): () => void {
   const channels = ['xxx:get-thing', 'xxx:do-thing']
-  for (const ch of channels) ipcMain.removeHandler(ch) // idempotent khi window tạo lại
+  for (const ch of channels) ipcMain.removeHandler(ch) // idempotent across window reloads
 
   const service = XxxService.getInstance()
 
@@ -43,58 +42,56 @@ export function registerXxxIpc(mainWindow: BrowserWindow): () => void {
   return () => {
     for (const ch of channels) ipcMain.removeHandler(ch)
     service.removeListener('progress', onProgress)
-    // clear mọi timer/buffer cục bộ
+    // clear local timers/buffers
   }
 }
 ```
 
-Bắt buộc:
+Mandatory Requirements:
 
-- Hàm `register…Ipc()` **trả về teardown** gỡ hết handler, listener service, timer. Teardown được
-  gộp trong `src/main/ipc/registerIpcHandlers.ts` — module mới phải được thêm vào đó.
-- **Validate mọi input từ renderer** trong handler (kiểu, rỗng, enum hợp lệ, file tồn tại…).
-  Renderer được coi là không tin cậy.
-- Kiểm tra `mainWindow.isDestroyed()` trước mỗi `webContents.send`.
-- Handler mỏng: chỉ validate + gọi service + định hình response. Logic nghiệp vụ nằm ở `services/`.
-- Response giữ kiểu đã có: `{ success: boolean, … , error?: string }` cho action; dữ liệu thô cho
-  query. Lỗi bất thường → `throw new Error(msg)` (renderer nhận reject).
-- Object trả về phải **structured-clone được**: không class instance có method, không function,
-  không circular. Serialize tường minh như `serializeTask()` trong `downloadIpc.ts`.
-- Event tần suất cao (tiến trình tải, cập nhật task) phải **gom lô/throttle** (pattern
-  `scheduleAddedTasksFlush` 50ms / chunk 500, `scheduleTaskUpdateFlush` 150ms). Không `send` theo
-  từng byte/từng tick.
-- Dialog (`dialog.showSaveDialog/showOpenDialog`) truyền `mainWindow` làm parent.
+- `register…Ipc()` **must return a teardown callback** that unregisters all handlers, service listeners, and timers.
+  Teardowns are aggregated in `src/main/ipc/registerIpcHandlers.ts` — new modules must be registered there.
+- **Validate every input from the renderer** inside the handler (types, non-empty, valid enums, path validity).
+  The renderer must always be treated as untrusted.
+- Check `!mainWindow.isDestroyed()` before invoking `webContents.send`.
+- Keep handlers thin: validate inputs + invoke service + format response. Business logic belongs in `services/`.
+- Standardize response structures: `{ success: boolean, … , error?: string }` for mutations; raw structured data
+  for queries. Unexpected failures should `throw new Error(msg)` (causes renderer promise rejection).
+- Returned objects must be **structured-cloneable**: no class instances with methods, no functions,
+  no circular references. Serialize explicitly like `serializeTask()` in `downloadIpc.ts`.
+- High-frequency events (download progress, task updates) must be **batched/throttled** (e.g.,
+  `scheduleAddedTasksFlush` 50ms / chunk 500, `scheduleTaskUpdateFlush` 150ms). Never `send` per byte or per tick.
+- File dialogs (`dialog.showSaveDialog/showOpenDialog`) must pass `mainWindow` as the parent window.
 
-## 3. Preload
+## 3. Preload Bridge
 
-- Chỉ chứa wiring `ipcRenderer` — **không logic, không import service runtime** (chỉ `import type`).
-- Payload phức tạp (filter object…) được clone sạch trước khi gửi:
-  `JSON.parse(JSON.stringify(payload))` (đã có cho `database.filterBeatmaps`,
-  `database.exportFilteredBackup`). Áp dụng cho payload mới có thể chứa Proxy reactive của Vue.
-- Hàm subscribe dạng `onXxx(listener)` **phải trả về hàm unsubscribe** gọi `removeListener` với
-  đúng handler đã đăng ký. Không bao giờ phơi `ipcRenderer` hay `ipcRenderer.on` thô ra renderer.
+- Preload scripts only contain `ipcRenderer` wiring — **no business logic, no runtime service imports** (`import type` only).
+- Complex payloads (filter criteria, state objects) must be cleanly cloned before sending:
+  `JSON.parse(JSON.stringify(payload))` (as implemented for `database.filterBeatmaps`,
+  `database.exportFilteredBackup`). This strips reactive Vue Proxies.
+- Subscription functions with the signature `onXxx(listener)` **must return an unsubscribe function** that invokes
+  `removeListener` with the exact registered callback. Never expose `ipcRenderer` or raw `ipcRenderer.on` to the renderer.
 
-## 4. Kênh & domain hiện có
+## 4. Existing Domains & Channels
 
-Domain: `settings`, `download`, `database`, `backup`, `system`, `updater` (mỗi domain 1 file
-`<domain>Ipc.ts`) + `window:*` (namespace `windowControls` trong preload, đăng ký trong
-`systemIpc.ts`). Thêm action vào domain sẵn có trước khi nghĩ tới domain mới. Danh sách kênh
-chi tiết: `.agents/context/data-flow.md`.
+Domains: `settings`, `download`, `database`, `backup`, `system`, `updater` (1 `<domain>Ipc.ts` file per domain)
+plus `window:*` (`windowControls` namespace in preload, registered in `systemIpc.ts`).
+Extend existing domains before considering a new one. Full channel lookup: `.agents/context/data-flow.md`.
 
-Hai kiểu kênh renderer → main:
+Two channel types from renderer → main:
 
-- **Mặc định** `invoke` ↔ `ipcMain.handle` (có kết quả/lỗi trả về) — gỡ bằng `removeHandler`.
-- **Fire-and-forget** `send` ↔ `ipcMain.on` — chỉ cho lệnh không cần phản hồi (`window:minimize`,
-  `updater:install`, `system:report-renderer-error`). Listener phải là hàm có tên và được gỡ bằng
-  `ipcMain.removeListener(channel, fn)` trong teardown.
+- **Default** `invoke` ↔ `ipcMain.handle` (request-response pattern) — unregistered via `removeHandler`.
+- **Fire-and-forget** `send` ↔ `ipcMain.on` — strictly for commands not requiring responses (`window:minimize`,
+  `updater:install`, `system:report-renderer-error`). Listeners must be named functions unregistered via
+  `ipcMain.removeListener(channel, fn)` in teardown.
 
-## 5. Main entry & window
+## 5. Main Entry & Window Management
 
-- `src/main/index.ts`: dòng 1 `import './initPortable'`, dòng tiếp `logger.init()`. Không chèn
-  import nào lên trên. Không đổi `webPreferences` (`contextIsolation: true`,
-  `nodeIntegration: false`); `sandbox: false` là hiện trạng cần cho preload — không tự đổi.
-- Window frameless: min/max/close đi qua `window.electronAPI.windowControls` (kênh `window:*`)
-  từ `AppTitlebar.vue`; trạng thái maximize đẩy về qua `window:maximize-change`.
-- Vị trí/kích thước cửa sổ: `windowState.ts` (có test `tests/main/windowState.test.ts`).
-- Tác vụ nền định kỳ: thêm vào `backgroundServices.ts` và đảm bảo `stopBackgroundServices()` dọn
-  timer/listener của nó.
+- `src/main/index.ts`: Line 1 must be `import './initPortable'`, followed by `logger.init()`. Never insert
+  imports above. Do not alter `webPreferences` (`contextIsolation: true`, `nodeIntegration: false`);
+  `sandbox: false` is required by the current preload setup — do not change.
+- Frameless window: min/max/close operations use `window.electronAPI.windowControls` (channel `window:*`)
+  from `AppTitlebar.vue`; maximize state changes are pushed via `window:maximize-change`.
+- Window bounds persistence: Managed by `windowState.ts` (tested in `tests/main/windowState.test.ts`).
+- Periodic background tasks: Register within `backgroundServices.ts` and ensure `stopBackgroundServices()`
+  clears associated timers and listeners.

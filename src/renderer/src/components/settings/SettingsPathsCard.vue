@@ -63,13 +63,19 @@
       <template #item="{ props: itemProps, item }">
         <v-list-item v-bind="itemProps" :title="undefined" :lang="item.raw.value">
           <template #prepend>
-            <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon mr-2"></span>
+            <img
+              :src="flagMap[item.raw.flagCode]"
+              class="flag-icon mr-2"
+              alt=""
+              width="20"
+              height="15"
+            />
           </template>
           <span :lang="item.raw.value">{{ item.raw.text }}</span>
         </v-list-item>
       </template>
       <template #selection="{ item }">
-        <span :class="`fi fi-${item.raw.flagCode}`" class="flag-icon"></span>
+        <img :src="flagMap[item.raw.flagCode]" class="flag-icon" alt="" width="20" height="15" />
         <span class="ml-2" :lang="item.raw.value">{{ item.raw.text }}</span>
       </template>
     </v-select>
@@ -81,7 +87,15 @@ import { computed } from 'vue'
 import AppIsland from '../common/AppIsland.vue'
 import AppForm from '../common/AppForm.vue'
 import PathField from '../common/PathField.vue'
-import 'flag-icons/css/flag-icons.min.css'
+import flagGb from '../../assets/flags/gb.svg'
+import flagVn from '../../assets/flags/vn.svg'
+import flagJp from '../../assets/flags/jp.svg'
+
+const flagMap: Record<string, string> = {
+  gb: flagGb,
+  vn: flagVn,
+  jp: flagJp
+}
 
 const props = defineProps<{
   modelValueStable: string
@@ -124,3 +138,13 @@ const selectOsuStablePath = (): void => emit('select-stable-path')
 const selectOsuLazerPath = (): void => emit('select-lazer-path')
 const resetGeneralSettings = (): void => emit('reset-general')
 </script>
+
+<style scoped>
+.flag-icon {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 2px;
+  object-fit: cover;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.4);
+}
+</style>

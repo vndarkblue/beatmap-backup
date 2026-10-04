@@ -28,13 +28,11 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
-    "@mdi/font": "^7.4.47",
     "@mdi/js": "^7.4.47",
     "@types/better-sqlite3": "^7.6.13",
     "better-sqlite3": "^12.9.0",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.3.9",
-    "flag-icons": "^7.3.2",
     "osu-db-parser": "^2.0.1",
     "p-queue": "8.1.0",
     "realm": "^12.6.0",

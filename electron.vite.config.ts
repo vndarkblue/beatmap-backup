@@ -9,6 +9,10 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          stableImportWorker: resolve('src/services/workers/stableImportWorker.ts')
+        },
         external: ['realm', 'electron', 'electron-store', 'better-sqlite3']
       }
     }

@@ -101,6 +101,9 @@ export class DatabaseService {
     [number, number],
     CollectionMapCacheRow
   >
+  private readonly countBeatmapsetsStmt: Database.Statement<[], { count: number }>
+  private readonly countBeatmapsStmt: Database.Statement<[], { count: number }>
+  private readonly countBeatmapsBySourceStmt: Database.Statement<[string], { count: number }>
 
   private constructor(customDbPath?: string) {
     let dbPath: string
@@ -234,6 +237,11 @@ export class DatabaseService {
       ORDER BY last_checked_at ASC
       LIMIT ?
     `)
+    this.countBeatmapsetsStmt = this.db.prepare('SELECT COUNT(*) as count FROM beatmapsets')
+    this.countBeatmapsStmt = this.db.prepare('SELECT COUNT(*) as count FROM beatmaps')
+    this.countBeatmapsBySourceStmt = this.db.prepare(
+      "SELECT COUNT(*) as count FROM beatmaps WHERE source_origin = ? OR source_origin = 'both'"
+    )
   }
 
   static getInstance(): DatabaseService {
@@ -285,10 +293,10 @@ export class DatabaseService {
   }
 
   getCounts(): { beatmapsets: number; beatmaps: number } {
-    const beatmapsets = this.db.prepare('SELECT COUNT(*) as count FROM beatmapsets').get() as {
+    const beatmapsets = this.countBeatmapsetsStmt.get() as {
       count: number
     }
-    const beatmaps = this.db.prepare('SELECT COUNT(*) as count FROM beatmaps').get() as {
+    const beatmaps = this.countBeatmapsStmt.get() as {
       count: number
     }
     return {
@@ -298,12 +306,20 @@ export class DatabaseService {
   }
 
   getBeatmapCountBySource(source: SyncSource): number {
-    const row = this.db
-      .prepare(
-        "SELECT COUNT(*) as count FROM beatmaps WHERE source_origin = ? OR source_origin = 'both'"
-      )
-      .get(source) as { count: number }
+    const row = this.countBeatmapsBySourceStmt.get(source) as { count: number }
     return row.count
+  }
+
+  /**
+   * Release unneeded SQLite page cache and free internal heap allocations back to OS.
+   * Useful when window is minimized or idle.
+   */
+  shrinkMemory(): void {
+    try {
+      this.db.pragma('shrink_memory')
+    } catch {
+      // Ignore if database is busy
+    }
   }
 
   hasSyncedData(source: SyncSource): boolean {

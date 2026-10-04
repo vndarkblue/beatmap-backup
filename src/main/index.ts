@@ -86,6 +86,11 @@ function createWindow(): BrowserWindow {
         if (!mainWindow.isDestroyed()) {
           mainWindow.webContents.session.clearCache().catch(() => {})
         }
+        import('../services/database/databaseService')
+          .then(({ DatabaseService }) => {
+            DatabaseService.getInstance().shrinkMemory()
+          })
+          .catch(() => {})
       })
     }, 1500)
   }
@@ -157,6 +162,11 @@ function createWindow(): BrowserWindow {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.session.clearCache().catch(() => {})
     }
+    import('../services/database/databaseService')
+      .then(({ DatabaseService }) => {
+        DatabaseService.getInstance().shrinkMemory()
+      })
+      .catch(() => {})
   })
 
   mainWindow.on('closed', () => {

@@ -41,103 +41,6 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
     ipcMain.removeHandler(ch)
   }
 
-  const downloadService = DownloadService.getInstance()
-
-  ipcMain.handle(
-    'download:start',
-    async (
-      _event,
-      payload: { filePath: string; options: DownloadOptions; downloadPath?: string }
-    ) => {
-      const { filePath, options, downloadPath } = payload
-      if (!filePath || !options) {
-        throw new Error('Missing required fields')
-      }
-      if (!fs.existsSync(filePath)) {
-        throw new Error('File not found')
-      }
-      if (!options.threadCount || !options.sources || !Array.isArray(options.sources)) {
-        throw new Error('Invalid options')
-      }
-
-      const optionsWithPath = {
-        ...options,
-        downloadPath:
-          typeof downloadPath === 'string' && downloadPath.trim().length > 0
-            ? downloadPath
-            : options.downloadPath
-      }
-      await downloadService.startDownload(filePath, optionsWithPath)
-      return { success: true, message: 'Download started' }
-    }
-  )
-
-  ipcMain.handle('download:control', async (_event, action: 'pause' | 'resume' | 'stop') => {
-    if (action === 'pause') {
-      await downloadService.pauseQueue()
-    } else if (action === 'resume') {
-      downloadService.resumeQueue()
-    } else if (action === 'stop') {
-      void downloadService.discardRecoveryState()
-      downloadService.clearQueue()
-    }
-    return { success: true }
-  })
-
-  ipcMain.handle('download:get-state', async () => {
-    return {
-      runtime: downloadService.getQueueRuntimeState(),
-      recovery: downloadService.getRecoveryState()
-    }
-  })
-
-  ipcMain.handle('download:handle-recovery', async (_event, action: 'resume' | 'discard') => {
-    if (action === 'resume') {
-      const resumed = await downloadService.resumeRecoveredQueue()
-      return { success: resumed }
-    } else {
-      await downloadService.discardRecoveryState()
-      return { success: true }
-    }
-  })
-
-  ipcMain.handle('download:get-tasks', async () => {
-    return downloadService.getTasks().map(serializeTask)
-  })
-
-  ipcMain.handle('download:retry-failed', async () => {
-    const retriedCount = downloadService.retryFailedTasks()
-    return { success: true, count: retriedCount }
-  })
-
-  ipcMain.handle('download:clear-queue', async () => {
-    downloadService.clearQueue()
-    return { success: true }
-  })
-
-  ipcMain.handle('download:export-failed-backup', async () => {
-    const failedIds = downloadService.getFailedTaskBeatmapsetIds()
-    if (failedIds.length === 0) {
-      return { success: false, error: 'No failed beatmaps to export' }
-    }
-    const saveResult = await dialog.showSaveDialog(mainWindow, {
-      title: 'Export Failed Beatmaps',
-      defaultPath: `osu-failed-beatmaps-${new Date().toISOString().slice(0, 10)}.bbak`,
-      filters: [{ name: 'Beatmap Backup Files', extensions: ['bbak'] }]
-    })
-    if (saveResult.canceled || !saveResult.filePath) {
-      return { success: false, error: 'cancelled' }
-    }
-    const content = [
-      '# osu! beatmap backup file (Failed Downloads)',
-      `# Exported: ${new Date().toISOString()}`,
-      `# Total Beatmapsets: ${failedIds.length}`,
-      ...failedIds
-    ].join('\n')
-    await fs.promises.writeFile(saveResult.filePath, `${content}\n`, 'utf-8')
-    return { success: true, count: failedIds.length, filePath: saveResult.filePath }
-  })
-
   // Setup Download Event Dispatcher
   const chunkSize = 500
   const pendingAddedTasks: DownloadTask[] = []
@@ -220,14 +123,118 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
   const onQueueCompleted = (summary: unknown): void =>
     sendDownloadPush({ event: 'queueCompleted', data: summary as DownloadQueueSummary })
 
-  downloadService.on(DownloadEvent.TASK_ADDED, onTaskAdded)
-  downloadService.on(DownloadEvent.TASK_UPDATED, onTaskUpdated)
-  downloadService.on(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
-  downloadService.on(DownloadEvent.TASK_ERROR, onTaskError)
-  downloadService.on(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
-  downloadService.on(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
-  downloadService.on(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
-  downloadService.on(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+  let downloadServiceInstance: DownloadService | null = null
+
+  const getDownloadService = (): DownloadService => {
+    if (!downloadServiceInstance) {
+      downloadServiceInstance = DownloadService.getInstance()
+      downloadServiceInstance.on(DownloadEvent.TASK_ADDED, onTaskAdded)
+      downloadServiceInstance.on(DownloadEvent.TASK_UPDATED, onTaskUpdated)
+      downloadServiceInstance.on(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
+      downloadServiceInstance.on(DownloadEvent.TASK_ERROR, onTaskError)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+    }
+    return downloadServiceInstance
+  }
+
+  ipcMain.handle(
+    'download:start',
+    async (
+      _event,
+      payload: { filePath: string; options: DownloadOptions; downloadPath?: string }
+    ) => {
+      const { filePath, options, downloadPath } = payload
+      if (!filePath || !options) {
+        throw new Error('Missing required fields')
+      }
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File not found')
+      }
+      if (!options.threadCount || !options.sources || !Array.isArray(options.sources)) {
+        throw new Error('Invalid options')
+      }
+
+      const optionsWithPath = {
+        ...options,
+        downloadPath:
+          typeof downloadPath === 'string' && downloadPath.trim().length > 0
+            ? downloadPath
+            : options.downloadPath
+      }
+      await getDownloadService().startDownload(filePath, optionsWithPath)
+      return { success: true, message: 'Download started' }
+    }
+  )
+
+  ipcMain.handle('download:control', async (_event, action: 'pause' | 'resume' | 'stop') => {
+    if (action === 'pause') {
+      await getDownloadService().pauseQueue()
+    } else if (action === 'resume') {
+      getDownloadService().resumeQueue()
+    } else if (action === 'stop') {
+      void getDownloadService().discardRecoveryState()
+      getDownloadService().clearQueue()
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('download:get-state', async () => {
+    const ds = getDownloadService()
+    return {
+      runtime: ds.getQueueRuntimeState(),
+      recovery: ds.getRecoveryState()
+    }
+  })
+
+  ipcMain.handle('download:handle-recovery', async (_event, action: 'resume' | 'discard') => {
+    if (action === 'resume') {
+      const resumed = await getDownloadService().resumeRecoveredQueue()
+      return { success: resumed }
+    } else {
+      await getDownloadService().discardRecoveryState()
+      return { success: true }
+    }
+  })
+
+  ipcMain.handle('download:get-tasks', async () => {
+    return getDownloadService().getTasks().map(serializeTask)
+  })
+
+  ipcMain.handle('download:retry-failed', async () => {
+    const retriedCount = getDownloadService().retryFailedTasks()
+    return { success: true, count: retriedCount }
+  })
+
+  ipcMain.handle('download:clear-queue', async () => {
+    getDownloadService().clearQueue()
+    return { success: true }
+  })
+
+  ipcMain.handle('download:export-failed-backup', async () => {
+    const failedIds = getDownloadService().getFailedTaskBeatmapsetIds()
+    if (failedIds.length === 0) {
+      return { success: false, error: 'No failed beatmaps to export' }
+    }
+    const saveResult = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Failed Beatmaps',
+      defaultPath: `osu-failed-beatmaps-${new Date().toISOString().slice(0, 10)}.bbak`,
+      filters: [{ name: 'Beatmap Backup Files', extensions: ['bbak'] }]
+    })
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: false, error: 'cancelled' }
+    }
+    const content = [
+      '# osu! beatmap backup file (Failed Downloads)',
+      `# Exported: ${new Date().toISOString()}`,
+      `# Total Beatmapsets: ${failedIds.length}`,
+      ...failedIds
+    ].join('\n')
+    await fs.promises.writeFile(saveResult.filePath, `${content}\n`, 'utf-8')
+    return { success: true, count: failedIds.length, filePath: saveResult.filePath }
+  })
 
   return () => {
     if (addedTasksFlushTimer) {
@@ -243,13 +250,15 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
     for (const ch of channels) {
       ipcMain.removeHandler(ch)
     }
-    downloadService.removeListener(DownloadEvent.TASK_ADDED, onTaskAdded)
-    downloadService.removeListener(DownloadEvent.TASK_UPDATED, onTaskUpdated)
-    downloadService.removeListener(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
-    downloadService.removeListener(DownloadEvent.TASK_ERROR, onTaskError)
-    downloadService.removeListener(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
-    downloadService.removeListener(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
-    downloadService.removeListener(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
-    downloadService.removeListener(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+    if (downloadServiceInstance) {
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_ADDED, onTaskAdded)
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_UPDATED, onTaskUpdated)
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_ERROR, onTaskError)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+    }
   }
 }

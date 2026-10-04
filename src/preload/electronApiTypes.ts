@@ -57,6 +57,7 @@ export interface DownloadQueueSummary {
 
 export type DownloadPushEvent =
   | { event: 'tasksAdded'; data: DownloadTask[] }
+  | { event: 'tasksUpdated'; data: DownloadTask[] }
   | { event: 'taskUpdated'; data: DownloadTask }
   | { event: 'taskCompleted'; data: DownloadTask }
   | { event: 'taskError'; data: DownloadTask }

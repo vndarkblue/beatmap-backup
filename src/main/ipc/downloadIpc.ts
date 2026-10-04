@@ -143,6 +143,9 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
   const pendingAddedTasks: DownloadTask[] = []
   let addedTasksFlushTimer: NodeJS.Timeout | undefined
 
+  const pendingUpdatedTasks = new Map<string, DownloadTask>()
+  let updatedTasksFlushTimer: NodeJS.Timeout | undefined
+
   const sendDownloadPush = (event: DownloadPushEvent): void => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('download:push-event', event)
@@ -153,6 +156,16 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
     if (pendingAddedTasks.length === 0) return
     const tasksToSend = pendingAddedTasks.splice(0).map(serializeTask)
     sendDownloadPush({ event: 'tasksAdded', data: tasksToSend })
+  }
+
+  const flushUpdatedTasks = (): void => {
+    if (pendingUpdatedTasks.size === 0) return
+    const tasksToSend: DownloadTask[] = []
+    for (const task of pendingUpdatedTasks.values()) {
+      tasksToSend.push(serializeTask(task))
+    }
+    pendingUpdatedTasks.clear()
+    sendDownloadPush({ event: 'tasksUpdated', data: tasksToSend })
   }
 
   const scheduleAddedTasksFlush = (task: DownloadTask): void => {
@@ -173,8 +186,18 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
     }
   }
 
-  const sendAfterPendingAdds = (
-    eventType: 'taskUpdated' | 'taskCompleted' | 'taskError',
+  const scheduleTaskUpdateFlush = (task: DownloadTask): void => {
+    pendingUpdatedTasks.set(task.id, task)
+    if (!updatedTasksFlushTimer) {
+      updatedTasksFlushTimer = setTimeout(() => {
+        updatedTasksFlushTimer = undefined
+        flushUpdatedTasks()
+      }, 150)
+    }
+  }
+
+  const sendTerminalTaskEvent = (
+    eventType: 'taskCompleted' | 'taskError',
     task: DownloadTask
   ): void => {
     if (addedTasksFlushTimer) {
@@ -182,13 +205,15 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
       addedTasksFlushTimer = undefined
     }
     flushAddedTasks()
+    pendingUpdatedTasks.delete(task.id)
+    flushUpdatedTasks()
     sendDownloadPush({ event: eventType, data: serializeTask(task) })
   }
 
   const onTaskAdded = (task: DownloadTask): void => scheduleAddedTasksFlush(task)
-  const onTaskUpdated = (task: DownloadTask): void => sendAfterPendingAdds('taskUpdated', task)
-  const onTaskCompleted = (task: DownloadTask): void => sendAfterPendingAdds('taskCompleted', task)
-  const onTaskError = (task: DownloadTask): void => sendAfterPendingAdds('taskError', task)
+  const onTaskUpdated = (task: DownloadTask): void => scheduleTaskUpdateFlush(task)
+  const onTaskCompleted = (task: DownloadTask): void => sendTerminalTaskEvent('taskCompleted', task)
+  const onTaskError = (task: DownloadTask): void => sendTerminalTaskEvent('taskError', task)
   const onQueuePaused = (): void => sendDownloadPush({ event: 'queuePaused', data: null })
   const onQueueResumed = (): void => sendDownloadPush({ event: 'queueResumed', data: null })
   const onQueueCleared = (): void => sendDownloadPush({ event: 'queueCleared', data: null })
@@ -209,6 +234,12 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
       clearTimeout(addedTasksFlushTimer)
       addedTasksFlushTimer = undefined
     }
+    if (updatedTasksFlushTimer) {
+      clearTimeout(updatedTasksFlushTimer)
+      updatedTasksFlushTimer = undefined
+    }
+    pendingAddedTasks.length = 0
+    pendingUpdatedTasks.clear()
     for (const ch of channels) {
       ipcMain.removeHandler(ch)
     }

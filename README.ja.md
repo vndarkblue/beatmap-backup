@@ -9,9 +9,10 @@ Beatmap Backup
 
 <div align="center">
 
-[![Release](https://img.shields.io/github/v/release/vndarkblue/beatmap-backup)](https://github.com/vndarkblue/beatmap-backup/releases/latest)
+[![Release](https://img.shields.io/github/v/release/vndarkblue/beatmap-backup?label=Release)](https://github.com/vndarkblue/beatmap-backup/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/vndarkblue/beatmap-backup/total?label=Downloads)](https://github.com/vndarkblue/beatmap-backup/releases)
 [![CI](https://github.com/vndarkblue/beatmap-backup/actions/workflows/ci.yml/badge.svg)](https://github.com/vndarkblue/beatmap-backup/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)](#quick-start)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?label=Platform)](#quick-start)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![electron](https://img.shields.io/badge/Electron-2B2E3A?logo=electron&logoColor=fff)](https://github.com/electron/electron)

@@ -1,7 +1,3 @@
-import DownloadService from '../services/downloadService'
-import SyncManager from '../services/database/syncManager'
-import CollectionSyncService from '../services/collection/collectionSyncService'
-import updateService from '../services/updateService'
 import { runStartupAutoDetect } from '../services/startupAutoDetect'
 import { setStartupAutoDetectResult } from './ipc/registerIpcHandlers'
 import { startupMark } from '../services/logger'
@@ -17,9 +13,21 @@ export function initEarlyServices(): void {
   }
 }
 
-export function startDeferredBackgroundServices(): void {
+export async function startDeferredBackgroundServices(): Promise<void> {
   try {
     startupMark('backgroundServices:start')
+
+    const [
+      { default: DownloadService },
+      { default: SyncManager },
+      { default: CollectionSyncService },
+      { default: updateService }
+    ] = await Promise.all([
+      import('../services/downloadService'),
+      import('../services/database/syncManager'),
+      import('../services/collection/collectionSyncService'),
+      import('../services/updateService')
+    ])
 
     const downloadService = DownloadService.getInstance()
     void downloadService.preloadRecoveryState()
@@ -41,11 +49,21 @@ export function startDeferredBackgroundServices(): void {
 
 export function startBackgroundServices(): void {
   initEarlyServices()
-  startDeferredBackgroundServices()
+  void startDeferredBackgroundServices()
 }
 
 export async function stopBackgroundServices(): Promise<void> {
   try {
+    const [
+      { default: SyncManager },
+      { default: CollectionSyncService },
+      { default: DownloadService }
+    ] = await Promise.all([
+      import('../services/database/syncManager'),
+      import('../services/collection/collectionSyncService'),
+      import('../services/downloadService')
+    ])
+
     const syncManager = SyncManager.getInstance()
     syncManager.stopBackgroundSync()
 

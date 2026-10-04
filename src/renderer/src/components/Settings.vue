@@ -266,10 +266,20 @@ const loadBeatconnectTokenStatus = async (): Promise<void> => {
   }
 }
 
+let hasLoadedMirrors = false
+
+const loadMirrorsIfNeeded = (): void => {
+  if (activeTab.value === 'download' && !hasLoadedMirrors) {
+    hasLoadedMirrors = true
+    void loadMirrorsStatus()
+  }
+}
+
 const saveBeatconnectToken = async (token: string): Promise<void> => {
   try {
     await window.electronAPI.settings.setBeatconnectToken(token)
     hasBeatconnectToken.value = !!token
+    hasLoadedMirrors = true
     await loadMirrorsStatus()
   } catch (error) {
     console.error('Failed to save BeatConnect token:', error)
@@ -280,6 +290,7 @@ const clearBeatconnectToken = async (): Promise<void> => {
   try {
     await window.electronAPI.settings.setBeatconnectToken('')
     hasBeatconnectToken.value = false
+    hasLoadedMirrors = true
     await loadMirrorsStatus()
   } catch (error) {
     console.error('Failed to clear BeatConnect token:', error)
@@ -473,10 +484,14 @@ const performResetAllSettings = async (): Promise<void> => {
     localStorage.setItem(STORAGE_KEYS.LOCALE, FRONTEND_DEFAULTS.LOCALE)
     document.documentElement.lang = FRONTEND_DEFAULTS.LOCALE
 
-    await loadSettings()
-    await loadDatabaseStatus()
+    await Promise.all([loadSettings(), loadDatabaseStatus()])
     hasBeatconnectToken.value = false
-    await loadMirrorsStatus()
+    if (activeTab.value === 'download') {
+      hasLoadedMirrors = true
+      await loadMirrorsStatus()
+    } else {
+      hasLoadedMirrors = false
+    }
     resetFeedbackClass.value = 'text-success'
     resetFeedbackMessage.value = t('settings.reset.success')
     showResetAllConfirm.value = false
@@ -494,13 +509,21 @@ watch([osuStablePath, osuLazerPath], () => {
   void loadDatabaseStatus()
 })
 
+watch(activeTab, (tab) => {
+  if (tab === 'download') {
+    loadMirrorsIfNeeded()
+  }
+})
+
 onMounted(async () => {
-  await loadSettings()
-  await loadDatabaseStatus()
-  await loadAutoDetectWarning()
-  await loadBeatconnectTokenStatus()
-  await loadMirrorsStatus()
+  await Promise.all([
+    loadSettings(),
+    loadDatabaseStatus(),
+    loadAutoDetectWarning(),
+    loadBeatconnectTokenStatus()
+  ])
   ensureDatabaseEvents()
+  loadMirrorsIfNeeded()
 })
 
 onBeforeUnmount(() => {

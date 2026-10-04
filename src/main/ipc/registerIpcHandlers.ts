@@ -5,6 +5,7 @@ import { registerDatabaseIpc } from './databaseIpc'
 import { registerBackupIpc } from './backupIpc'
 import { registerSystemIpc } from './systemIpc'
 import { registerUpdaterIpc } from './updaterIpc'
+import { registerTelemetryIpc } from './telemetryIpc'
 
 export { setStartupAutoDetectResult }
 
@@ -15,6 +16,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
   const unregisterBackup = registerBackupIpc(mainWindow)
   const unregisterSystem = registerSystemIpc(mainWindow)
   const unregisterUpdater = registerUpdaterIpc(mainWindow)
+  const unregisterTelemetry = registerTelemetryIpc()
 
   return () => {
     unregisterSettings()
@@ -23,5 +25,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => void {
     unregisterBackup()
     unregisterSystem()
     unregisterUpdater()
+    unregisterTelemetry()
   }
 }

@@ -4,6 +4,7 @@ import path from 'path'
 import { isValidExternalUrl, isSafeDirectoryToOpen, isSafePathToShow } from '../pathGuards'
 import BeatmapMirrorService from '../../services/beatmapMirrorService'
 import { logger } from '../../services/logger'
+import TelemetryService from '../../services/telemetryService'
 
 export function registerSystemIpc(mainWindow: BrowserWindow): () => void {
   const channels = [
@@ -106,6 +107,10 @@ export function registerSystemIpc(mainWindow: BrowserWindow): () => void {
       `[RendererError${payload.component ? ` in ${payload.component}` : ''}] ${payload.message}`,
       payload.stack || ''
     )
+    TelemetryService.getInstance().trackEvent('error_reported', {
+      message: payload.message,
+      component: payload.component || 'renderer'
+    })
   }
   ipcMain.on('system:report-renderer-error', onReportError)
 

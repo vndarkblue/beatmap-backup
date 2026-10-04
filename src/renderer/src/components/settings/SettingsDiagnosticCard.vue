@@ -13,6 +13,31 @@
       {{ $t('settings.diagnostic.description') }}
     </div>
 
+    <v-divider class="my-3" />
+
+    <div class="telemetry-setting mb-3">
+      <div class="d-flex align-center justify-space-between">
+        <span class="text-body-2 font-weight-medium">
+          {{ $t('settings.diagnostic.telemetryTitle') }}
+        </span>
+        <v-switch
+          :model-value="telemetryEnabled"
+          color="primary"
+          density="compact"
+          hide-details
+          inset
+          @update:model-value="onTelemetryChange"
+        />
+      </div>
+      <div class="text-caption text-medium-emphasis mt-1" :lang="currentLocale">
+        {{
+          telemetryEnabled
+            ? $t('settings.diagnostic.telemetryDescEnabled')
+            : $t('settings.diagnostic.telemetryDescDisabled')
+        }}
+      </div>
+    </div>
+
     <div
       v-if="feedbackMessage"
       class="text-caption mb-2 font-weight-medium"
@@ -54,8 +79,18 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIsland from '../common/AppIsland.vue'
 
-defineProps<{
-  currentLocale: string
+withDefaults(
+  defineProps<{
+    currentLocale: string
+    telemetryEnabled?: boolean
+  }>(),
+  {
+    telemetryEnabled: true
+  }
+)
+
+const emit = defineEmits<{
+  (e: 'update:telemetryEnabled', value: boolean): void
 }>()
 
 const { t } = useI18n()
@@ -65,6 +100,10 @@ const isOpeningLog = ref(false)
 const feedbackMessage = ref('')
 const isError = ref(false)
 let feedbackTimer: ReturnType<typeof setTimeout> | null = null
+
+const onTelemetryChange = (val: unknown): void => {
+  emit('update:telemetryEnabled', !!val)
+}
 
 const showFeedback = (msg: string, error = false): void => {
   if (feedbackTimer) clearTimeout(feedbackTimer)

@@ -92,7 +92,11 @@
         <v-window-item value="about">
           <SettingsAboutCard :current-locale="currentLocale" />
           <div class="settings-about-subcards">
-            <SettingsDiagnosticCard :current-locale="currentLocale" />
+            <SettingsDiagnosticCard
+              :current-locale="currentLocale"
+              :telemetry-enabled="telemetryEnabled"
+              @update:telemetry-enabled="updateTelemetrySetting"
+            />
             <SettingsResetCard
               :current-locale="currentLocale"
               :reset-feedback-message="resetFeedbackMessage"
@@ -216,12 +220,24 @@ let isResetHoldActive = false
 let unsubscribeDatabaseSync: (() => void) | null = null
 const RESET_HOLD_MS = 727
 
+const telemetryEnabled = ref(true)
+
+const updateTelemetrySetting = async (val: boolean): Promise<void> => {
+  telemetryEnabled.value = val
+  try {
+    await window.electronAPI.settings.update({ telemetryEnabled: val })
+  } catch (error) {
+    console.error('Failed to update telemetry setting:', error)
+  }
+}
+
 const loadSettings = async (): Promise<void> => {
   try {
     const data = await window.electronAPI.settings.get()
     osuStablePath.value = data.osuStablePath || ''
     osuLazerPath.value = data.osuLazerPath || ''
     osuLazerResolvedDataPath.value = data.osuLazerResolvedDataPath || ''
+    telemetryEnabled.value = data.telemetryEnabled ?? true
     loadDownloadSettings()
   } catch (error) {
     console.error('Failed to load settings:', error)

@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { collectionService } from '../../services/collection/collectionService'
 import { exportService, type ExportOptions } from '../../services/exportService'
+import TelemetryService from '../../services/telemetryService'
 import type { PreviewCollectionOptions } from '../../preload/electronApiTypes'
 
 export function registerBackupIpc(mainWindow: BrowserWindow): () => void {
@@ -26,11 +27,29 @@ export function registerBackupIpc(mainWindow: BrowserWindow): () => void {
   })
 
   ipcMain.handle('backup:export', async (_event, options: ExportOptions) => {
-    return exportService.exportData(options, (progress) => {
+    const startTime = Date.now()
+    const result = await exportService.exportData(options, (progress) => {
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send('backup:local-export-progress', progress)
       }
     })
+    const source =
+      options.stable && options.lazer
+        ? 'both'
+        : options.stable
+          ? 'stable'
+          : options.lazer
+            ? 'lazer'
+            : 'none'
+
+    TelemetryService.getInstance().trackEvent('backup_completed', {
+      success: result.success,
+      source,
+      count: result.count,
+      backupByCollection: !!options.backupByCollection,
+      durationMs: Date.now() - startTime
+    })
+    return result
   })
 
   return () => {

@@ -72,6 +72,9 @@
     "diagnostic": {
       "title": "Diagnostics & Logs",
       "description": "Extract configuration details and recent logs to troubleshoot issues.",
+      "telemetryTitle": "Anonymous Telemetry & Diagnostics",
+      "telemetryDescEnabled": "Helps improve the app by sending anonymous usage events, mirror health metrics, and crash diagnostics. No personal data or file paths are ever collected.",
+      "telemetryDescDisabled": "Telemetry is disabled. Only minimal, anonymous heartbeats (App version, OS, and mode) are sent to monitor active installations.",
       "copyInfo": "Copy Diagnostics",
       "copied": "Copied!",
       "openLogFolder": "Open Log Folder",

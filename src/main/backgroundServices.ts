@@ -21,12 +21,14 @@ export async function startDeferredBackgroundServices(): Promise<void> {
       { default: DownloadService },
       { default: SyncManager },
       { default: CollectionSyncService },
-      { default: updateService }
+      { default: updateService },
+      { default: TelemetryService }
     ] = await Promise.all([
       import('../services/downloadService'),
       import('../services/database/syncManager'),
       import('../services/collection/collectionSyncService'),
-      import('../services/updateService')
+      import('../services/updateService'),
+      import('../services/telemetryService')
     ])
 
     const downloadService = DownloadService.getInstance()
@@ -40,6 +42,9 @@ export async function startDeferredBackgroundServices(): Promise<void> {
     collectionSyncService.startBackgroundSync()
 
     updateService.checkOnStartup()
+
+    const telemetryService = TelemetryService.getInstance()
+    telemetryService.init()
 
     startupMark('backgroundServices:ready')
   } catch (error) {
@@ -57,11 +62,13 @@ export async function stopBackgroundServices(): Promise<void> {
     const [
       { default: SyncManager },
       { default: CollectionSyncService },
-      { default: DownloadService }
+      { default: DownloadService },
+      { default: TelemetryService }
     ] = await Promise.all([
       import('../services/database/syncManager'),
       import('../services/collection/collectionSyncService'),
-      import('../services/downloadService')
+      import('../services/downloadService'),
+      import('../services/telemetryService')
     ])
 
     const syncManager = SyncManager.getInstance()
@@ -72,6 +79,10 @@ export async function stopBackgroundServices(): Promise<void> {
 
     const downloadService = DownloadService.getInstance()
     await downloadService.flushCheckpointWithTimeout()
+
+    const telemetryService = TelemetryService.getInstance()
+    telemetryService.stop()
+    await telemetryService.flush()
   } catch (error) {
     console.error('Error stopping background services:', error)
   }

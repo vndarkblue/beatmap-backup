@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import fs from 'fs'
 import DownloadService, { DownloadEvent, DownloadTask } from '../../services/downloadService'
+import TelemetryService from '../../services/telemetryService'
 import type { DownloadOptions } from '../../services/download/types'
 import type { DownloadPushEvent, DownloadQueueSummary } from '../../preload/electronApiTypes'
 
@@ -213,12 +214,33 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
   const onTaskAdded = (task: DownloadTask): void => scheduleAddedTasksFlush(task)
   const onTaskUpdated = (task: DownloadTask): void => scheduleTaskUpdateFlush(task)
   const onTaskCompleted = (task: DownloadTask): void => sendTerminalTaskEvent('taskCompleted', task)
-  const onTaskError = (task: DownloadTask): void => sendTerminalTaskEvent('taskError', task)
+  const onTaskError = (task: DownloadTask): void => {
+    sendTerminalTaskEvent('taskError', task)
+    if (task.error) {
+      TelemetryService.getInstance().trackEvent('mirror_task_error', {
+        mirror:
+          typeof task.mirror === 'object' && task.mirror !== null
+            ? ((task.mirror as unknown as { name?: string }).name ?? String(task.mirror))
+            : String(task.mirror),
+        error: task.error
+      })
+    }
+  }
   const onQueuePaused = (): void => sendDownloadPush({ event: 'queuePaused', data: null })
   const onQueueResumed = (): void => sendDownloadPush({ event: 'queueResumed', data: null })
   const onQueueCleared = (): void => sendDownloadPush({ event: 'queueCleared', data: null })
-  const onQueueCompleted = (summary: unknown): void =>
+  const onQueueCompleted = (summary: unknown): void => {
     sendDownloadPush({ event: 'queueCompleted', data: summary as DownloadQueueSummary })
+    const queueSummary = summary as DownloadQueueSummary
+    if (queueSummary) {
+      TelemetryService.getInstance().trackEvent('download_batch_completed', {
+        total: queueSummary.total,
+        success: queueSummary.success,
+        failed: queueSummary.failed,
+        durationMs: queueSummary.durationMs
+      })
+    }
+  }
 
   downloadService.on(DownloadEvent.TASK_ADDED, onTaskAdded)
   downloadService.on(DownloadEvent.TASK_UPDATED, onTaskUpdated)

@@ -264,4 +264,10 @@ export interface ElectronApi {
     isMaximized: () => Promise<boolean>
     onMaximizeChange: (listener: (isMaximized: boolean) => void) => () => void
   }
+  telemetry: {
+    trackEvent: (
+      eventName: string,
+      properties?: Record<string, string | number | boolean>
+    ) => Promise<void>
+  }
 }

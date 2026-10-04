@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { safeStorage } from 'electron'
 import Store from 'electron-store'
 
@@ -15,6 +16,8 @@ export interface Settings {
   queueCheckpointIntervalMs: number
   maxCheckpointFileSizeMB: number
   beatconnectApiTokenEncrypted: string
+  telemetryEnabled: boolean
+  anonymousDistinctId: string
 }
 
 const defaultSettings: Settings = {
@@ -30,7 +33,9 @@ const defaultSettings: Settings = {
   queueAutoResume: true,
   queueCheckpointIntervalMs: 1500,
   maxCheckpointFileSizeMB: 20,
-  beatconnectApiTokenEncrypted: ''
+  beatconnectApiTokenEncrypted: '',
+  telemetryEnabled: true,
+  anonymousDistinctId: ''
 }
 
 // @ts-ignore - Store type definition is incomplete in electron-store package
@@ -38,6 +43,15 @@ const settingsStore = new Store<Settings>({
   name: 'settings',
   defaults: defaultSettings
 })
+
+export const getAnonymousDistinctId = (): string => {
+  let id = settingsStore.get('anonymousDistinctId', '')
+  if (!id) {
+    id = crypto.randomUUID()
+    settingsStore.set('anonymousDistinctId', id)
+  }
+  return id
+}
 
 export const getSettings = (): Settings => {
   return {
@@ -53,7 +67,9 @@ export const getSettings = (): Settings => {
     queueAutoResume: settingsStore.get('queueAutoResume', true),
     queueCheckpointIntervalMs: settingsStore.get('queueCheckpointIntervalMs', 1500),
     maxCheckpointFileSizeMB: settingsStore.get('maxCheckpointFileSizeMB', 20),
-    beatconnectApiTokenEncrypted: settingsStore.get('beatconnectApiTokenEncrypted', '')
+    beatconnectApiTokenEncrypted: settingsStore.get('beatconnectApiTokenEncrypted', ''),
+    telemetryEnabled: settingsStore.get('telemetryEnabled', true),
+    anonymousDistinctId: getAnonymousDistinctId()
   }
 }
 
@@ -188,4 +204,12 @@ export const setBeatconnectApiToken = (token: string): void => {
 
 export const hasBeatconnectApiToken = (): boolean => {
   return !!settingsStore.get('beatconnectApiTokenEncrypted', '')
+}
+
+export const getTelemetryEnabled = (): boolean => {
+  return settingsStore.get('telemetryEnabled', true)
+}
+
+export const setTelemetryEnabled = (enabled: boolean): void => {
+  settingsStore.set('telemetryEnabled', enabled)
 }

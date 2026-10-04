@@ -72,6 +72,9 @@
     "diagnostic": {
       "title": "Chẩn đoán & Nhật ký",
       "description": "Trích xuất thông tin cấu hình và lỗi gần nhất để hỗ trợ xử lý sự cố.",
+      "telemetryTitle": "Dữ liệu chẩn đoán & thống kê ẩn danh",
+      "telemetryDescEnabled": "Giúp cải thiện ứng dụng bằng cách gửi các sự kiện sử dụng, độ ổn định của mirror và báo cáo lỗi ẩn danh. Tuyệt đối không thu thập thông tin cá nhân hay đường dẫn tệp.",
+      "telemetryDescDisabled": "Đã tắt thống kê chi tiết. Ứng dụng chỉ gửi thông tin tối thiểu ẩn danh (phiên bản app, hệ điều hành và chế độ chạy) để ước tính lượt cài đặt.",
       "copyInfo": "Sao chép chẩn đoán",
       "copied": "Đã sao chép!",
       "openLogFolder": "Mở thư mục Log",

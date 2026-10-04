@@ -126,6 +126,14 @@ const electronAPI: ElectronApi = {
         ipcRenderer.removeListener('window:maximize-change', handler)
       }
     }
+  },
+  telemetry: {
+    trackEvent: (eventName: string, properties?: Record<string, string | number | boolean>) =>
+      ipcRenderer.invoke(
+        'telemetry:track-event',
+        eventName,
+        properties ? JSON.parse(JSON.stringify(properties)) : undefined
+      )
   }
 }
 

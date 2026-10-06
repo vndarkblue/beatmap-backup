@@ -194,9 +194,7 @@ Tất cả các lệnh phải được chạy từ thư mục gốc của reposi
    - `notes.md` vẫn nhắc đến file `src/config/constants.ts` (thực tế đã được module hóa thành [appConstants.ts](file:///d:/coding/osu-beatmap-backup/src/config/appConstants.ts) và [frontendConstants.ts](file:///d:/coding/osu-beatmap-backup/src/config/frontendConstants.ts)).
    - `notes.md` mô tả luồng `Download.vue -> api.ts -> downloadService.ts -> DownloadManager.vue`. Trên thực tế, `api.ts` và `DownloadManager.vue` không còn tồn tại; hệ thống đã chuyển dịch sang IPC domain-driven và composable [useDownloadQueue.ts](file:///d:/coding/osu-beatmap-backup/src/renderer/src/composables/useDownloadQueue.ts) kết hợp với các card thành phần trong `components/download/`.
    - Cần tái cấu trúc lại tài liệu kiến trúc dựa theo digest này.
-2. **Mã chết (Dead Constant) liên quan đến SSE:**
-   - Trong [frontendConstants.ts](file:///d:/coding/osu-beatmap-backup/src/config/frontendConstants.ts) vẫn còn hằng số `DOWNLOAD_SSE_RECONNECT: 5000`. Đây là tàn dư từ bản kiến trúc web server ban đầu trước khi chuyển sang cơ chế IPC Event Push thuần của Electron.
-3. **Cảnh báo Lint `vue/no-v-html`:**
+2. **Cảnh báo Lint `vue/no-v-html`:**
    - File [SettingsAboutCard.vue](file:///d:/coding/osu-beatmap-backup/src/renderer/src/components/settings/SettingsAboutCard.vue#L111) kích hoạt 1 cảnh báo lint về việc sử dụng trực tiếp chỉ thị `v-html` (tiềm ẩn nguy cơ XSS nếu nội dung không được khử trùng).
-4. **Môi trường Test Native Module trên Host:**
+3. **Môi trường Test Native Module trên Host:**
    - Khi `better-sqlite3` được build theo target Electron (`NODE_MODULE_VERSION 133`), chạy `vitest` trực tiếp trên host Node 22 (`NODE_MODULE_VERSION 137`) sẽ gặp lỗi phiên bản module ở 2 file test cơ sở dữ liệu (`databaseService.test.ts` và `beatmapFilter.test.ts`). Các test khác (không nạp binary C++) vẫn pass 100%. Cần cấu hình test runner hoặc mock tầng binary phù hợp cho môi trường CI/CD thuần Node.

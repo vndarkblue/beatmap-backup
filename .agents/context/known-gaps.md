@@ -23,19 +23,7 @@ This file has been **removed** to avoid confusion.
 
 ---
 
-## 2. Dead Code: `DOWNLOAD_SSE_RECONNECT`
-
-- Located in `src/config/frontendConstants.ts`:
-  ```ts
-  DOWNLOAD_SSE_RECONNECT: 5000
-  ```
-- **Origin**: An artifact from early prototypes when the project evaluated an internal HTTP server with Server-Sent Events (SSE).
-- **Status**: The entire architecture has migrated 100% to Electron IPC push events (`webContents.send`). This constant is unreferenced.
-- **Rule**: Never import or reference this constant in new code.
-
----
-
-## 3. Lint Warning: `vue/no-v-html` in `SettingsAboutCard.vue`
+## 2. Lint Warning: `vue/no-v-html` in `SettingsAboutCard.vue`
 
 - **Location**: `src/renderer/src/components/settings/SettingsAboutCard.vue` (line 111).
 - **Issue**: ESLint emits a warning regarding direct usage of `v-html`.
@@ -45,7 +33,7 @@ This file has been **removed** to avoid confusion.
 
 ---
 
-## 4. Native ABI Mismatch When Running Vitest on Host Machines
+## 3. Native ABI Mismatch When Running Vitest on Host Machines
 
 - **Problem**:
   - `better-sqlite3` and `realm` are C++ native addons compiled for Electron 35 (`NODE_MODULE_VERSION 133`).
@@ -62,7 +50,7 @@ This file has been **removed** to avoid confusion.
 
 ---
 
-## 5. Renderer Unhandled Promise Rejections (`unhandledrejection`)
+## 4. Renderer Unhandled Promise Rejections (`unhandledrejection`)
 
 - Currently, `src/renderer/src/main.ts` hooks `window.addEventListener('error')` and `app.config.errorHandler` to report crashes
   to Main via `system:report-renderer-error`.

@@ -78,7 +78,6 @@ export default XxxService
 ## 7. Config & Utilities
 
 - `src/config/appConstants.ts`: Main/app level constants (window dimensions, application ID, etc.).
-- `src/config/frontendConstants.ts`: UI constants, `STORAGE_KEYS`, timings. Contains legacy constant
-  `DOWNLOAD_SSE_RECONNECT` (see `known-gaps`) — do not use.
+- `src/config/frontendConstants.ts`: UI constants, `STORAGE_KEYS`, timings.
 - `src/config/beatmapMirrors.ts`: Mirror definitions (enforces 95/95 coverage — any modification requires testing).
 - `src/utils/*`: Must remain decoupled from service layers. Files imported by the renderer must not import Node modules.

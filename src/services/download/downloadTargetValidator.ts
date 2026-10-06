@@ -97,6 +97,13 @@ export async function getExistingBeatmapsetIds(options: DownloadOptions): Promis
       }
     } else {
       // Fallback to direct reading if SQLite has not synced stable beatmaps yet
+      const stableProc = await isOsuProcessRunning('stable')
+      if (stableProc.running) {
+        throw new Error(
+          'Failed to read existing maps from osu!stable: osu!stable is currently running. Please close the game or sync database in Settings first.'
+        )
+      }
+
       try {
         const osuStablePath = getOsuStablePath()
         if (!osuStablePath) {

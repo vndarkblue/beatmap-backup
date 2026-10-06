@@ -256,6 +256,12 @@ export class DatabaseService {
     return new DatabaseService(dbPath)
   }
 
+  close(): void {
+    if (this.db?.open) {
+      this.db.close()
+    }
+  }
+
   private migrate(): void {
     const row = this.db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version') as
       | MetaRow

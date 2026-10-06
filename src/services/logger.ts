@@ -94,6 +94,10 @@ class AppLogger {
     return [...this.ringBuffer]
   }
 
+  public clearRingBufferForTest(): void {
+    this.ringBuffer = []
+  }
+
   private formatArgs(message: unknown, ...meta: unknown[]): string {
     const parts: string[] = []
 

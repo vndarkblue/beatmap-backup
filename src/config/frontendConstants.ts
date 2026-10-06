@@ -14,12 +14,7 @@ export const FRONTEND_DEFAULTS = {
   THREAD_COUNT: 5
 } as const
 
-export const HTTP_HEADERS = {
-  JSON: { 'Content-Type': 'application/json' }
-} as const
-
 export const FRONTEND_TIMINGS_MS = {
   DOWNLOAD_COMPLETED_TOAST: 8000,
-  DOWNLOAD_SSE_RECONNECT: 5000,
   AUTO_DETECT_WARNING_HIDE: 4500
 } as const

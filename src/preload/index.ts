@@ -48,7 +48,6 @@ const electronAPI: ElectronApi = {
     sync: (options?: { source?: 'stable' | 'lazer' | 'all'; force?: boolean }) =>
       ipcRenderer.invoke('database:sync', options),
     syncCollections: () => ipcRenderer.invoke('database:sync-collections'),
-    getCollectionStatus: () => ipcRenderer.invoke('database:get-collection-status'),
     filterBeatmaps: (filter: Record<string, unknown>) =>
       ipcRenderer.invoke('database:filter-beatmaps', JSON.parse(JSON.stringify(filter))),
     exportFilteredBackup: (filter: Record<string, unknown>) =>

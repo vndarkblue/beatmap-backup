@@ -210,7 +210,6 @@ export interface ElectronApi {
       force?: boolean
     }) => Promise<{ success: boolean }>
     syncCollections: () => Promise<ManualSyncResult>
-    getCollectionStatus: () => Promise<CollectionSyncStatus>
     filterBeatmaps: (filter: Record<string, unknown>) => Promise<unknown>
     exportFilteredBackup: (
       filter: Record<string, unknown>

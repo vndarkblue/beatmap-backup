@@ -1,6 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import Settings from './components/Settings.vue'
-// import BeatmapFilter from './components/BeatmapFilter.vue'
 
 // Define route types
 export interface RouteItem {

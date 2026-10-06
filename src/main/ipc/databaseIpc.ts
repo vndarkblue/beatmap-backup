@@ -9,7 +9,6 @@ export function registerDatabaseIpc(mainWindow: BrowserWindow): () => void {
     'database:get-status',
     'database:sync',
     'database:sync-collections',
-    'database:get-collection-status',
     'database:filter-beatmaps',
     'database:export-filtered-backup'
   ]
@@ -64,10 +63,6 @@ export function registerDatabaseIpc(mainWindow: BrowserWindow): () => void {
       ...result,
       status: colSync.getStatus()
     }
-  })
-
-  ipcMain.handle('database:get-collection-status', async () => {
-    return getCollectionSync().getStatus()
   })
 
   ipcMain.handle('database:filter-beatmaps', async (_event, filter: Record<string, unknown>) => {

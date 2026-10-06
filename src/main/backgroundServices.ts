@@ -47,11 +47,6 @@ export async function startDeferredBackgroundServices(): Promise<void> {
   }
 }
 
-export function startBackgroundServices(): void {
-  initEarlyServices()
-  void startDeferredBackgroundServices()
-}
-
 export async function stopBackgroundServices(): Promise<void> {
   try {
     const [

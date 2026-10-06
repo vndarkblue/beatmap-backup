@@ -289,7 +289,7 @@
                   v-if="mirror.name === 'BeatConnect'"
                   class="text-caption text-medium-emphasis text-truncate"
                 >
-                  {{ hasBeatconnectToken ? 'BeatConnect API (5x)' : 'Community Free (2x)' }}
+                  {{ hasBeatconnectToken ? 'BeatConnect API (5x)' : 'Basic (2x)' }}
                 </span>
               </div>
             </div>
@@ -413,7 +413,7 @@ const openExternalUrl = (url: string): void => {
 const getMirrorCapText = (name: string): string => {
   if (name === 'catboy.best') return 'Max 2'
   if (name === 'BeatConnect') {
-    return props.hasBeatconnectToken ? 'Max 5 (Auth)' : 'Max 2 (Unauth)'
+    return props.hasBeatconnectToken ? 'Max 5 (Authed)' : 'Max 2 (Unauthed)'
   }
   return 'Max 3'
 }

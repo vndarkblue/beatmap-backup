@@ -21,7 +21,7 @@
             {{ $t('settings.database.title') }}
           </v-tab>
           <v-tab value="about" prepend-icon="$informationOutline">
-            {{ $t('settings.about.title') || 'Thông tin' }}
+            {{ $t('settings.about.title') }}
           </v-tab>
         </v-tabs>
       </div>

@@ -54,12 +54,10 @@ import {
   mdiMinus,
   mdiWindowMaximize,
   mdiWindowRestore,
-  mdiSync,
   mdiInformationOutline,
   mdiEye,
   mdiEyeOff,
   mdiOpenInNew,
-  mdiServer,
   mdiFilterVariant
 } from '@mdi/js'
 
@@ -112,12 +110,10 @@ const appIconAliases = {
   windowMinimize: mdiMinus,
   windowMaximize: mdiWindowMaximize,
   windowRestore: mdiWindowRestore,
-  sync: mdiSync,
   informationOutline: mdiInformationOutline,
   eye: mdiEye,
   eyeOff: mdiEyeOff,
   openInNew: mdiOpenInNew,
-  server: mdiServer,
   filterVariant: mdiFilterVariant
 }
 

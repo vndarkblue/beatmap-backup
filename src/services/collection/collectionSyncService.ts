@@ -38,6 +38,13 @@ class CollectionSyncService {
     return CollectionSyncService.instance
   }
 
+  static resetInstanceForTest(): void {
+    if (CollectionSyncService.instance) {
+      CollectionSyncService.instance.stopBackgroundSync()
+    }
+    CollectionSyncService.instance = new CollectionSyncService()
+  }
+
   startBackgroundSync(): void {
     if (this.timer || this.initialTimer) return
     const db = DatabaseService.getInstance()

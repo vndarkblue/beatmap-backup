@@ -39,7 +39,7 @@
         <!-- Export Action Button -->
         <v-btn
           color="primary"
-          variant="flat"
+          variant="tonal"
           size="small"
           prepend-icon="$export"
           :loading="isExporting"

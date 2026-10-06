@@ -41,9 +41,11 @@ vi.mock('../../../src/services/collection/osuDirectService', () => ({
 describe('CollectionSyncService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    CollectionSyncService.resetInstanceForTest()
   })
 
   afterEach(() => {
+    CollectionSyncService.resetInstanceForTest()
     vi.restoreAllMocks()
   })
 

@@ -372,7 +372,10 @@ export const localBeatmapExport = {
     }
   },
 
-  scanStableLocalBeatmaps(): { count: number; skipped: LocalBeatmapExportResult['skipped'] } {
+  scanStableLocalBeatmaps(beatmapMd5s?: string[]): {
+    count: number
+    skipped: LocalBeatmapExportResult['skipped']
+  } {
     const osuStablePath = getOsuStablePath()
     if (!osuStablePath) {
       throw new Error('Osu stable path not set')
@@ -383,7 +386,10 @@ export const localBeatmapExport = {
       throw new Error('Songs directory not found')
     }
 
-    const { folders, skipped } = getStableLocalBeatmapFolders(songsPath)
+    const { folders, skipped } = getStableLocalBeatmapFolders(
+      songsPath,
+      normalizeMd5Filter(beatmapMd5s)
+    )
     return {
       count: folders.length,
       skipped

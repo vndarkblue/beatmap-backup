@@ -1,4 +1,23 @@
-import Realm from 'realm'
+import type Realm from 'realm'
+
+let realmConstructor: typeof Realm | null = null
+
+async function getRealm(): Promise<typeof Realm> {
+  if (!realmConstructor) {
+    const mod = await import('realm')
+    realmConstructor = (mod.default || mod) as unknown as typeof Realm
+  }
+  return realmConstructor
+}
+
+function getRealmSync(): typeof Realm {
+  if (!realmConstructor) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('realm')
+    realmConstructor = (mod.default || mod) as unknown as typeof Realm
+  }
+  return realmConstructor!
+}
 import {
   getOsuLazerPath,
   getOsuLazerResolvedDataPath,
@@ -218,7 +237,7 @@ export const realmService = {
     const realmPath = getResolvedRealmPath()
 
     try {
-      const version = Realm.schemaVersion(realmPath)
+      const version = getRealmSync().schemaVersion(realmPath)
       return version
     } catch (error) {
       console.error('Failed to read Realm schema version:', error)
@@ -231,6 +250,7 @@ export const realmService = {
     let realm: Realm | null = null
 
     try {
+      const Realm = await getRealm()
       const onDiskSchemaVersion = Realm.schemaVersion(realmPath)
       if (is.dev) console.log('osu!lazer realm schema version:', onDiskSchemaVersion)
 
@@ -344,6 +364,7 @@ export const realmService = {
     }>
   > {
     const realmPath = getResolvedRealmPath()
+    const Realm = await getRealm()
     const realm = await Realm.open({
       path: realmPath,
       readOnly: true
@@ -479,6 +500,7 @@ export const realmService = {
     let realm: Realm | null = null
 
     try {
+      const Realm = await getRealm()
       const realmConfig: Realm.Configuration = {
         path: realmPath,
         readOnly: true
@@ -571,6 +593,7 @@ export const realmService = {
 
   async getCollections(): Promise<Array<{ name: string; beatmapMd5s: string[] }>> {
     const realmPath = getResolvedRealmPath()
+    const Realm = await getRealm()
     const realm = await Realm.open({
       path: realmPath,
       readOnly: true

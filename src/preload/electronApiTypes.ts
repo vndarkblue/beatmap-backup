@@ -57,6 +57,7 @@ export interface DownloadQueueSummary {
 
 export type DownloadPushEvent =
   | { event: 'tasksAdded'; data: DownloadTask[] }
+  | { event: 'tasksUpdated'; data: DownloadTask[] }
   | { event: 'taskUpdated'; data: DownloadTask }
   | { event: 'taskCompleted'; data: DownloadTask }
   | { event: 'taskError'; data: DownloadTask }
@@ -209,7 +210,6 @@ export interface ElectronApi {
       force?: boolean
     }) => Promise<{ success: boolean }>
     syncCollections: () => Promise<ManualSyncResult>
-    getCollectionStatus: () => Promise<CollectionSyncStatus>
     filterBeatmaps: (filter: Record<string, unknown>) => Promise<unknown>
     exportFilteredBackup: (
       filter: Record<string, unknown>

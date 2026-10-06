@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('electron', () => ({
   app: {
@@ -76,6 +76,15 @@ describe('DownloadService Scheduler & Failure Handling', () => {
 
   beforeEach(() => {
     internal.currentMirrors = [...DefaultBeatmapMirrors]
+    setBeatconnectRuntimeToken('')
+    service.clearQueue(false)
+  })
+
+  afterEach(() => {
+    setBeatconnectRuntimeToken('')
+    service.clearQueue(false)
+    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   describe('classifyFailure', () => {

@@ -23,6 +23,9 @@ vi.mock('electron-updater', () => {
         if (!listeners[event]) listeners[event] = []
         listeners[event].push(handler)
       }),
+      emit: (event: string, ...args: unknown[]) => {
+        listeners[event]?.forEach((h) => h(...args))
+      },
       checkForUpdates: vi.fn(),
       downloadUpdate: vi.fn(),
       quitAndInstall: vi.fn()
@@ -62,10 +65,25 @@ describe('UpdateService', () => {
   it('detects distribution type on Windows without uninstaller as win-portable', async () => {
     const originalPlatform = process.platform
     Object.defineProperty(process, 'platform', { value: 'win32' })
+    const fs = await import('fs')
+    vi.mocked(fs.default.existsSync).mockReturnValue(false)
 
     const { default: updateService } = await import('../../src/services/updateService')
     const dist = updateService.getDistributionType()
-    expect(['win-portable', 'win-installer']).toContain(dist)
+    expect(dist).toBe('win-portable')
+
+    Object.defineProperty(process, 'platform', { value: originalPlatform })
+  })
+
+  it('detects distribution type on Windows with uninstaller as win-installer', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    const fs = await import('fs')
+    vi.mocked(fs.default.existsSync).mockReturnValue(true)
+
+    const { default: updateService } = await import('../../src/services/updateService')
+    const dist = updateService.getDistributionType()
+    expect(dist).toBe('win-installer')
 
     Object.defineProperty(process, 'platform', { value: originalPlatform })
   })
@@ -85,14 +103,21 @@ describe('UpdateService', () => {
     )
   })
 
-  it('emits events to registered listeners', async () => {
+  it('emits events to registered listeners and unsubscribes cleanly', async () => {
+    const { autoUpdater } = await import('electron-updater')
     const { default: updateService } = await import('../../src/services/updateService')
     const listener = vi.fn()
     const unsubscribe = updateService.addListener(listener)
 
-    // Verify unsubscribing works cleanly
+    // Trigger autoUpdater checking-for-update event
+    ;(autoUpdater as unknown as { emit: (event: string) => void }).emit('checking-for-update')
+    expect(listener).toHaveBeenCalledWith({ event: 'checking', data: null })
+
+    // Verify unsubscribing stops receiving further events
+    listener.mockClear()
     unsubscribe()
-    expect(typeof unsubscribe).toBe('function')
+    ;(autoUpdater as unknown as { emit: (event: string) => void }).emit('checking-for-update')
+    expect(listener).not.toHaveBeenCalled()
   })
 
   it('correctly compares semantic versions', async () => {

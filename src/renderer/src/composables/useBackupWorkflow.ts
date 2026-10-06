@@ -2,6 +2,7 @@ import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { STORAGE_KEYS } from '../../../config/frontendConstants'
 import type { LocalExportProgress } from '../../../preload/electronApiTypes'
+import { formatEstimateMessage } from '../utils/estimateFormatting'
 
 export type CollectionItem = {
   key: string
@@ -382,13 +383,6 @@ export function useBackupWorkflow(): UseBackupWorkflowReturn {
     }, PREVIEW_DEBOUNCE_MS)
   }
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes <= 0) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB']
-    const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-    return `${(bytes / Math.pow(1024, exp)).toFixed(exp === 0 ? 0 : 2)} ${units[exp]}`
-  }
-
   const refreshEstimate = async (): Promise<void> => {
     if (!isSourceSelected.value || !isBackupContentSelected.value) {
       estimateMessage.value = ''
@@ -408,22 +402,16 @@ export function useBackupWorkflow(): UseBackupWorkflowReturn {
         collectionMergeMode: mergeMode.value,
         selectedCollections: [...selectedCollectionKeys.value]
       })
-      const estimateParts: string[] = []
-      if (backupOnlineIds.value) {
-        estimateParts.push(
-          t('backup.onlineEstimate', {
-            count: payload.count,
-            size: formatBytes(payload.estimatedBytes)
-          })
-        )
-      }
-      if (backupLocalBeatmaps.value && payload.localCount != null) {
-        estimateParts.push(t('backup.localEstimate', { count: payload.localCount }))
-      }
-      estimateMessage.value =
-        estimateParts.length > 0
-          ? t('backup.estimatePrefix', { details: estimateParts.join(' · ') })
-          : ''
+      estimateMessage.value = formatEstimateMessage(
+        {
+          backupOnlineIds: backupOnlineIds.value,
+          backupLocalBeatmaps: backupLocalBeatmaps.value,
+          onlineCount: payload.count,
+          estimatedBytes: payload.estimatedBytes,
+          localCount: payload.localCount
+        },
+        t
+      )
     } catch (error) {
       estimateError.value = true
       estimateMessage.value =

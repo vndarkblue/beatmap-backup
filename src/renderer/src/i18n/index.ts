@@ -16,8 +16,6 @@ export const languageFlags = {
   ja: 'jp'
 } as const
 
-export type LanguageCode = keyof typeof languageNames
-
 const i18n = createI18n({
   legacy: false, // Set to false to use Composition API
   locale: localStorage.getItem(STORAGE_KEYS.LOCALE) || FRONTEND_DEFAULTS.LOCALE, // Default language

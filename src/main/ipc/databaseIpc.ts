@@ -9,7 +9,6 @@ export function registerDatabaseIpc(mainWindow: BrowserWindow): () => void {
     'database:get-status',
     'database:sync',
     'database:sync-collections',
-    'database:get-collection-status',
     'database:filter-beatmaps',
     'database:export-filtered-backup'
   ]
@@ -18,12 +17,26 @@ export function registerDatabaseIpc(mainWindow: BrowserWindow): () => void {
     ipcMain.removeHandler(ch)
   }
 
-  const syncManager = SyncManager.getInstance()
-  const collectionSync = CollectionSyncService.getInstance()
-  const db = DatabaseService.getInstance()
+  let syncManagerInstance: SyncManager | null = null
+  const onSyncEvent = (event: unknown): void => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('database:sync-progress', event)
+    }
+  }
+
+  const getSyncManager = (): SyncManager => {
+    if (!syncManagerInstance) {
+      syncManagerInstance = SyncManager.getInstance()
+      syncManagerInstance.on('sync', onSyncEvent)
+    }
+    return syncManagerInstance
+  }
+
+  const getCollectionSync = (): CollectionSyncService => CollectionSyncService.getInstance()
+  const getDb = (): DatabaseService => DatabaseService.getInstance()
 
   ipcMain.handle('database:get-status', async () => {
-    return syncManager.getStatus()
+    return getSyncManager().getStatus()
   })
 
   ipcMain.handle(
@@ -37,32 +50,29 @@ export function registerDatabaseIpc(mainWindow: BrowserWindow): () => void {
       if (!['stable', 'lazer', 'all'].includes(source)) {
         throw new Error('Invalid source. Expected stable, lazer, or all.')
       }
-      void syncManager.runManualSync(source, force)
+      void getSyncManager().runManualSync(source, force)
       return { success: true }
     }
   )
 
   ipcMain.handle('database:sync-collections', async () => {
-    const result = await collectionSync.requestManualSync()
+    const colSync = getCollectionSync()
+    const result = await colSync.requestManualSync()
     return {
       success: true,
       ...result,
-      status: collectionSync.getStatus()
+      status: colSync.getStatus()
     }
   })
 
-  ipcMain.handle('database:get-collection-status', async () => {
-    return collectionSync.getStatus()
-  })
-
   ipcMain.handle('database:filter-beatmaps', async (_event, filter: Record<string, unknown>) => {
-    return db.filterBeatmaps(filter)
+    return getDb().filterBeatmaps(filter)
   })
 
   ipcMain.handle(
     'database:export-filtered-backup',
     async (_event, filter: Record<string, unknown>) => {
-      const ids = db.getFilteredBeatmapsetIds(filter)
+      const ids = getDb().getFilteredBeatmapsetIds(filter)
       if (ids.length === 0) {
         return { success: false, error: 'No beatmaps to export' }
       }
@@ -85,18 +95,12 @@ export function registerDatabaseIpc(mainWindow: BrowserWindow): () => void {
     }
   )
 
-  const onSyncEvent = (event: unknown): void => {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('database:sync-progress', event)
-    }
-  }
-
-  syncManager.on('sync', onSyncEvent)
-
   return () => {
     for (const ch of channels) {
       ipcMain.removeHandler(ch)
     }
-    syncManager.removeListener('sync', onSyncEvent)
+    if (syncManagerInstance) {
+      syncManagerInstance.removeListener('sync', onSyncEvent)
+    }
   }
 }

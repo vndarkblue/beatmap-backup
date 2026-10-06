@@ -41,7 +41,104 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
     ipcMain.removeHandler(ch)
   }
 
-  const downloadService = DownloadService.getInstance()
+  // Setup Download Event Dispatcher
+  const chunkSize = 500
+  const pendingAddedTasks: DownloadTask[] = []
+  let addedTasksFlushTimer: NodeJS.Timeout | undefined
+
+  const pendingUpdatedTasks = new Map<string, DownloadTask>()
+  let updatedTasksFlushTimer: NodeJS.Timeout | undefined
+
+  const sendDownloadPush = (event: DownloadPushEvent): void => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download:push-event', event)
+    }
+  }
+
+  const flushAddedTasks = (): void => {
+    if (pendingAddedTasks.length === 0) return
+    const tasksToSend = pendingAddedTasks.splice(0).map(serializeTask)
+    sendDownloadPush({ event: 'tasksAdded', data: tasksToSend })
+  }
+
+  const flushUpdatedTasks = (): void => {
+    if (pendingUpdatedTasks.size === 0) return
+    const tasksToSend: DownloadTask[] = []
+    for (const task of pendingUpdatedTasks.values()) {
+      tasksToSend.push(serializeTask(task))
+    }
+    pendingUpdatedTasks.clear()
+    sendDownloadPush({ event: 'tasksUpdated', data: tasksToSend })
+  }
+
+  const scheduleAddedTasksFlush = (task: DownloadTask): void => {
+    pendingAddedTasks.push(task)
+    if (pendingAddedTasks.length >= chunkSize) {
+      if (addedTasksFlushTimer) {
+        clearTimeout(addedTasksFlushTimer)
+        addedTasksFlushTimer = undefined
+      }
+      flushAddedTasks()
+      return
+    }
+    if (!addedTasksFlushTimer) {
+      addedTasksFlushTimer = setTimeout(() => {
+        addedTasksFlushTimer = undefined
+        flushAddedTasks()
+      }, 50)
+    }
+  }
+
+  const scheduleTaskUpdateFlush = (task: DownloadTask): void => {
+    pendingUpdatedTasks.set(task.id, task)
+    if (!updatedTasksFlushTimer) {
+      updatedTasksFlushTimer = setTimeout(() => {
+        updatedTasksFlushTimer = undefined
+        flushUpdatedTasks()
+      }, 150)
+    }
+  }
+
+  const sendTerminalTaskEvent = (
+    eventType: 'taskCompleted' | 'taskError',
+    task: DownloadTask
+  ): void => {
+    if (addedTasksFlushTimer) {
+      clearTimeout(addedTasksFlushTimer)
+      addedTasksFlushTimer = undefined
+    }
+    flushAddedTasks()
+    pendingUpdatedTasks.delete(task.id)
+    flushUpdatedTasks()
+    sendDownloadPush({ event: eventType, data: serializeTask(task) })
+  }
+
+  const onTaskAdded = (task: DownloadTask): void => scheduleAddedTasksFlush(task)
+  const onTaskUpdated = (task: DownloadTask): void => scheduleTaskUpdateFlush(task)
+  const onTaskCompleted = (task: DownloadTask): void => sendTerminalTaskEvent('taskCompleted', task)
+  const onTaskError = (task: DownloadTask): void => sendTerminalTaskEvent('taskError', task)
+  const onQueuePaused = (): void => sendDownloadPush({ event: 'queuePaused', data: null })
+  const onQueueResumed = (): void => sendDownloadPush({ event: 'queueResumed', data: null })
+  const onQueueCleared = (): void => sendDownloadPush({ event: 'queueCleared', data: null })
+  const onQueueCompleted = (summary: unknown): void =>
+    sendDownloadPush({ event: 'queueCompleted', data: summary as DownloadQueueSummary })
+
+  let downloadServiceInstance: DownloadService | null = null
+
+  const getDownloadService = (): DownloadService => {
+    if (!downloadServiceInstance) {
+      downloadServiceInstance = DownloadService.getInstance()
+      downloadServiceInstance.on(DownloadEvent.TASK_ADDED, onTaskAdded)
+      downloadServiceInstance.on(DownloadEvent.TASK_UPDATED, onTaskUpdated)
+      downloadServiceInstance.on(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
+      downloadServiceInstance.on(DownloadEvent.TASK_ERROR, onTaskError)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
+      downloadServiceInstance.on(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+    }
+    return downloadServiceInstance
+  }
 
   ipcMain.handle(
     'download:start',
@@ -67,56 +164,57 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
             ? downloadPath
             : options.downloadPath
       }
-      await downloadService.startDownload(filePath, optionsWithPath)
+      await getDownloadService().startDownload(filePath, optionsWithPath)
       return { success: true, message: 'Download started' }
     }
   )
 
   ipcMain.handle('download:control', async (_event, action: 'pause' | 'resume' | 'stop') => {
     if (action === 'pause') {
-      await downloadService.pauseQueue()
+      await getDownloadService().pauseQueue()
     } else if (action === 'resume') {
-      downloadService.resumeQueue()
+      getDownloadService().resumeQueue()
     } else if (action === 'stop') {
-      void downloadService.discardRecoveryState()
-      downloadService.clearQueue()
+      void getDownloadService().discardRecoveryState()
+      getDownloadService().clearQueue()
     }
     return { success: true }
   })
 
   ipcMain.handle('download:get-state', async () => {
+    const ds = getDownloadService()
     return {
-      runtime: downloadService.getQueueRuntimeState(),
-      recovery: downloadService.getRecoveryState()
+      runtime: ds.getQueueRuntimeState(),
+      recovery: ds.getRecoveryState()
     }
   })
 
   ipcMain.handle('download:handle-recovery', async (_event, action: 'resume' | 'discard') => {
     if (action === 'resume') {
-      const resumed = await downloadService.resumeRecoveredQueue()
+      const resumed = await getDownloadService().resumeRecoveredQueue()
       return { success: resumed }
     } else {
-      await downloadService.discardRecoveryState()
+      await getDownloadService().discardRecoveryState()
       return { success: true }
     }
   })
 
   ipcMain.handle('download:get-tasks', async () => {
-    return downloadService.getTasks().map(serializeTask)
+    return getDownloadService().getTasks().map(serializeTask)
   })
 
   ipcMain.handle('download:retry-failed', async () => {
-    const retriedCount = downloadService.retryFailedTasks()
+    const retriedCount = getDownloadService().retryFailedTasks()
     return { success: true, count: retriedCount }
   })
 
   ipcMain.handle('download:clear-queue', async () => {
-    downloadService.clearQueue()
+    getDownloadService().clearQueue()
     return { success: true }
   })
 
   ipcMain.handle('download:export-failed-backup', async () => {
-    const failedIds = downloadService.getFailedTaskBeatmapsetIds()
+    const failedIds = getDownloadService().getFailedTaskBeatmapsetIds()
     if (failedIds.length === 0) {
       return { success: false, error: 'No failed beatmaps to export' }
     }
@@ -138,87 +236,29 @@ export function registerDownloadIpc(mainWindow: BrowserWindow): () => void {
     return { success: true, count: failedIds.length, filePath: saveResult.filePath }
   })
 
-  // Setup Download Event Dispatcher
-  const chunkSize = 500
-  const pendingAddedTasks: DownloadTask[] = []
-  let addedTasksFlushTimer: NodeJS.Timeout | undefined
-
-  const sendDownloadPush = (event: DownloadPushEvent): void => {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('download:push-event', event)
-    }
-  }
-
-  const flushAddedTasks = (): void => {
-    if (pendingAddedTasks.length === 0) return
-    const tasksToSend = pendingAddedTasks.splice(0).map(serializeTask)
-    sendDownloadPush({ event: 'tasksAdded', data: tasksToSend })
-  }
-
-  const scheduleAddedTasksFlush = (task: DownloadTask): void => {
-    pendingAddedTasks.push(task)
-    if (pendingAddedTasks.length >= chunkSize) {
-      if (addedTasksFlushTimer) {
-        clearTimeout(addedTasksFlushTimer)
-        addedTasksFlushTimer = undefined
-      }
-      flushAddedTasks()
-      return
-    }
-    if (!addedTasksFlushTimer) {
-      addedTasksFlushTimer = setTimeout(() => {
-        addedTasksFlushTimer = undefined
-        flushAddedTasks()
-      }, 50)
-    }
-  }
-
-  const sendAfterPendingAdds = (
-    eventType: 'taskUpdated' | 'taskCompleted' | 'taskError',
-    task: DownloadTask
-  ): void => {
-    if (addedTasksFlushTimer) {
-      clearTimeout(addedTasksFlushTimer)
-      addedTasksFlushTimer = undefined
-    }
-    flushAddedTasks()
-    sendDownloadPush({ event: eventType, data: serializeTask(task) })
-  }
-
-  const onTaskAdded = (task: DownloadTask): void => scheduleAddedTasksFlush(task)
-  const onTaskUpdated = (task: DownloadTask): void => sendAfterPendingAdds('taskUpdated', task)
-  const onTaskCompleted = (task: DownloadTask): void => sendAfterPendingAdds('taskCompleted', task)
-  const onTaskError = (task: DownloadTask): void => sendAfterPendingAdds('taskError', task)
-  const onQueuePaused = (): void => sendDownloadPush({ event: 'queuePaused', data: null })
-  const onQueueResumed = (): void => sendDownloadPush({ event: 'queueResumed', data: null })
-  const onQueueCleared = (): void => sendDownloadPush({ event: 'queueCleared', data: null })
-  const onQueueCompleted = (summary: unknown): void =>
-    sendDownloadPush({ event: 'queueCompleted', data: summary as DownloadQueueSummary })
-
-  downloadService.on(DownloadEvent.TASK_ADDED, onTaskAdded)
-  downloadService.on(DownloadEvent.TASK_UPDATED, onTaskUpdated)
-  downloadService.on(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
-  downloadService.on(DownloadEvent.TASK_ERROR, onTaskError)
-  downloadService.on(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
-  downloadService.on(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
-  downloadService.on(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
-  downloadService.on(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
-
   return () => {
     if (addedTasksFlushTimer) {
       clearTimeout(addedTasksFlushTimer)
       addedTasksFlushTimer = undefined
     }
+    if (updatedTasksFlushTimer) {
+      clearTimeout(updatedTasksFlushTimer)
+      updatedTasksFlushTimer = undefined
+    }
+    pendingAddedTasks.length = 0
+    pendingUpdatedTasks.clear()
     for (const ch of channels) {
       ipcMain.removeHandler(ch)
     }
-    downloadService.removeListener(DownloadEvent.TASK_ADDED, onTaskAdded)
-    downloadService.removeListener(DownloadEvent.TASK_UPDATED, onTaskUpdated)
-    downloadService.removeListener(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
-    downloadService.removeListener(DownloadEvent.TASK_ERROR, onTaskError)
-    downloadService.removeListener(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
-    downloadService.removeListener(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
-    downloadService.removeListener(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
-    downloadService.removeListener(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+    if (downloadServiceInstance) {
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_ADDED, onTaskAdded)
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_UPDATED, onTaskUpdated)
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_COMPLETED, onTaskCompleted)
+      downloadServiceInstance.removeListener(DownloadEvent.TASK_ERROR, onTaskError)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_PAUSED, onQueuePaused)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_RESUMED, onQueueResumed)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_CLEARED, onQueueCleared)
+      downloadServiceInstance.removeListener(DownloadEvent.QUEUE_COMPLETED, onQueueCompleted)
+    }
   }
 }

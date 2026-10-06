@@ -14,7 +14,15 @@ import {
   startDeferredBackgroundServices,
   stopBackgroundServices
 } from './backgroundServices'
-import SyncManager from '../services/database/syncManager'
+// Optimization switches: disable unused background networking, component updates and limit V8 memory
+app.commandLine.appendSwitch('disable-background-networking')
+app.commandLine.appendSwitch('disable-component-update')
+app.commandLine.appendSwitch('disable-domain-reliability')
+app.commandLine.appendSwitch('disable-sync')
+app.commandLine.appendSwitch('disable-breakpad')
+app.commandLine.appendSwitch('disable-speech-api')
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256')
 
 // Suppress noisy Chromium-internal DevTools protocol logs (e.g. unsupported Autofill CDP domain in Electron)
 if (is.dev) {
@@ -73,7 +81,17 @@ function createWindow(): BrowserWindow {
     backgroundStarted = true
     startupMark('startupTasks:scheduled')
     setTimeout(() => {
-      startDeferredBackgroundServices()
+      void startDeferredBackgroundServices().finally(() => {
+        // Release initial startup HTTP/media cache once idle
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.session.clearCache().catch(() => {})
+        }
+        import('../services/database/databaseService')
+          .then(({ DatabaseService }) => {
+            DatabaseService.getInstance().shrinkMemory()
+          })
+          .catch(() => {})
+      })
     }, 1500)
   }
 
@@ -130,7 +148,25 @@ function createWindow(): BrowserWindow {
   cleanupIpcHandlers = registerIpcHandlers(mainWindow)
 
   mainWindow.on('focus', () => {
-    SyncManager.getInstance().handleWindowFocus()
+    import('../services/database/syncManager')
+      .then(({ default: sm }) => {
+        sm.getInstance().handleWindowFocus()
+      })
+      .catch((err) => {
+        logger.warn('Failed to handle window focus sync:', { error: String(err) })
+      })
+  })
+
+  // Trim in-memory caches when window is minimized to release RAM back to OS
+  mainWindow.on('minimize', () => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.session.clearCache().catch(() => {})
+    }
+    import('../services/database/databaseService')
+      .then(({ DatabaseService }) => {
+        DatabaseService.getInstance().shrinkMemory()
+      })
+      .catch(() => {})
   })
 
   mainWindow.on('closed', () => {

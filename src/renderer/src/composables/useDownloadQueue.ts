@@ -438,6 +438,11 @@ export function useDownloadQueue(): UseDownloadQueueReturn {
         scheduleDownloadStateFlush()
       } else if (event === 'tasksAdded' && Array.isArray(data)) {
         queueAddedTasks(data)
+      } else if (event === 'tasksUpdated' && Array.isArray(data)) {
+        for (const task of data) {
+          pendingTaskUpdates.set(task.id, task)
+        }
+        scheduleDownloadStateFlush()
       } else if (event === 'taskUpdated' && data) {
         queueTaskUpdate(data)
       } else if (event === 'taskCompleted' && data) {

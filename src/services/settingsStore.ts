@@ -11,7 +11,6 @@ export interface Settings {
   selectedMirrors: string[]
   waitForDownloadsOnPause: boolean
   downloadPath: string
-  queueAutoResume: boolean
   queueCheckpointIntervalMs: number
   maxCheckpointFileSizeMB: number
   beatconnectApiTokenEncrypted: string
@@ -27,7 +26,6 @@ const defaultSettings: Settings = {
   selectedMirrors: [],
   waitForDownloadsOnPause: true,
   downloadPath: '',
-  queueAutoResume: true,
   queueCheckpointIntervalMs: 1500,
   maxCheckpointFileSizeMB: 20,
   beatconnectApiTokenEncrypted: ''
@@ -50,7 +48,6 @@ export const getSettings = (): Settings => {
     selectedMirrors: settingsStore.get('selectedMirrors', []),
     waitForDownloadsOnPause: settingsStore.get('waitForDownloadsOnPause', true),
     downloadPath: settingsStore.get('downloadPath', ''),
-    queueAutoResume: settingsStore.get('queueAutoResume', true),
     queueCheckpointIntervalMs: settingsStore.get('queueCheckpointIntervalMs', 1500),
     maxCheckpointFileSizeMB: settingsStore.get('maxCheckpointFileSizeMB', 20),
     beatconnectApiTokenEncrypted: settingsStore.get('beatconnectApiTokenEncrypted', '')
@@ -85,10 +82,6 @@ export const getOsuStablePath = (): string => {
   return settingsStore.get('osuStablePath', '')
 }
 
-export const getOsuStableSongsPath = (): string => {
-  return settingsStore.get('osuStableSongsPath', '')
-}
-
 export const getOsuLazerPath = (): string => {
   return settingsStore.get('osuLazerPath', '')
 }
@@ -105,40 +98,8 @@ export const setAutoDetectWarningDismissed = (dismissed: boolean): void => {
   settingsStore.set('autoDetectWarningDismissed', dismissed)
 }
 
-export const getDownloadThreadCount = (): number => {
-  return settingsStore.get('downloadThreadCount', 5)
-}
-
-export const setDownloadThreadCount = (count: number): void => {
-  settingsStore.set('downloadThreadCount', count)
-}
-
-export const getSelectedMirrors = (): string[] => {
-  return settingsStore.get('selectedMirrors', [])
-}
-
-export const setSelectedMirrors = (mirrors: string[]): void => {
-  settingsStore.set('selectedMirrors', mirrors)
-}
-
 export const getWaitForDownloadsOnPause = (): boolean => {
   return settingsStore.get('waitForDownloadsOnPause', true)
-}
-
-export const setWaitForDownloadsOnPause = (wait: boolean): void => {
-  settingsStore.set('waitForDownloadsOnPause', wait)
-}
-
-export const getDownloadPath = (): string => {
-  return settingsStore.get('downloadPath', '')
-}
-
-export const setDownloadPath = (path: string): void => {
-  settingsStore.set('downloadPath', path)
-}
-
-export const getQueueAutoResume = (): boolean => {
-  return settingsStore.get('queueAutoResume', true)
 }
 
 export const getQueueCheckpointIntervalMs = (): number => {

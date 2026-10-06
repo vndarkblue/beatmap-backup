@@ -79,4 +79,27 @@ describe('localBeatmapExport', () => {
     expect(oszContent.includes(Buffer.from('local.osu'))).toBe(true)
     expect(oszContent.includes(Buffer.from('audio.mp3'))).toBe(true)
   })
+
+  it('filters local beatmaps by collection MD5 hashes when specified', async () => {
+    const crypto = await import('crypto')
+    const localFolder = path.join(songsPath, 'Artist - LocalMap')
+    fs.mkdirSync(localFolder)
+    const osuContent = 'osu file format v14\r\nTitle:Test'
+    fs.writeFileSync(path.join(localFolder, 'test.osu'), osuContent)
+
+    const expectedMd5 = crypto.createHash('md5').update(osuContent).digest('hex')
+    const { localBeatmapExport } = await import('../../src/services/localBeatmapExport')
+
+    // 1. Scan with non-matching MD5
+    const scanMismatch = localBeatmapExport.scanStableLocalBeatmaps([
+      '00000000000000000000000000000000'
+    ])
+    expect(scanMismatch.count).toBe(0)
+    expect(scanMismatch.skipped.withoutMatchingCollectionMd5).toBe(1)
+
+    // 2. Scan with matching MD5
+    const scanMatch = localBeatmapExport.scanStableLocalBeatmaps([expectedMd5])
+    expect(scanMatch.count).toBe(1)
+    expect(scanMatch.skipped.withoutMatchingCollectionMd5).toBe(0)
+  })
 })

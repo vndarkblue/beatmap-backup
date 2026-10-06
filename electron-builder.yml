@@ -5,15 +5,28 @@ publish:
   owner: vndarkblue
   repo: beatmap-backup
   releaseType: release
+electronLanguages:
+  - en-US
+  - vi
+  - ja
+compression: maximum
 directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!tests/*'
+  - '!scripts/*'
+  - '!coverage/*'
+  - '!doc/*'
+  - '!documentation/*'
+  - '!feedback/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README*.md,CONTRIBUTING.md,ARCHITECTURAL_DIGEST.md,notes.md}'
+  - '!{repomix-output.xml,example.json}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.web.tsbuildinfo}'
+  - '!vitest.config.ts'
 asarUnpack:
   - resources/**
 win:

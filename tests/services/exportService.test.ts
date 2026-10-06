@@ -85,5 +85,29 @@ describe('exportService', () => {
       matchedIds: 2,
       skippedInvalidNames: 0
     })
+
+    expect(mockAtomicWriteFile).toHaveBeenCalledWith(
+      'C:/out.bbak',
+      expect.stringContaining('# Beatmap Backup File')
+    )
+    const writtenContent = mockAtomicWriteFile.mock.calls[0][1] as string
+    expect(writtenContent).toContain('100')
+    expect(writtenContent).toContain('200')
+    expect(writtenContent).toContain('300')
+  })
+
+  it('returns success: false when save dialog is canceled by user', async () => {
+    mockReaddirSync.mockReturnValue(['100 a'])
+    mockShowSaveDialog.mockResolvedValue({ canceled: true, filePath: undefined })
+    const { exportService } = await import('../../src/services/exportService')
+
+    const result = await exportService.exportData({
+      stable: true,
+      lazer: false
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.count).toBe(0)
+    expect(mockAtomicWriteFile).not.toHaveBeenCalled()
   })
 })

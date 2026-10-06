@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest'
-import { DefaultBeatmapMirrors } from '../../src/config/beatmapMirrors'
+import { describe, it, expect, afterEach } from 'vitest'
+import { DefaultBeatmapMirrors, setBeatconnectRuntimeToken } from '../../src/config/beatmapMirrors'
 
 describe('Beatmap Mirrors Configuration', () => {
+  afterEach(() => {
+    setBeatconnectRuntimeToken('')
+  })
+
   it('ensures each mirror has valid name, baseUrl, webUrl, healthUrl and getDownloadUrl', () => {
-    expect(DefaultBeatmapMirrors.length).toBeGreaterThan(0)
+    expect(DefaultBeatmapMirrors.length).toBe(5)
     for (const mirror of DefaultBeatmapMirrors) {
       expect(mirror.name).toBeTruthy()
       expect(mirror.baseUrl).toMatch(/^https?:\/\//)

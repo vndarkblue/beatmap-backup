@@ -72,12 +72,86 @@ jobs:
       - name: Build Linux artifacts
         run: npm run build && npx electron-builder --linux AppImage deb --publish never
 
+      - name: Embed AppImage update info & generate .zsync
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          # 1. Locate the built AppImage
+          APPIMAGE_FILE=$(ls dist/*.AppImage | head -n 1)
+          if [ -z "$APPIMAGE_FILE" ] || [ ! -f "$APPIMAGE_FILE" ]; then
+            echo "No AppImage found in dist/"
+            exit 1
+          fi
+          echo "Processing: $APPIMAGE_FILE"
+
+          # 2. Download and prepare official appimagetool
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract
+          mv squashfs-root appimagetool-dir
+
+          # 3. Extract the built AppImage payload
+          "$APPIMAGE_FILE" --appimage-extract
+
+          # 4. Repack with appimagetool embedding standard update information
+          # This embeds .upd_info into the AppImage and generates $APPIMAGE_FILE.zsync
+          UPDATE_INFO="gh-releases-zsync|vndarkblue|beatmap-backup|latest|beatmap-backup-*.AppImage.zsync"
+          rm -f "$APPIMAGE_FILE"
+          ARCH=x86_64 ./appimagetool-dir/AppRun -u "$UPDATE_INFO" squashfs-root "$APPIMAGE_FILE"
+
+          # 5. Patch latest-linux.yml with the repacked AppImage SHA-512 & size
+          node -e '
+            const fs = require("fs");
+            const crypto = require("crypto");
+            const path = require("path");
+
+            const appImage = process.argv[1];
+            const ymlPath = "dist/latest-linux.yml";
+
+            if (!fs.existsSync(appImage) || !fs.existsSync(ymlPath)) {
+              console.warn("Skipping metadata patch: file not found");
+              process.exit(0);
+            }
+
+            const data = fs.readFileSync(appImage);
+            const sha512 = crypto.createHash("sha512").update(data).digest("base64");
+            const size = data.length;
+            const filename = path.basename(appImage);
+
+            let content = fs.readFileSync(ymlPath, "utf8");
+            content = content.replace(/(^sha512:\s*).*$/m, `$1${sha512}`);
+
+            const lines = content.split(/\r?\n/);
+            let inTarget = false;
+            const updatedLines = lines.map((line) => {
+              const trimmed = line.trim();
+              if (trimmed.startsWith("- url:") || trimmed.startsWith("url:")) {
+                inTarget = trimmed.includes(filename);
+                return line;
+              }
+              if (inTarget) {
+                if (/^\s*sha512:\s*/.test(line)) return line.replace(/(\s*sha512:\s*).*/, `$1${sha512}`);
+                if (/^\s*size:\s*/.test(line)) return line.replace(/(\s*size:\s*).*/, `$1${size}`);
+                if (!line.startsWith(" ") && !line.startsWith("\t") && line.includes(":")) inTarget = false;
+              }
+              return line;
+            });
+
+            fs.writeFileSync(ymlPath, updatedLines.join("\n"), "utf8");
+            console.log(`Updated ${ymlPath} for ${filename} (sha512=${sha512}, size=${size})`);
+          ' "$APPIMAGE_FILE"
+
+          # 6. Cleanup temporary extraction artifacts
+          rm -rf squashfs-root appimagetool-dir appimagetool
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-artifacts
           path: |
             dist/*.AppImage
+            dist/*.zsync
             dist/*.deb
             dist/latest-linux*.yml
           if-no-files-found: error

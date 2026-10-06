@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import path from 'path'
 
 const mockExistsSync = vi.fn<(path: string) => boolean>()
 const mockSchemaVersion = vi.fn<(path: string) => number>()
@@ -77,8 +78,7 @@ describe('realmService', () => {
   it('getRealmPath returns file path when client.realm exists', async () => {
     const { realmService } = await import('../../src/services/realmService')
     const realmPath = realmService.getRealmPath()
-    expect(realmPath).toBeTruthy()
-    expect(realmPath).toContain('client.realm')
+    expect(realmPath).toBe(path.join('C:/osu', 'client.realm'))
   })
 
   it('getRealmPath returns null when osuLazerPath is not configured', async () => {

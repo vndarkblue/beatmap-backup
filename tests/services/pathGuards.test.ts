@@ -154,7 +154,8 @@ describe('pathGuards', () => {
       try {
         const resolved = await resolveExistingPathWithinRoot(tempRoot, subDir)
         expect(resolved.valid).toBe(true)
-        expect(resolved.resolvedPath).toBeDefined()
+        const expectedPath = await fs.realpath(path.join(tempRoot, subDir))
+        expect(resolved.resolvedPath).toBe(expectedPath)
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true })
       }

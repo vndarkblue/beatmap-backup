@@ -10,9 +10,11 @@ describe('AppLogger Service', () => {
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'logger-test-'))
     logger.init(tempDir)
+    logger.clearRingBufferForTest()
   })
 
   afterEach(() => {
+    logger.clearRingBufferForTest()
     try {
       fs.rmSync(tempDir, { recursive: true, force: true })
     } catch {
@@ -36,11 +38,12 @@ describe('AppLogger Service', () => {
     logger.error('Error event 2')
 
     const recentLogs = logger.getRecentLogs()
-    expect(recentLogs.length).toBeGreaterThanOrEqual(2)
+    expect(recentLogs).toHaveLength(2)
 
-    const lastEntry = recentLogs[recentLogs.length - 1]
-    expect(lastEntry.level).toBe('ERROR')
-    expect(lastEntry.message).toContain('Error event 2')
+    expect(recentLogs[0].level).toBe('WARN')
+    expect(recentLogs[0].message).toContain('Warning event 1')
+    expect(recentLogs[1].level).toBe('ERROR')
+    expect(recentLogs[1].message).toContain('Error event 2')
   })
 
   it('formats Error objects with stack traces', () => {
@@ -61,5 +64,23 @@ describe('AppLogger Service', () => {
     expect(snapshot).toContain('--- Path Status ---')
     expect(snapshot).toContain('--- Recent Logs / Errors (Last 15) ---')
     expect(snapshot).toContain('BeatmapSet 99999 failed: HTTP 404')
+  })
+
+  it('rotates log file when size exceeds MAX_LOG_SIZE_BYTES', () => {
+    logger.info('Pre-rotation message')
+    const logPath = path.join(tempDir, 'app.log')
+    const oldLogPath = path.join(tempDir, 'app.old.log')
+
+    // Simulate file reaching MAX_LOG_SIZE_BYTES (2MB)
+    ;(logger as unknown as { currentFileSize: number }).currentFileSize = 2 * 1024 * 1024
+
+    logger.info('Post-rotation message')
+
+    expect(fs.existsSync(oldLogPath)).toBe(true)
+    expect(fs.existsSync(logPath)).toBe(true)
+    const oldContent = fs.readFileSync(oldLogPath, 'utf-8')
+    const newContent = fs.readFileSync(logPath, 'utf-8')
+    expect(oldContent).toContain('Pre-rotation message')
+    expect(newContent).toContain('Post-rotation message')
   })
 })

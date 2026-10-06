@@ -43,11 +43,16 @@ describe('httpDownloader', () => {
     })
 
     it('parses HTTP date string into millisecond offset from now', () => {
-      const futureDate = new Date(Date.now() + 10000).toUTCString()
-      const parsed = parseRetryAfterMs(futureDate)
-      expect(parsed).toBeDefined()
-      expect(parsed!).toBeGreaterThanOrEqual(8000)
-      expect(parsed!).toBeLessThanOrEqual(12000)
+      vi.useFakeTimers()
+      try {
+        const baseTime = 1700000000000
+        vi.setSystemTime(baseTime)
+        const futureDate = new Date(baseTime + 10000).toUTCString()
+        const parsed = parseRetryAfterMs(futureDate)
+        expect(parsed).toBe(10000)
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('handles array values by reading first element', () => {

@@ -23,6 +23,11 @@ describe('DatabaseService (Integration)', () => {
 
   afterEach(async () => {
     try {
+      dbService?.close()
+    } catch {
+      // ignore
+    }
+    try {
       await fs.promises.rm(tempDir, { recursive: true, force: true })
     } catch {
       // ignore

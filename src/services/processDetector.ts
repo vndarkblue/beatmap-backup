@@ -312,25 +312,47 @@ export async function getUnixProcesses(): Promise<RunningProcessInfo[]> {
   }
 }
 
-export async function getRunningProcesses(): Promise<RunningProcessInfo[]> {
-  const platform = process.platform
-  if (platform === 'win32') {
-    return await getWindowsProcesses()
-  } else if (platform === 'linux') {
-    return await getLinuxProcesses()
-  } else {
-    return await getUnixProcesses()
+let cachedRunningProcesses: { at: number; promise: Promise<RunningProcessInfo[]> } | null = null
+const PROCESS_CACHE_TTL_MS = 1500
+
+export function clearProcessCache(): void {
+  cachedRunningProcesses = null
+}
+
+export async function getRunningProcesses(forceRefresh = false): Promise<RunningProcessInfo[]> {
+  const now = Date.now()
+  if (
+    !forceRefresh &&
+    cachedRunningProcesses &&
+    now - cachedRunningProcesses.at < PROCESS_CACHE_TTL_MS
+  ) {
+    return cachedRunningProcesses.promise
   }
+
+  const promise = (async (): Promise<RunningProcessInfo[]> => {
+    const platform = process.platform
+    if (platform === 'win32') {
+      return await getWindowsProcesses()
+    } else if (platform === 'linux') {
+      return await getLinuxProcesses()
+    } else {
+      return await getUnixProcesses()
+    }
+  })()
+
+  cachedRunningProcesses = { at: now, promise }
+  return promise
 }
 
 /**
  * Checks if any osu! process (stable, lazer, or either) is currently running.
  */
 export async function isOsuProcessRunning(
-  target: 'stable' | 'lazer' | 'any' = 'any'
+  target: 'stable' | 'lazer' | 'any' = 'any',
+  forceRefresh = false
 ): Promise<ProcessCheckResult> {
   try {
-    const processes = await getRunningProcesses()
+    const processes = await getRunningProcesses(forceRefresh)
     if (processes.length === 0) {
       return { running: false }
     }

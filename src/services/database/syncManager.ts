@@ -170,26 +170,6 @@ class SyncManager extends EventEmitter {
     const db = DatabaseService.getInstance()
 
     try {
-      // Check if osu! process is running
-      const procCheck = processCheck ?? (await isOsuProcessRunning(source))
-      if (procCheck.running) {
-        if (force) {
-          this.emitSyncEvent({
-            source,
-            phase: 'error',
-            error: `Cannot sync: osu!${source === 'lazer' ? 'lazer' : 'stable'} is currently running. Please close the game first.`
-          })
-          return
-        } else {
-          this.emitSyncEvent({
-            source,
-            phase: 'skipped',
-            message: `osu!${source === 'lazer' ? 'lazer' : 'stable'} is currently running`
-          })
-          return
-        }
-      }
-
       const filePath = source === 'stable' ? getStableDbPath() : realmService.getRealmPath()
       if (!filePath || !fs.existsSync(filePath)) {
         this.emitSyncEvent({
@@ -209,6 +189,26 @@ class SyncManager extends EventEmitter {
             source,
             phase: 'skipped',
             message: 'Source unchanged'
+          })
+          return
+        }
+      }
+
+      // Check if osu! process is running
+      const procCheck = processCheck ?? (await isOsuProcessRunning(source))
+      if (procCheck.running) {
+        if (force) {
+          this.emitSyncEvent({
+            source,
+            phase: 'error',
+            error: `Cannot sync: osu!${source === 'lazer' ? 'lazer' : 'stable'} is currently running. Please close the game first.`
+          })
+          return
+        } else {
+          this.emitSyncEvent({
+            source,
+            phase: 'skipped',
+            message: `osu!${source === 'lazer' ? 'lazer' : 'stable'} is currently running`
           })
           return
         }

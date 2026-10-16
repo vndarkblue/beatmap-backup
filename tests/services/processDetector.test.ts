@@ -3,7 +3,8 @@ import {
   isPathInside,
   classifyProcess,
   isOsuProcessRunning,
-  getUnixProcesses
+  getUnixProcesses,
+  clearProcessCache
 } from '../../src/services/processDetector'
 
 const mockExec = vi.fn()
@@ -31,6 +32,7 @@ vi.mock('../../src/services/pathAutoDetect', () => ({
 describe('processDetector', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    clearProcessCache()
   })
 
   describe('isPathInside', () => {
@@ -248,6 +250,30 @@ describe('processDetector', () => {
 
       const result = await isOsuProcessRunning('any')
       expect(result.running).toBe(false)
+    })
+
+    it('reuses cached process snapshot within TTL and respects forceRefresh', async () => {
+      let callCount = 0
+      mockExec.mockImplementation((cmd, _opts, cb) => {
+        if (typeof cmd === 'string' && cmd.includes('Get-CimInstance')) {
+          callCount++
+          cb(null, {
+            stdout: JSON.stringify([
+              { ProcessId: 1234, Name: 'osu!.exe', ExecutablePath: 'C:/osu-stable/osu!.exe' }
+            ])
+          })
+        }
+      })
+
+      const first = await isOsuProcessRunning('stable')
+      const second = await isOsuProcessRunning('lazer')
+      expect(first.running).toBe(true)
+      expect(second.running).toBe(false)
+      expect(callCount).toBe(1)
+
+      const third = await isOsuProcessRunning('stable', true)
+      expect(third.running).toBe(true)
+      expect(callCount).toBe(2)
     })
   })
 

@@ -86,3 +86,32 @@ implemented — always catch IPC promises explicitly).
 ## 7. Internationalization (i18n)
 
 Every user-facing string must use `t('…')` / `$t('…')`. Refer to rule `i18n` and skill `add-i18n-text`.
+
+## 8. Animation & Transition Standards
+
+1. **Accessibility (`prefers-reduced-motion`) is Mandatory**:
+
+   - Every animation (CSS transitions, `@keyframes`, View Transitions API, WAAPI) must respect OS accessibility settings.
+   - On Windows, turning off "Animation effects" sets `prefers-reduced-motion: reduce = true`. On Linux, this maps to `enable-animations = false` in desktop environments (GNOME/KDE).
+   - When reduced motion is preferred, animations must fall back to instant state changes without visual movement:
+     - In JavaScript: check `window.matchMedia('(prefers-reduced-motion: reduce)').matches` before invoking `startViewTransition()`.
+     - In CSS: include `@media (prefers-reduced-motion: reduce)` blocks with `animation: none !important; transition: none !important;`.
+
+2. **View Transitions API Inviolable Rules**:
+
+   - **Never apply `animation: none !important` to parent pseudo-elements** (`::view-transition`, `::view-transition-group`, `::view-transition-image-pair`).
+     _Root cause_: If all pseudo-elements have `animation: none`, Chromium considers the transition active list empty and **immediately skips/destroys the transition tree** before JavaScript Web Animations API (`element.animate()`) can run.
+   - **Target only leaf snapshots**: Reset animations only on specific leaf pseudo-elements without `!important`:
+     ```css
+     ::view-transition-old(root),
+     ::view-transition-new(root) {
+       animation: none;
+       mix-blend-mode: normal;
+     }
+     ```
+   - **Named Transitions**: Isolate independent animating elements (e.g., icons) with a unique `view-transition-name` (e.g., `theme-toggle-icon`). Elevate their `z-index` in `::view-transition-group(name)` so they render above full-screen reveals (`z-index: 10000` vs `root`'s `9999`).
+
+3. **GPU-First & Zero CPU Overhead**:
+   - Only animate `transform` and `opacity`. Never animate layout geometry (`width`, `height`, `margin`, `top`, `left`).
+   - Avoid JavaScript-driven frame loops (e.g., SVG path morphing libraries like Morphicons/Flubber) during desktop operations. Desktop workloads (database parsing, download queues) require the Main thread to stay unblocked. Prefer CSS transforms, cross-fades, or CSS masks.
+   - Timing: Micro-interactions (hover, active, icon toggles) should be 150ms–250ms. Complex transitions (theme reveals) should be 350ms–400ms with smooth easing (`cubic-bezier(0.4, 0, 0.2, 1)`).

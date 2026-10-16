@@ -22,6 +22,7 @@
     <div class="mb-5">
       <div class="text-subtitle-2 mb-2 font-weight-bold">{{ $t('filter.status') }}</div>
       <v-btn-toggle
+        ref="statusToggleRef"
         v-model="selectedStatus"
         color="primary"
         density="comfortable"
@@ -29,6 +30,12 @@
         class="d-flex flex-wrap status-toggle"
         variant="outlined"
       >
+        <div
+          class="status-glow-indicator"
+          :class="{ 'is-ready': isIndicatorReady }"
+          :style="indicatorStyle"
+          aria-hidden="true"
+        />
         <v-btn
           v-for="opt in statusOptions"
           :key="opt"
@@ -265,7 +272,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { type StatRanges, defaultStats, defaultModeStats, GAME_MODES, MODE_INFO_MAP } from './types'
 
 function getModeLabel(modeKey: string): string {
@@ -334,6 +342,81 @@ function formatDuration(sec: number): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`
 }
 
+const statusToggleRef = ref<{ $el?: HTMLElement } | HTMLElement | null>(null)
+const isIndicatorReady = ref(false)
+const indicatorStyle = ref<Record<string, string>>({ opacity: '0' })
+
+const updateIndicator = (): void => {
+  const container = (
+    statusToggleRef.value && '$el' in statusToggleRef.value
+      ? statusToggleRef.value.$el
+      : statusToggleRef.value
+  ) as HTMLElement | null
+  if (!container) return
+
+  let activeBtn = container.querySelector('.v-btn--active') as HTMLElement | null
+  if (!activeBtn) {
+    const activeIdx = statusOptions.indexOf(selectedStatus.value)
+    if (activeIdx >= 0) {
+      const allButtons = container.querySelectorAll('.v-btn')
+      activeBtn = allButtons[activeIdx] as HTMLElement | null
+    }
+  }
+
+  if (!activeBtn) {
+    indicatorStyle.value = { opacity: '0' }
+    return
+  }
+
+  indicatorStyle.value = {
+    opacity: '1',
+    transform: `translate3d(${activeBtn.offsetLeft}px, ${activeBtn.offsetTop}px, 0)`,
+    width: `${activeBtn.offsetWidth}px`,
+    height: `${activeBtn.offsetHeight}px`
+  }
+}
+
+let resizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  void nextTick(() => {
+    updateIndicator()
+    requestAnimationFrame(() => {
+      isIndicatorReady.value = true
+    })
+  })
+
+  const container = (
+    statusToggleRef.value && '$el' in statusToggleRef.value
+      ? statusToggleRef.value.$el
+      : statusToggleRef.value
+  ) as HTMLElement | null
+  if (container && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      updateIndicator()
+    })
+    resizeObserver.observe(container)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+watch(selectedStatus, () => {
+  void nextTick(() => {
+    updateIndicator()
+  })
+})
+
+const { locale } = useI18n()
+watch(locale, () => {
+  void nextTick(() => {
+    updateIndicator()
+  })
+})
+
 function resetFilters(): void {
   selectedModes.value = ['osu']
   selectedStatus.value = 'any'
@@ -350,46 +433,34 @@ function resetFilters(): void {
   overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
   background: rgba(var(--v-theme-surface-variant), 0.12);
-}
-
-.status-toggle :deep(.v-btn) {
-  border-radius: 0;
-  border: none !important;
-  border-right: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7)) !important;
-  border-bottom: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7)) !important;
   position: relative;
-  overflow: hidden;
-  transition:
-    color 0.25s ease,
-    background 0.25s ease,
-    text-shadow 0.25s ease;
 }
 
-/* Ẩn khối phủ chữ nhật vuông mặc định của Vuetify */
-.status-toggle :deep(.v-btn--active > .v-btn__overlay),
-.status-toggle :deep(.v-btn--active > .v-btn__underlay) {
-  opacity: 0 !important;
-}
-
-/* Nền glow elip tỏa ra từ chân nút lên phía sau chữ */
-.status-toggle :deep(.v-btn--active) {
+/* Nền glow elip và vạch sáng neon trượt mượt mà theo nút được chọn */
+.status-glow-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 0;
   background: radial-gradient(
     ellipse 75% 70% at 50% 100%,
     rgba(var(--v-theme-primary), 0.32) 0%,
     rgba(var(--v-theme-primary), 0.12) 45%,
     transparent 80%
-  ) !important;
-  color: rgb(var(--v-theme-primary)) !important;
-  font-weight: 700 !important;
+  );
+  opacity: 0;
 }
 
-/* Hiệu ứng neon text-shadow nhẹ trên chữ đang chọn */
-.status-toggle :deep(.v-btn--active .v-btn__content) {
-  text-shadow: 0 0 10px rgba(var(--v-theme-primary), 0.45);
+.status-glow-indicator.is-ready {
+  transition:
+    transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
 }
 
-/* Vạch sáng neon mảnh bo tròn dưới chân nút làm điểm neo cho vùng glow elip */
-.status-toggle :deep(.v-btn--active)::after {
+.status-glow-indicator::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -402,6 +473,43 @@ function resetFilters(): void {
     0 0 8px 1px rgb(var(--v-theme-primary)),
     0 0 14px 2px rgba(var(--v-theme-primary), 0.45);
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-glow-indicator.is-ready {
+    transition: none !important;
+  }
+}
+
+.status-toggle :deep(.v-btn) {
+  border-radius: 0;
+  border: none !important;
+  border-right: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7)) !important;
+  border-bottom: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7)) !important;
+  position: relative;
+  overflow: hidden;
+  background: transparent !important;
+  z-index: 1;
+  transition:
+    color 0.25s ease,
+    text-shadow 0.25s ease;
+}
+
+/* Ẩn khối phủ chữ nhật vuông mặc định của Vuetify */
+.status-toggle :deep(.v-btn--active > .v-btn__overlay),
+.status-toggle :deep(.v-btn--active > .v-btn__underlay) {
+  opacity: 0 !important;
+}
+
+/* Chữ của nút đang chọn */
+.status-toggle :deep(.v-btn--active) {
+  color: rgb(var(--v-theme-primary)) !important;
+  font-weight: 700 !important;
+}
+
+/* Hiệu ứng neon text-shadow nhẹ trên chữ đang chọn */
+.status-toggle :deep(.v-btn--active .v-btn__content) {
+  text-shadow: 0 0 10px rgba(var(--v-theme-primary), 0.45);
 }
 
 /* Preview vệt sáng elip mờ khi di chuột vào nút chưa chọn */

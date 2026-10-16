@@ -57,3 +57,14 @@ This file has been **removed** to avoid confusion.
 - Global unhandled promise rejection listeners are not yet attached.
 - **Rule**: Every IPC promise invocation within Composables and Vue components must be wrapped in `try/catch` to handle exceptions
   gracefully and present informative error notifications to the user.
+
+---
+
+## 5. View Transitions API & OS `prefers-reduced-motion` Pitfalls
+
+- **Symptom**: Theme circular reveal or icon transition fails to run and switches colors instantaneously.
+- **Root Causes**:
+  1. **Premature Transition Destruction via `animation: none !important`**: Setting `animation: none` on `::view-transition-group` or the root `::view-transition` tree causes Chromium's View Transition engine to detect 0 active CSS animations and immediately execute `skipTransition()`. Leaf elements (`::view-transition-new(root)`) are destroyed before `document.documentElement.animate()` can execute.
+     - _Resolution_: Apply `animation: none; mix-blend-mode: normal;` exclusively to `::view-transition-old(name)` and `::view-transition-new(name)` without `!important`.
+  2. **OS Animation Effects Disabled (`prefers-reduced-motion`)**: On Windows systems where users or debloater scripts turn off "Animation effects" (`HKCU:\Control Panel\Desktop\WindowMetrics\MinAnimate = 0`), Chromium reports `prefers-reduced-motion: reduce = true`. This deliberately triggers the instant fallback branch in `App.vue` (`supportsViewTransition = false`).
+     - _Rule_: This is expected accessibility behavior. Do not forcefully bypass `prefers-reduced-motion` unless explicitly configured by user preference.

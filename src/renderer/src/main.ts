@@ -172,6 +172,12 @@ app.use(router)
 app.use(i18n)
 app.mount('#app')
 
+// Preload the lightweight osu-extra icon font (3.8 KB) in the background
+// so game mode icons render immediately with no fallback square-box glitch.
+if ('fonts' in document) {
+  void document.fonts.load('16px osu-extra')
+}
+
 // Keep the boot-shell spinner up until the initial route component finishes
 // loading. Without this, the spinner disappears before Settings.vue (lazy)
 // has rendered, causing a flash of empty content.

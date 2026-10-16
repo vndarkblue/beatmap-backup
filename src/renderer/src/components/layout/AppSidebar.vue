@@ -210,6 +210,22 @@ const handleNavigate = (path: string): void => {
   overflow: visible !important;
 }
 
+.sidebar-theme-item :deep(.v-icon) {
+  view-transition-name: theme-toggle-icon;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-theme-item:active :deep(.v-icon) {
+  transform: scale(0.85);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-theme-item :deep(.v-icon) {
+    view-transition-name: none !important;
+    transition: none !important;
+  }
+}
+
 .sidebar-nav-item:hover,
 .sidebar-action-item:hover {
   background-color: rgba(255, 102, 170, 0.12) !important;

@@ -52,7 +52,7 @@
   src: url('./fonts/extra.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 .mode-icon,
@@ -114,14 +114,10 @@ html.disable-theme-transitions *::after {
 }
 
 /* View Transitions API: Circular reveal base configuration */
-::view-transition,
-::view-transition-group(root),
-::view-transition-image-pair(root),
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: none !important;
-  mix-blend-mode: normal !important;
-  pointer-events: none !important;
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 ::view-transition-old(root) {
@@ -137,6 +133,55 @@ html.disable-theme-transitions *::after {
   ::view-transition-new(root) {
     animation-duration: 0.01ms !important;
     clip-path: none !important;
+  }
+
+  ::view-transition-group(theme-toggle-icon),
+  ::view-transition-old(theme-toggle-icon),
+  ::view-transition-new(theme-toggle-icon) {
+    animation: none !important;
+  }
+}
+
+/* View Transitions API: Theme toggle icon transition */
+::view-transition-group(theme-toggle-icon) {
+  z-index: 10000;
+}
+
+::view-transition-old(theme-toggle-icon),
+::view-transition-new(theme-toggle-icon) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center center;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(theme-toggle-icon) {
+  animation-name: theme-icon-rotate-out;
+}
+
+::view-transition-new(theme-toggle-icon) {
+  animation-name: theme-icon-rotate-in;
+}
+
+@keyframes theme-icon-rotate-out {
+  0% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(90deg) scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes theme-icon-rotate-in {
+  0% {
+    transform: rotate(-90deg) scale(0.2);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
   }
 }
 

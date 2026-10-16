@@ -291,7 +291,9 @@ export const realmService = {
         skippedInvalidOnlineId: 0
       }
 
+      let index = 0
       for (const beatmapset of beatmapsets) {
+        index++
         scanSummary.processed += 1
         const onlineId = readProperty(beatmapset, ['OnlineID', 'onlineID'])
         if (typeof onlineId === 'number' && Number.isInteger(onlineId) && onlineId > 0) {
@@ -299,6 +301,9 @@ export const realmService = {
           beatmapsetIds.add(onlineId)
         } else {
           scanSummary.skippedInvalidOnlineId += 1
+        }
+        if (index % 1000 === 0) {
+          await new Promise<void>((resolve) => setImmediate(resolve))
         }
       }
       this._lastBeatmapsetIdScanSummary = scanSummary
@@ -334,7 +339,7 @@ export const realmService = {
     }
   },
 
-  async getBeatmapsForDatabase(): Promise<
+  async getBeatmapsForDatabase(onProgress?: (processed: number, total: number) => void): Promise<
     Array<{
       md5: string
       beatmapId: number | null
@@ -411,7 +416,9 @@ export const realmService = {
       }
 
       const beatmaps = realm.objects(beatmapType)
-      for (const beatmap of beatmaps) {
+      const totalCount = beatmaps.length
+      for (let i = 0; i < totalCount; i++) {
+        const beatmap = beatmaps[i]
         scanSummary.processed += 1
         const md5Raw = readProperty(beatmap, ['MD5Hash', 'Hash', 'md5', 'Checksum'])
         if (typeof md5Raw !== 'string' || md5Raw.length === 0) {
@@ -484,6 +491,14 @@ export const realmService = {
           storyboard: Boolean(readProperty(beatmapsetObject, ['Storyboard', 'storyboard']) ?? false)
         })
         scanSummary.accepted += 1
+
+        if (onProgress && i % 2500 === 0) {
+          onProgress(i, totalCount)
+        }
+
+        if (i > 0 && i % 500 === 0) {
+          await new Promise<void>((resolve) => setImmediate(resolve))
+        }
       }
       this._lastBeatmapDatabaseScanSummary = scanSummary
 
@@ -518,9 +533,15 @@ export const realmService = {
       const beatmapsets = realm.objects(targetTypeName)
       const results: LazerLocalBeatmapset[] = []
 
+      let index = 0
       for (const beatmapset of beatmapsets) {
+        index++
         const onlineId = readProperty(beatmapset, ['OnlineID', 'onlineID'])
         if (typeof onlineId !== 'number' || onlineId !== -1) continue
+
+        if (index % 500 === 0) {
+          await new Promise<void>((resolve) => setImmediate(resolve))
+        }
 
         const idRaw = readProperty(beatmapset, ['ID', 'id'])
         let id = 'unknown'

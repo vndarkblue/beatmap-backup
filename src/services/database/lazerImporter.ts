@@ -37,7 +37,7 @@ export async function importFromLazerRealm(
   beatmapsets: number
   beatmaps: number
 }> {
-  const rows = await realmService.getBeatmapsForDatabase()
+  const rows = await realmService.getBeatmapsForDatabase(onProgress)
   if (rows.length === 0) {
     return { beatmapsets: 0, beatmaps: 0 }
   }
@@ -107,11 +107,11 @@ export async function importFromLazerRealm(
     })
     summary.accepted += 1
 
-    if (onProgress && i % 5000 === 0) {
+    if (onProgress && i % 2500 === 0) {
       onProgress(i, rows.length)
     }
 
-    if (i > 0 && i % 2000 === 0) {
+    if (i > 0 && i % 500 === 0) {
       await new Promise<void>((resolve) => setImmediate(resolve))
     }
   }

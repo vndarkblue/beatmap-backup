@@ -424,7 +424,7 @@ export class DatabaseService {
     beatmapsets: NormalizedBeatmapsetRecord[],
     beatmaps: NormalizedBeatmapRecord[],
     syncedAt: number,
-    chunkSize = 2500
+    chunkSize = 500
   ): Promise<void> {
     for (let i = 0; i < beatmapsets.length; i += chunkSize) {
       const slice = beatmapsets.slice(i, i + chunkSize)
